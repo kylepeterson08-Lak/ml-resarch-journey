@@ -1,0 +1,10 @@
+rule_id,acquired_on_or_after,acquired_on_or_before,pis_on_or_after,pis_on_or_before,rate,citation,status
+PATH_2017,,2017-09-27,2017-01-01,2017-12-31,0.50,"IRC 168(k)(6) pre-TCJA (P.L. 114-113)",verified
+PATH_2018,,2017-09-27,2018-01-01,2018-12-31,0.40,"IRC 168(k)(6) pre-TCJA; TCJA transition",verified
+PATH_2019,,2017-09-27,2019-01-01,2019-12-31,0.30,"IRC 168(k)(6) pre-TCJA; TCJA transition",verified
+TCJA_100,2017-09-28,2025-01-19,2017-09-28,2022-12-31,1.00,"IRC 168(k)(6)(A) as amended by P.L. 115-97",verified
+TCJA_80,2017-09-28,2025-01-19,2023-01-01,2023-12-31,0.80,"IRC 168(k)(6)(A)(ii)",verified
+TCJA_60,2017-09-28,2025-01-19,2024-01-01,2024-12-31,0.60,"IRC 168(k)(6)(A)(iii)",verified
+TCJA_40,2017-09-28,2025-01-19,2025-01-01,2025-12-31,0.40,"IRC 168(k)(6)(A)(iv)",verified
+TCJA_20,2017-09-28,2025-01-19,2026-01-01,2026-12-31,0.20,"IRC 168(k)(6)(A)(v)",verified
+OBBBA_100,2025-01-20,,2025-01-20,,1.00,"IRC 168(k) as amended by P.L. 119-21 sec. 70301",verify

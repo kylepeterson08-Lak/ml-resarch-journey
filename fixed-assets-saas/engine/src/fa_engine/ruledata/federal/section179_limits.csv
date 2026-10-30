@@ -1,0 +1,10 @@
+tax_year_beginning_in,dollar_limit,phaseout_threshold,suv_limit,citation,status
+2018,1000000,2500000,25000,"IRC 179(b) as amended by P.L. 115-97",verified
+2019,1020000,2550000,25500,"Rev. Proc. 2018-57",verified
+2020,1040000,2590000,25900,"Rev. Proc. 2019-44",verified
+2021,1050000,2620000,26200,"Rev. Proc. 2020-45",verified
+2022,1080000,2700000,27000,"Rev. Proc. 2021-45",verified
+2023,1160000,2890000,28900,"Rev. Proc. 2022-38",verified
+2024,1220000,3050000,30500,"Rev. Proc. 2023-34",verified
+2025,2500000,4000000,31300,"P.L. 119-21 sec. 70306; SUV limit Rev. Proc. 2024-40",verify
+2026,2560000,4090000,32000,"Rev. Proc. 2025-32 (inflation adjustment of P.L. 119-21 amounts)",verify
