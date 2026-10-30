@@ -1,0 +1,14 @@
+line_no,part,caption,semantic_key,data_type,rounding,pdf_field,efile_xpath,status
+1,I,Maximum amount,s179.max_amount,AMOUNT,WHOLE_DOLLAR,,,verify
+2,I,Total cost of section 179 property placed in service,s179.total_cost,AMOUNT,WHOLE_DOLLAR,,,verify
+3,I,Threshold cost of section 179 property before reduction in limitation,s179.threshold,AMOUNT,WHOLE_DOLLAR,,,verify
+4,I,Reduction in limitation (line 2 minus line 3; not less than zero),s179.reduction,AMOUNT,WHOLE_DOLLAR,,,verify
+5,I,Dollar limitation for tax year (line 1 minus line 4; not less than zero),s179.dollar_limitation,AMOUNT,WHOLE_DOLLAR,,,verify
+8,I,Total elected cost of section 179 property (lines 6(c) and 7),s179.elected_cost,AMOUNT,WHOLE_DOLLAR,,,verify
+9,I,Tentative deduction (smaller of line 5 or line 8),s179.tentative,AMOUNT,WHOLE_DOLLAR,,,verify
+10,I,Carryover of disallowed deduction from prior-year line 13,s179.carryover_in,AMOUNT,WHOLE_DOLLAR,,,verify
+11,I,Business income limitation,s179.business_income_limit,AMOUNT,WHOLE_DOLLAR,,,verify
+12,I,Section 179 expense deduction (lines 9 + 10; not more than line 11),s179.deduction,AMOUNT,WHOLE_DOLLAR,,,verify
+13,I,Carryover of disallowed deduction to next year,s179.carryover_out,AMOUNT,WHOLE_DOLLAR,,,verify
+14,II,Special depreciation allowance for qualified property placed in service during the tax year,bonus.current_year,AMOUNT,WHOLE_DOLLAR,,,verify
+17,III,MACRS deductions for assets placed in service in tax years beginning before this tax year,macrs.prior_years,AMOUNT,WHOLE_DOLLAR,,,verify

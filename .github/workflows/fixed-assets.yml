@@ -1,0 +1,67 @@
+name: fixed-assets-saas
+
+on:
+  push:
+    paths:
+      - "fixed-assets-saas/**"
+      - ".github/workflows/fixed-assets.yml"
+  pull_request:
+    paths:
+      - "fixed-assets-saas/**"
+      - ".github/workflows/fixed-assets.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e "fixed-assets-saas/engine[dev]" pandas
+      - name: engine
+        working-directory: fixed-assets-saas/engine
+        run: python -m pytest -q
+      - name: forms
+        working-directory: fixed-assets-saas/forms
+        run: python -m pytest -q tests
+      - name: databricks jobs (pandas adapter)
+        working-directory: fixed-assets-saas/data/databricks/jobs
+        run: python -m pytest -q
+
+  lakebase:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: schema + isolation tests
+        working-directory: fixed-assets-saas/data/lakebase
+        env:
+          PGPASSWORD: postgres
+        run: psql -h localhost -U postgres -v ON_ERROR_STOP=1 -f 001_core.sql -f tests/001_isolation_test.sql
+
+  edge:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fixed-assets-saas/edge/cloudflare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run typecheck

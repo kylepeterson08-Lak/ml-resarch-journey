@@ -14,10 +14,12 @@ from .conventions import (
     Convention,
     Method,
     first_year_months,
+    month_index,
     months_to_convention_point,
     tax_year_of,
 )
 from .macrs import recovery_fractions, table_precision, table_rates, year_months
+from .rules import FederalRules
 
 CENT = Decimal("0.01")
 ZERO = Decimal(0)
@@ -82,8 +84,22 @@ def _validate(asset: Asset) -> None:
         raise ValueError("mid-month convention applies only to SL real property")
 
 
+def _placed_period(asset: Asset) -> int:
+    """Column of the IRS table: month (MM) or quarter (MQ) of the tax year; 0 for HY."""
+    m = month_index(asset.placed_in_service, asset.fy_start_month)
+    if asset.convention is Convention.MID_MONTH:
+        return m + 1
+    if asset.convention is Convention.MID_QUARTER:
+        return m // 3 + 1
+    return 0
+
+
 def depreciation_schedule(
-    asset: Asset, *, use_tables: bool = True, disposed_on: date | None = None
+    asset: Asset,
+    *,
+    use_tables: bool = True,
+    disposed_on: date | None = None,
+    rules: FederalRules | None = None,
 ) -> list[ScheduleRow]:
     """Year-by-year schedule; truncated at the disposal year when ``disposed_on`` is set."""
     _validate(asset)
@@ -105,8 +121,15 @@ def depreciation_schedule(
     fractions = recovery_fractions(asset.method, asset.recovery_years, fym)
     months = year_months(asset.recovery_years, fym)
     if use_tables:
-        places = table_precision(asset.recovery_years, asset.convention is Convention.MID_MONTH)
-        rates = table_rates(asset.method, asset.recovery_years, fym, places)
+        # Prefer the official table row; some (e.g. 39-year Table A-7a) were not built by formula.
+        rates = (rules or FederalRules.load_default()).published_rates(
+            asset.method, asset.convention, asset.recovery_years, _placed_period(asset)
+        ) or table_rates(
+            asset.method,
+            asset.recovery_years,
+            fym,
+            table_precision(asset.recovery_years, asset.convention is Convention.MID_MONTH),
+        )
     else:
         rates = [f * 100 for f in fractions]
 

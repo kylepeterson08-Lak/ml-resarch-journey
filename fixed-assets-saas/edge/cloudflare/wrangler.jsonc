@@ -1,0 +1,19 @@
+{
+  // API Worker: authN/Z, tenant routing, validation. See research/08 §2–3.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "fa-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "vars": {
+    "IDP_ISSUER": "https://login.example.com/",
+    "IDP_AUDIENCE": "fa-api",
+    "IDP_JWKS_URL": "https://login.example.com/.well-known/jwks.json"
+  },
+  // Create with query caching OFF: cached results + session-scoped RLS can leak across tenants.
+  //   wrangler hyperdrive create fa-lakebase --connection-string=... --caching-disabled
+  "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<hyperdrive-config-id>" }],
+  // Stateless calc service (Python fa_engine) — fronted by a Cloudflare Container in production.
+  "services": [{ "binding": "CALC", "service": "fa-calc" }]
+}

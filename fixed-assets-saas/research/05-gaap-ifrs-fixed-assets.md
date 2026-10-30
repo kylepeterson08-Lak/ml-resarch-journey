@@ -83,7 +83,7 @@ Depreciation must be "systematic and rational" over the estimated useful life. C
 - Applies to **qualifying assets**: assets constructed for own use, or for sale or lease as discrete projects, that take a period of time to get ready. Not assets in use or ready for use, routine inventory, or (generally) assets funded by restricted gifts or grants. **[H]**
 - **Amount** = avoidable interest. Weighted-average accumulated expenditures × the specific-borrowing rate (for the portion funded by specific debt), then × the weighted-average rate on other borrowings. **Capped at total interest actually incurred.** **[H]**
 - **Period** starts when expenditures have been made, activities are in progress and interest is being incurred. It is suspended during substantial suspensions of activity and ends when the asset is substantially complete. **[H]**
-- Unlike IAS 23, US GAAP generally does **not** net investment income on unspent proceeds of tax-exempt borrowings since ASU 2014-? removed... **(VERIFY:** under ASC 835-20-30-11 legacy guidance, the offset applied only to certain restricted tax-exempt borrowings. Confirm current text). **[L]**
+- Unlike IAS 23, US GAAP generally does **not** net investment income on temporarily invested borrowings against capitalized interest. Legacy guidance allowed an offset only for certain restricted tax-exempt borrowings. Whether that exception is still in the current codification is **VERIFY**. **[L]**
 - Product: a capitalized-interest module computes AWAE (average accumulated expenditures) per CIP project per period from CIP cost postings, takes debt and rate inputs from treasury, applies the cap at entity level, and posts to CIP.
 
 ### 2.9 Asset retirement obligations (ASC 410-20)
@@ -383,7 +383,7 @@ Keep the `expense_caption` dimension on every depreciation line. Then ASU 2024-0
 | 19 | Back-dated addition (in-service date in a locked period) | Catch-up depreciation posted in the current open period; locked snapshot unchanged; audit log entry |
 | 20 | PPA: acquired equipment FV 500k, seller cost 900k / AD 600k, stock deal | GAAP cost 500k, AD 0; tax NBV 300k carryover; temporary difference 200k → DTL at enacted rate |
 | 21 | Nonmonetary exchange, commercial substance: give CA 40k (FV 50k) plus 10k cash | New asset 60k; gain 10k; boot 10k/60k < 25% → nonmonetary |
-| 22 | IFRS component replacement: aircraft 50m (engine 10m/8 yrs, airframe 40m/25 yrs); engine replaced in Y5 | Derecognize old engine NBV 3.75m as loss; capitalize new engine |
+| 22 | IFRS component replacement: aircraft 50m (engine 10m/8 yrs, airframe 40m/25 yrs); engine replaced at end of Y5 | Derecognize old engine NBV 3.75m (10m − 5 × 1.25m) as loss; capitalize new engine as a new component |
 | 23 | Book-tax: GAAP NBV 800k, federal tax NBV 0 (100% bonus), state decoupled with tax NBV 640k | Federal TD 800k; state TD 160k; each at its own rate |
 | 24 | DISE: depreciation 1,000k split cost of sales 700k / SG&A 200k / R&D 100k; 50k capitalized into inventory | Caption table ties to total; capitalized amount flagged |
 | 25 | Period reopen | Requires two approvers; delta JE batch; original batch untouched |

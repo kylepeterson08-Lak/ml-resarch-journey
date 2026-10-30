@@ -9,7 +9,8 @@ built: each year's rate is computed on the *rounded* remaining percentage
 and rounded to the table's precision, with the last year taking the
 remainder. Rounding the cumulative total instead does not reproduce the
 10-year or 27.5-year tables. Published tables loaded as rules data take
-precedence over generated ones.
+precedence over generated ones; the 39-year table (A-7a) is the known case
+the generator cannot reproduce (Jan: 2.461% published vs 2.457% by formula).
 """
 
 from __future__ import annotations

@@ -97,7 +97,11 @@ def test_nonresidential_real_property_formula_vs_table():
         convention=Convention.MID_MONTH,
     )
     assert depreciation_schedule(building, use_tables=False)[0].depreciation == D("24572.65")
-    assert depreciation_schedule(building)[0].depreciation == D("24570.00")
+    # Table mode uses the published Table A-7a row (2.461%), not the generated 2.457%.
+    rows = depreciation_schedule(building)
+    assert rows[0].depreciation == D("24610.00")
+    assert rows[1].depreciation == D("25640.00")
+    assert len(rows) == 40 and total_depreciation(rows) == D("1000000")
 
 
 def test_fiscal_year_mid_quarter():

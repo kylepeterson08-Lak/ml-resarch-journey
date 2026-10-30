@@ -72,3 +72,16 @@ def test_nonresidential_formula_first_year():
     f = recovery_fractions(Method.SL, D(39), D("11.5"))
     assert f[0] == D("11.5") / 12 / 39
     assert len(f) == 40
+
+
+def test_published_39_year_table_is_loaded_not_generated():
+    from fa_engine import Convention, FederalRules
+
+    rules = FederalRules.load_default()
+    jan = rules.published_rates(Method.SL, Convention.MID_MONTH, D(39), 1)
+    jul = rules.published_rates(Method.SL, Convention.MID_MONTH, D(39), 7)
+    assert jan[0] == D("2.461") and jan[1:39] == [D("2.564")] * 38 and jan[39] == D("0.107")
+    assert jul[0] == D("1.177")
+    assert all(sum(rules.published_rates(Method.SL, Convention.MID_MONTH, D(39), m)) == 100 for m in range(1, 13))
+    # Known divergence: the formula-built table gives 2.457% for January.
+    assert table_rates(Method.SL, D(39), D("11.5"), 3)[0] == D("2.457")

@@ -75,10 +75,12 @@ class FederalRules:
         section179: list[Section179Limit],
         bonus: list[BonusRule],
         asset_classes: list[AssetClass],
+        published_tables: dict[tuple[Method, Convention, Decimal, int], list[Decimal]] | None = None,
     ) -> None:
         self._section179 = {r.tax_year: r for r in section179}
         self._bonus = bonus
         self._classes = {c.code: c for c in asset_classes}
+        self._tables = published_tables or {}
 
     @classmethod
     @cache
@@ -121,7 +123,18 @@ class FederalRules:
             )
             for r in _rows("asset_classes.csv")
         ]
-        return cls(s179, bonus, classes)
+        tables: dict[tuple[Method, Convention, Decimal, int], list[Decimal]] = {}
+        for r in sorted(_rows("macrs_tables.csv"), key=lambda r: int(r["recovery_year"])):
+            key = (Method(r["method"]), Convention(r["convention"]), Decimal(r["recovery_years"]), int(r["placed_period"]))
+            tables.setdefault(key, []).append(Decimal(r["rate_pct"]))
+        return cls(s179, bonus, classes, tables)
+
+    def published_rates(
+        self, method: Method, convention: Convention, recovery_years: Decimal, placed_period: int
+    ) -> list[Decimal] | None:
+        """Official IRS table row, when one is loaded. ``placed_period`` is the month (MM),
+        quarter (MQ) or 0 (HY) of the tax year in which the property was placed in service."""
+        return self._tables.get((method, convention, Decimal(recovery_years), placed_period))
 
     def section179(self, tax_year: int) -> Section179Limit:
         try:

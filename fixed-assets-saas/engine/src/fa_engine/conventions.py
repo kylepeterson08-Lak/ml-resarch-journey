@@ -67,8 +67,9 @@ def mid_quarter_applies(
     ``placed_in_service`` is (date, depreciable basis) for every item of
     personal property placed in service in the tax year. Callers must exclude
     residential rental / nonresidential real property and property placed in
-    service and disposed of in the same year, and must pass basis after §179
-    but *before* bonus depreciation (bonus is disregarded for this test).
+    service and disposed of in the same year, and must pass basis after §179.
+    Bonus is not subtracted here — our reading of Reg. 1.168(d)-1(b)(4), still
+    marked VERIFY in research/03.
     """
     total = sum((basis for _, basis in placed_in_service), Decimal(0))
     if total <= 0:
