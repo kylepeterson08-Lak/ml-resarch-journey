@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AP Gov Flashcards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: one reading column. The ruled index card is the only loud object; everything around it stays quiet.
+     Type: Caslon (the face of the 1776 Declaration broadside) for display, Public Sans (the U.S. Web Design System face) for body. */
+  --bg:#e7ebf0;
+  --surface:#f7f9fb;
+  --ink:#15203a;
+  --muted:#56627a;
+  --line:#c8d0dc;
+  --accent:#1a4480;
+  --accent-ink:#ffffff;
+  --card:#fffef8;
+  --card-ink:#18223d;
+  --card-muted:#5b6479;
+  --card-rule:#d4454f;
+  --card-line:#c6dcef;
+  --good:#0ca30c;
+  --warn:#fab219;
+  --bad:#d03b3b;
+  --track:#d3dae4;
+  --shadow:0 1px 0 rgba(21,32,58,.06), 0 18px 40px -22px rgba(21,32,58,.45);
+  --font-display:"Libre Caslon Text","Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --font-body:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1422; --surface:#151f33; --ink:#e6ebf3; --muted:#9da9be; --line:#2c3a55;
+    --accent:#9fc0f7; --accent-ink:#0d1422;
+    --card:#ebe8de; --card-ink:#18223d; --card-muted:#555e72; --card-rule:#c03f49; --card-line:#b3c9de;
+    --track:#2c3a55; --shadow:0 1px 0 rgba(0,0,0,.3), 0 18px 40px -20px rgba(0,0,0,.75);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1422; --surface:#151f33; --ink:#e6ebf3; --muted:#9da9be; --line:#2c3a55;
+  --accent:#9fc0f7; --accent-ink:#0d1422;
+  --card:#ebe8de; --card-ink:#18223d; --card-muted:#555e72; --card-rule:#c03f49; --card-line:#b3c9de;
+  --track:#2c3a55; --shadow:0 1px 0 rgba(0,0,0,.3), 0 18px 40px -20px rgba(0,0,0,.75);
+  color-scheme:dark;
+}
+html[data-size="1"]{font-size:112.5%}
+html[data-size="2"]{font-size:125%}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:1rem;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3{font-family:var(--font-display);font-weight:400;line-height:1.2;text-wrap:balance;margin:0}
+h2{font-size:clamp(1.45rem,3.2vw,1.9rem)}
+h3{font-size:1.2rem}
+p{margin:0}
+a{color:var(--accent)}
+.wrap{max-width:52rem;margin:0 auto;padding-left:max(16px,1.25rem);padding-right:max(16px,1.25rem)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.skip{position:absolute;left:-999px}
+.skip:focus{left:16px;top:8px;z-index:10;background:var(--surface);padding:.5rem .75rem;border-radius:6px}
+:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+.tnum{font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+kbd{font:600 .72rem var(--font-body);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:.05rem .35rem;background:var(--surface);color:var(--muted)}
+
+/* Masthead */
+.masthead{background:var(--surface);border-bottom:1px solid var(--line)}
+.mast-inner{display:flex;flex-wrap:wrap;gap:.75rem 1rem;justify-content:space-between;align-items:flex-end;padding-top:1.2rem;padding-bottom:.6rem}
+.kicker{font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:.2rem}
+h1{font-size:clamp(1.7rem,4vw,2.3rem)}
+.prefs{display:flex;gap:.5rem;flex-wrap:wrap}
+.ghost{font:500 .82rem var(--font-body);color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:999px;padding:.35rem .8rem;cursor:pointer;min-height:36px}
+.ghost:hover{color:var(--ink);border-color:var(--muted)}
+.tabs{display:flex;gap:.25rem;overflow-x:auto}
+.tabs a{padding:.65rem .85rem;color:var(--muted);text-decoration:none;font-weight:600;font-size:.95rem;border-bottom:3px solid transparent;white-space:nowrap}
+.tabs a:hover{color:var(--ink)}
+.tabs a[aria-current="page"]{color:var(--ink);border-bottom-color:var(--accent)}
+main{padding-top:1.25rem;padding-bottom:3rem}
+
+/* Deck chips */
+.deckbar{display:flex;flex-wrap:wrap;gap:.4rem}
+.chip{font:500 .85rem var(--font-body);color:var(--ink);background:transparent;border:1px solid var(--line);border-radius:999px;padding:.35rem .75rem;cursor:pointer;min-height:36px;display:inline-flex;gap:.4rem;align-items:center}
+.chip .count{color:var(--muted);font-variant-numeric:tabular-nums;font-size:.78rem}
+.chip:hover:not(:disabled){border-color:var(--muted)}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip[aria-pressed="true"] .count{color:inherit;opacity:.75}
+.chip:disabled{opacity:.45;cursor:not-allowed}
+
+/* Study header + mastery bar */
+.studyhead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:.6rem 1.5rem;margin:1.1rem 0 .9rem}
+.pos{font-weight:600}
+.pos .muted{font-weight:400}
+.mastery{display:flex;flex-direction:column;gap:.35rem;min-width:min(100%,17rem)}
+.seg{display:flex;gap:2px;height:8px;border-radius:999px;overflow:hidden;background:transparent}
+.seg span{display:block;height:100%}
+.good-bg{background:var(--good)}
+.warn-bg{background:var(--warn)}
+.new-bg{background:var(--track)}
+.legend{display:flex;flex-wrap:wrap;gap:.25rem .9rem;list-style:none;margin:0;padding:0;font-size:.8rem;color:var(--muted)}
+.legend b{color:var(--ink);font-variant-numeric:tabular-nums;font-weight:600}
+.dot{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;margin-right:.35rem}
+
+/* The index card */
+.scene{perspective:1800px}
+.card{position:relative;border-radius:8px;cursor:pointer;outline-offset:6px}
+.card-inner{display:grid;transform-style:preserve-3d;transition:transform .6s cubic-bezier(.2,.75,.25,1)}
+.card.flipped .card-inner{transform:rotateY(180deg)}
+.card.no-anim .card-inner{transition:none}
+html[data-motion="off"] .card-inner{transition:none}
+.face{grid-area:1/1;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:var(--card);color:var(--card-ink);border-radius:8px;box-shadow:var(--shadow);padding:1rem 1.6rem 1.1rem;min-height:21rem;display:flex;flex-direction:column}
+.back{transform:rotateY(180deg)}
+.card-top{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;padding-bottom:.55rem;border-bottom:2px solid var(--card-rule);font-size:.75rem;letter-spacing:.07em;text-transform:uppercase;color:var(--card-muted);font-weight:600}
+.cardno{letter-spacing:.03em;white-space:nowrap}
+.ruled{flex:1;display:flex;align-items:center;padding:1.25rem 0;background-image:repeating-linear-gradient(to bottom,transparent 0,transparent calc(2.25rem - 1px),var(--card-line) calc(2.25rem - 1px),var(--card-line) 2.25rem)}
+.term{font-family:var(--font-display);font-size:clamp(1.8rem,5vw,2.75rem);line-height:1.18;text-wrap:balance;max-width:20ch}
+.card-foot{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding-top:.6rem;font-size:.8rem;color:var(--card-muted)}
+.badge{display:inline-flex;align-items:center;gap:.4rem;font-weight:600;font-size:.74rem;letter-spacing:.02em;padding:.2rem .55rem;border-radius:4px;border:1px solid var(--card-muted);color:var(--card-ink)}
+.badge.new::before{content:"";width:.5rem;height:.5rem;border-radius:50%;background:var(--card-rule)}
+.back-term{font-family:var(--font-display);font-size:1.05rem;text-transform:none;letter-spacing:0;color:var(--card-ink);font-weight:400}
+.def{font-size:1.1rem;line-height:1.55;margin:.9rem 0 .5rem;font-weight:500;max-width:62ch}
+.notes{margin:.3rem 0 0;display:grid;gap:.7rem}
+.notes dt{font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--card-muted);font-weight:700}
+.notes dd{margin:.1rem 0 0;font-size:.96rem;max-width:62ch}
+
+/* Buttons */
+.btn{font:600 .95rem var(--font-body);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:.6rem 1.1rem;min-height:44px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;text-align:center}
+.btn:hover:not(:disabled){border-color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.primary:hover:not(:disabled){filter:brightness(1.08)}
+.controls{display:grid;grid-template-columns:1fr auto 1fr;gap:.6rem;margin-top:1.1rem;align-items:center}
+.controls .prev{justify-self:start}
+.controls .next{justify-self:end}
+.rate{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-top:.6rem}
+.study-foot{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:.75rem;margin-top:1.1rem;font-size:.9rem;color:var(--muted)}
+.check{display:inline-flex;gap:.5rem;align-items:center;cursor:pointer}
+.check input{width:1.1rem;height:1.1rem;accent-color:var(--accent)}
+.link{background:none;border:0;padding:.25rem 0;color:var(--accent);font:500 .9rem var(--font-body);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.keys{font-size:.8rem;color:var(--muted);margin-top:.6rem}
+
+/* Panels and forms */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:1.25rem 1.4rem}
+.stack{display:grid;gap:1.1rem}
+.lede{color:var(--muted);max-width:62ch;margin-top:.35rem}
+fieldset{border:0;padding:0;margin:0;min-width:0}
+.lbl{display:block;font-size:.72rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700;margin-bottom:.45rem;padding:0}
+.pills{display:flex;flex-wrap:wrap;gap:.4rem}
+.pill{position:relative;display:inline-flex}
+.pill input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+.pill span{display:inline-flex;align-items:center;min-height:36px;padding:.35rem .8rem;border:1px solid var(--line);border-radius:999px;font-size:.88rem;font-weight:500}
+.pill input:checked + span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.pill input:focus-visible + span{outline:3px solid var(--accent);outline-offset:2px}
+.note{font-size:.85rem;color:var(--muted);max-width:64ch;margin-top:.5rem}
+.how{margin:.2rem 0 0;padding-left:1.25rem;display:grid;gap:.3rem;max-width:62ch}
+
+/* Quiz + parent */
+.qhead{display:flex;justify-content:space-between;gap:1rem;font-weight:600;margin-bottom:.6rem}
+.qhead .muted{font-weight:400}
+.timer{display:flex;gap:.75rem;align-items:center;margin-bottom:.75rem;font-size:.85rem;color:var(--muted)}
+.timer .track{flex:1;height:8px;border-radius:999px;background:var(--track);overflow:hidden}
+.timer .fill{height:100%;background:var(--accent);border-radius:999px;transition:width .25s linear}
+.timer.low .fill{background:var(--warn)}
+.sheet:focus{outline:none}
+.sheet:focus-visible{outline:3px solid var(--accent);outline-offset:4px}
+.sheet{background:var(--card);color:var(--card-ink);border-radius:8px;box-shadow:var(--shadow);padding:1rem 1.6rem 1.4rem}
+.prompt{font-size:.75rem;letter-spacing:.07em;text-transform:uppercase;font-weight:700;color:var(--card-muted);margin:.9rem 0 .35rem}
+.clue{font-family:var(--font-display);font-size:clamp(1.2rem,3vw,1.5rem);line-height:1.4;max-width:42ch}
+.options{list-style:none;margin:1rem 0 0;padding:0;display:grid;gap:.5rem}
+.opt{width:100%;justify-content:flex-start;text-align:left;font-weight:500;padding:.7rem 1rem}
+.opt .mark{margin-left:auto;font-weight:700;font-size:.85rem;display:inline-flex;gap:.4rem;align-items:center;white-space:nowrap}
+.opt.correct{border-color:var(--good);box-shadow:inset 4px 0 0 var(--good)}
+.opt.wrong{border-color:var(--bad);box-shadow:inset 4px 0 0 var(--bad)}
+.opt:disabled{opacity:1;cursor:default}
+.feedback{margin-top:1rem;display:grid;gap:.6rem}
+.verdict{display:flex;gap:.6rem;align-items:center;font-weight:700}
+.icon{display:inline-grid;place-items:center;flex:none;width:1.45rem;height:1.45rem;border-radius:50%;color:#fff;font-size:.8rem;font-weight:700;line-height:1}
+.icon.good{background:var(--good)}
+.icon.bad{background:var(--bad)}
+.icon.warn{background:var(--warn);color:#0b0b0b}
+.ask-text{font-family:var(--font-display);font-size:clamp(1.3rem,3.4vw,1.7rem);line-height:1.35;max-width:36ch;margin-top:.2rem}
+.ask-text.small{font-size:1.15rem}
+.key{border-top:2px solid var(--card-rule);margin-top:1rem;padding-top:.9rem;display:grid;gap:.8rem}
+.key .lbl{color:var(--card-muted);margin-bottom:.15rem}
+.key p{max-width:62ch}
+.ratings{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-top:.9rem}
+.ratings .btn{flex-direction:column;gap:.25rem;padding:.6rem .5rem}
+.ratings small{font-weight:400;color:var(--muted);font-size:.78rem}
+
+/* Results + charts */
+.hero{font-size:3.5rem;font-weight:700;line-height:1;letter-spacing:-.01em}
+.hero-row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:.5rem 1.25rem}
+.bars{list-style:none;margin:0;padding:0;display:grid;gap:.55rem}
+.bar-row{display:grid;grid-template-columns:minmax(7.5rem,11rem) 1fr;gap:.75rem;align-items:center;font-size:.9rem}
+.bar-cell{display:flex;align-items:center;gap:.5rem;border-left:1px solid var(--line);min-height:24px;position:relative}
+.bar-fill{display:block;height:16px;background:var(--accent);border-radius:0 4px 4px 0}
+.bar-val{font-variant-numeric:tabular-nums;color:var(--ink);font-size:.85rem;white-space:nowrap}
+.rng-chart{display:grid;gap:0}
+.rng-row{display:grid;grid-template-columns:minmax(8rem,13rem) 1fr;gap:.75rem;align-items:stretch;font-size:.9rem}
+.rng-row>span:first-child{align-self:center}
+.rng-track{position:relative;height:38px;background-image:linear-gradient(to right,var(--line) 1px,transparent 1px);background-size:20% 100%;border-right:1px solid var(--line)}
+.rng{position:absolute;top:12px;height:14px;background:var(--accent);border-radius:4px;cursor:default}
+.rng-lab{position:absolute;top:9px;font-size:.82rem;font-variant-numeric:tabular-nums;color:var(--ink);white-space:nowrap}
+.rng .tip{position:absolute;bottom:calc(100% + 8px);right:0;background:var(--ink);color:var(--bg);font-size:.78rem;padding:.3rem .5rem;border-radius:4px;white-space:nowrap;pointer-events:none;display:none;z-index:2}
+.rng:hover .tip,.rng:focus-visible .tip{display:block}
+.rng-axis{display:grid;grid-template-columns:minmax(8rem,13rem) 1fr;gap:.75rem;font-size:.75rem;color:var(--muted)}
+.rng-axis .ticks{display:flex;justify-content:space-between;font-variant-numeric:tabular-nums}
+.missed{list-style:none;margin:0;padding:0;display:grid}
+.missed li{display:flex;justify-content:space-between;gap:1rem;padding:.55rem 0;border-top:1px solid var(--line);font-size:.95rem}
+.tag{font-size:.75rem;font-weight:600;padding:.1rem .5rem;border-radius:4px;border:1px solid var(--line);white-space:nowrap;display:inline-flex;align-items:center;gap:.35rem}
+.row-btns{display:flex;flex-wrap:wrap;gap:.5rem}
+textarea{width:100%;font:.85rem/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.75rem}
+.hist{list-style:none;margin:0;padding:0;display:grid}
+.hist li{display:grid;grid-template-columns:5.5rem 1fr minmax(6rem,9rem);gap:.75rem;align-items:center;padding:.5rem 0;border-top:1px solid var(--line);font-size:.88rem}
+.hist .bar-cell{border-left:1px solid var(--line)}
+
+/* Guide */
+.guide{display:grid;gap:1.25rem}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:.6rem .9rem .6rem 0;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.7rem;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+.frq{display:grid;gap:.9rem;margin:0;padding:0;list-style:none}
+.frq li{display:grid;gap:.2rem;padding-top:.8rem;border-top:1px solid var(--line)}
+.frq .nm{font-weight:700}
+.reqlist{list-style:none;margin:0;padding:0}
+.reqlist li{border-top:1px solid var(--line)}
+.reqlist button{appearance:none;background:none;border:0;color:inherit;font:inherit;text-align:left;display:grid;grid-template-columns:1fr auto;gap:.1rem 1rem;width:100%;padding:.65rem .2rem;cursor:pointer}
+.reqlist .nm{font-family:var(--font-display);font-size:1.05rem}
+.reqlist .ln{grid-column:1/-1;color:var(--muted);font-size:.9rem;max-width:66ch}
+.reqlist .go{color:var(--accent);font-size:.85rem;font-weight:600;white-space:nowrap}
+.reqlist button:hover .nm{text-decoration:underline;text-underline-offset:3px}
+.plan{display:grid;gap:.6rem;margin:0;padding:0;list-style:none}
+.plan li{display:grid;grid-template-columns:9.5rem 1fr;gap:.75rem;padding-top:.6rem;border-top:1px solid var(--line)}
+.plan b{font-weight:600}
+.src{font-size:.82rem;color:var(--muted);max-width:70ch}
+
+@media (max-width:34rem){
+  .controls{grid-template-columns:1fr 1fr}
+  .controls .flip{grid-column:1/-1;grid-row:1}
+  .face{padding:.9rem 1.1rem 1rem;min-height:18rem}
+  .sheet{padding:.9rem 1.1rem 1.1rem}
+  .keys{display:none}
+  .bar-row,.rng-row,.rng-axis{grid-template-columns:6.5rem 1fr}
+  .plan li{grid-template-columns:1fr;gap:.15rem}
+  .hist li{grid-template-columns:4.5rem 1fr 5.5rem}
+  .panel{padding:1rem}
+}
+@media (prefers-reduced-motion: reduce){
+  html:not([data-motion="on"]) .card-inner{transition:none}
+  .timer .fill{transition:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="masthead">
+  <div class="wrap mast-inner">
+    <div>
+      <p class="kicker">AP U.S. Government &amp; Politics · 2026–27 framework</p>
+      <h1>AP Gov Flashcards</h1>
+    </div>
+    <div class="prefs" role="group" aria-label="Display settings">
+      <button type="button" class="ghost" id="size-btn">Text size: Standard</button>
+      <button type="button" class="ghost" id="motion-btn" aria-pressed="true">Card animation: On</button>
+    </div>
+  </div>
+  <nav class="wrap tabs" aria-label="Sections">
+    <a href="#study" data-view="study">Study cards</a>
+    <a href="#quiz" data-view="quiz">Quiz me</a>
+    <a href="#parent" data-view="parent">Parent mode</a>
+    <a href="#guide" data-view="guide">Exam guide</a>
+  </nav>
+</header>
+<main id="main" class="wrap">
+  <section id="view-study" aria-label="Study cards"></section>
+  <section id="view-quiz" aria-label="Quiz" hidden></section>
+  <section id="view-parent" aria-label="Parent mode" hidden></section>
+  <section id="view-guide" aria-label="Exam guide" hidden></section>
+</main>
+<div id="live" class="sr-only" aria-live="polite"></div>
+
+<script>
+/* ---------------------------------------------------------------
+   Content. Fields: f front, b answer, why, hook (optional), ex exam tip (optional),
+   q parent follow-up, qa its answer, clue (quiz wording that does not give the answer away).
+---------------------------------------------------------------- */
+const UNITS = {
+  1:{name:`Foundations of American Democracy`, short:`Foundations`, w:[15,22]},
+  2:{name:`Interactions Among Branches of Government`, short:`Branches`, w:[25,36]},
+  3:{name:`Civil Liberties and Civil Rights`, short:`Liberties & Rights`, w:[13,18]},
+  4:{name:`American Political Ideologies and Beliefs`, short:`Ideologies`, w:[10,15]},
+  5:{name:`Political Participation`, short:`Participation`, w:[20,27]}
+};
+
+const CARDS = [
+/* ===== UNIT 1 ===== */
+{id:`limited-gov`,u:1,t:`concept`,topic:`Ideals of democracy`,f:`Limited government`,
+ b:`The idea that government’s power is restricted by law, usually a written constitution, so it can’t take away people’s basic rights.`,
+ why:`It’s the thread through the whole Constitution. Separation of powers, checks and balances, federalism, and the Bill of Rights all exist to keep power limited.`,
+ hook:`It’s why a principal or police officer can’t search anything they want, any time, for any reason. Power comes with rules.`,
+ ex:`Shows up constantly in the Argument Essay (FRQ 4). Pair it with the Declaration, the Constitution, or Federalist 51 as evidence.`,
+ q:`Name two features of the Constitution that limit government.`,
+ qa:`Any two: separation of powers, checks and balances, federalism, enumerated powers, the Bill of Rights, regular elections.`,
+ clue:`The principle that government’s power is restricted by law, usually a written constitution, to protect people’s rights.`},
+{id:`natural-rights`,u:1,t:`concept`,topic:`Ideals of democracy`,f:`Natural rights`,
+ b:`Rights people are born with that no government grants and none can legitimately take away. John Locke listed them as life, liberty, and property.`,
+ why:`Jefferson put this idea at the center of the Declaration of Independence (“life, liberty and the pursuit of happiness”). It justified breaking away from Britain.`,
+ ex:`Expect a multiple-choice passage from the Declaration asking which Enlightenment idea it reflects.`,
+ q:`According to the Declaration, what may people do if a government violates these rights?`,
+ qa:`“Alter or abolish” it and set up a new government. That’s the social contract at work.`},
+{id:`social-contract`,u:1,t:`concept`,topic:`Ideals of democracy`,f:`Social contract`,
+ b:`The deal in which people agree to give up some freedom and obey a government in exchange for protection of their rights. If the government breaks the deal, the people may replace it.`,
+ why:`It comes from Hobbes, Locke, and Rousseau, and it explains why American government rests on the consent of the governed.`,
+ hook:`Think of school rules: you accept a bell schedule and a code of conduct in exchange for a safe school that works.`,
+ q:`How does the social contract connect to popular sovereignty?`,
+ qa:`Both say government’s authority comes from the people’s consent. People create the government, so power flows from them.`},
+{id:`popular-sovereignty`,u:1,t:`concept`,topic:`Ideals of democracy`,f:`Popular sovereignty`,
+ b:`The principle that government’s authority comes from the people.`,
+ why:`The Constitution opens with “We the People,” not “We the States.” Elections and the amendment process put this idea into practice.`,
+ ex:`A classic multiple-choice pairing: the Preamble or the Gettysburg Address → popular sovereignty.`,
+ q:`Give one place popular sovereignty appears in the Constitution or in practice.`,
+ qa:`The Preamble (“We the People”), elections, ratification by state conventions, the amendment process, or state ballot initiatives.`},
+{id:`republicanism`,u:1,t:`concept`,topic:`Ideals of democracy`,f:`Republicanism`,
+ b:`A system in which citizens elect representatives to make laws for them, instead of voting on every law directly.`,
+ why:`The Framers chose a republic over direct democracy because they feared fast-moving majorities. Madison defends it in Federalist 10.`,
+ hook:`You’ll vote for a member of Congress. You won’t vote on each bill they pass.`,
+ q:`Why did Madison think a large republic was better than a direct democracy?`,
+ qa:`Representatives filter public passions, and a large republic contains so many factions that no single one can easily dominate.`},
+{id:`participatory`,u:1,t:`concept`,topic:`Models of democracy`,f:`Participatory democracy`,
+ b:`A model that emphasizes broad participation in politics and civil society by as many citizens as possible.`,
+ why:`One of three models of representative democracy on the exam. Examples: state ballot initiatives, referendums, recall elections, town halls.`,
+ ex:`The exam loves “Which model does this scenario show?” Broad citizen involvement = participatory.`,
+ q:`Give a real example of participatory democracy in action.`,
+ qa:`A state ballot initiative or referendum, a recall election, a town hall meeting, or a grassroots campaign.`,
+ clue:`A model of democracy that emphasizes involvement by as many citizens as possible, through things like ballot initiatives and town halls.`},
+{id:`pluralist`,u:1,t:`concept`,topic:`Models of democracy`,f:`Pluralist democracy`,
+ b:`A model in which organized groups compete to influence policy, and no single group dominates.`,
+ why:`Interest groups like AARP, the NRA, and the Sierra Club fit here. Federalist 10’s argument about many competing factions supports this view.`,
+ q:`Why might a pluralist argue that interest groups are good for democracy?`,
+ qa:`Groups give ordinary people a louder collective voice, and competition among them keeps any one group from controlling policy.`},
+{id:`elite`,u:1,t:`concept`,topic:`Models of democracy`,f:`Elite democracy`,
+ b:`A model in which a small group of wealthy, educated, or well-connected people has outsized influence over political decisions.`,
+ why:`The Framers built in elite features: the Electoral College and (until the 17th Amendment in 1913) senators chosen by state legislatures. Brutus 1 warned a distant national government would serve elites.`,
+ q:`Name one feature of the original Constitution that reflects elite democracy.`,
+ qa:`The Electoral College, or senators chosen by state legislatures before the 17th Amendment.`},
+{id:`d-declaration`,u:1,t:`doc`,topic:`Ideals of democracy`,f:`Declaration of Independence (1776)`,
+ b:`Thomas Jefferson’s statement that people have natural rights, that government gets its power from the consent of the governed, and that people may abolish a government that abuses those rights. It lists grievances against King George III.`,
+ why:`It applies Locke’s ideas of natural rights and the social contract. It explains why the colonies broke away, though it doesn’t set up a government.`,
+ ex:`Strong Argument Essay evidence for limited government, natural rights, or popular sovereignty.`,
+ q:`The Declaration created no government. Why is it still a foundational document?`,
+ qa:`It states the core principles (natural rights, consent of the governed, the social contract) that the Constitution was later built to protect.`,
+ clue:`Jefferson’s statement of natural rights, consent of the governed, and grievances against King George III.`},
+{id:`d-articles`,u:1,t:`doc`,topic:`Articles & Constitution`,f:`Articles of Confederation (1781)`,
+ b:`The first U.S. constitution, in effect until 1789. It created a weak national government: no power to tax, no national army, no executive or national courts, no power to regulate trade between states, and amendments required all 13 states.`,
+ why:`Its failures, made obvious by Shays’ Rebellion, led directly to the Constitutional Convention. Each weakness maps to a fix in the Constitution.`,
+ ex:`A common question: how did the Constitution fix a specific weakness of the Articles?`,
+ q:`Name a weakness of the Articles and how the Constitution fixed it.`,
+ qa:`No power to tax → Congress can tax (Art. I, Sec. 8). No executive → a president (Art. II). No national courts → Supreme Court (Art. III). Unanimity to amend → Article V’s three-fourths rule.`,
+ clue:`The first U.S. constitution, which created a national government with no power to tax and no executive.`},
+{id:`shays`,u:1,t:`concept`,topic:`Articles & Constitution`,f:`Shays’ Rebellion (1786–87)`,
+ b:`An armed uprising of indebted Massachusetts farmers. The national government under the Articles had no army or money to stop it.`,
+ why:`It exposed how weak the Articles of Confederation were and pushed leaders to call the Constitutional Convention in 1787.`,
+ q:`What weaknesses of the Articles did Shays’ Rebellion reveal?`,
+ qa:`No power to tax, no national army or executive to enforce laws, and no way to respond quickly to a crisis.`,
+ clue:`An uprising of indebted Massachusetts farmers that the national government was too weak to stop.`},
+{id:`great-compromise`,u:1,t:`concept`,topic:`Articles & Constitution`,f:`Great (Connecticut) Compromise`,
+ b:`The agreement that created a two-house Congress: a House of Representatives based on state population and a Senate with two senators per state.`,
+ why:`It settled the fight between large states (Virginia Plan) and small states (New Jersey Plan). It’s why Wyoming and California each have two senators.`,
+ ex:`Be ready to explain which plan each house came from.`,
+ q:`Which house reflects the Virginia Plan, and which reflects the New Jersey Plan?`,
+ qa:`House = Virginia Plan (population). Senate = New Jersey Plan (equal representation).`},
+{id:`three-fifths`,u:1,t:`concept`,topic:`Articles & Constitution`,f:`Three-Fifths Compromise`,
+ b:`The agreement to count enslaved people as three-fifths of a person when apportioning House seats and direct taxes.`,
+ why:`It boosted Southern states’ power in the House and the Electoral College. The 13th and 14th Amendments ended it after the Civil War.`,
+ q:`How did this compromise affect presidential elections, not just the House?`,
+ qa:`Electoral votes equal a state’s House seats plus Senate seats, so extra House seats gave Southern states extra electoral votes.`,
+ clue:`The deal that counted enslaved people as a fraction of a person when deciding each state’s number of House seats.`},
+{id:`d-constitution`,u:1,t:`doc`,topic:`Articles & Constitution`,f:`U.S. Constitution (1787)`,
+ b:`The framework of the national government. It creates three branches, divides power between the nation and the states, and sets out how it can be amended. The Bill of Rights was added in 1791.`,
+ why:`It is the source for nearly every concept on the exam: separation of powers, checks and balances, federalism, enumerated powers, and individual rights.`,
+ ex:`Know the articles: I Congress, II President, III Courts, IV relations among states, V amendments, VI supremacy, VII ratification.`,
+ q:`What does Article VI establish, and why does it matter?`,
+ qa:`The Supremacy Clause. Valid federal law beats conflicting state law, which decided cases like McCulloch v. Maryland.`,
+ clue:`The 1787 framework that created three branches and divided power between the nation and the states.`},
+{id:`amendment`,u:1,t:`concept`,topic:`Articles & Constitution`,f:`Amendment process (Article V)`,
+ b:`Amendments are proposed by two-thirds of both houses of Congress (or a convention called by two-thirds of the states) and ratified by three-fourths of the states.`,
+ why:`The supermajority requirements make the Constitution hard to change, which is why there are only 27 amendments.`,
+ ex:`Know the numbers: two-thirds to propose, three-fourths to ratify.`,
+ q:`Why did the Framers make amending the Constitution so difficult?`,
+ qa:`To protect it from temporary majorities and to require broad national agreement before changing the basic rules.`,
+ clue:`Two-thirds of both houses of Congress propose; three-fourths of the states ratify.`},
+{id:`separation`,u:1,t:`concept`,topic:`Articles & Constitution`,f:`Separation of powers`,
+ b:`Dividing government into three branches: legislative (makes laws), executive (enforces laws), and judicial (interprets laws).`,
+ why:`Madison argued in Federalist 51 that splitting power prevents tyranny. Each branch has its own article: I, II, and III.`,
+ q:`Which articles of the Constitution set up each branch?`,
+ qa:`Article I: Congress. Article II: the President. Article III: the courts.`},
+{id:`checks`,u:1,t:`concept`,topic:`Articles & Constitution`,f:`Checks and balances`,
+ b:`Each branch has tools to limit the others, such as the presidential veto, the congressional override, Senate confirmation, impeachment, and judicial review.`,
+ why:`The goal is to make “ambition counteract ambition” (Federalist 51), so no branch can dominate.`,
+ ex:`Concept Application (FRQ 1) often gives a scenario and asks how another branch could respond. Have two or three checks ready for each branch.`,
+ q:`Give one check Congress has on the president and one check the courts have on Congress.`,
+ qa:`Congress: override a veto (two-thirds of both houses), reject appointments, impeach, control funding. Courts: strike down a law as unconstitutional.`},
+{id:`d-fed51`,u:1,t:`doc`,topic:`Articles & Constitution`,f:`Federalist No. 51 (Madison, 1788)`,
+ b:`Madison argues that separation of powers and checks and balances will protect liberty: “Ambition must be made to counteract ambition.” Federalism adds a “double security” by dividing power between nation and states.`,
+ why:`Its famous line, “If men were angels, no government would be necessary,” explains why the Constitution assumes people will seek power and builds in ways to stop them.`,
+ ex:`Go-to evidence for any argument about checks and balances, separation of powers, or limiting government.`,
+ q:`What does “ambition must be made to counteract ambition” mean in practice?`,
+ qa:`Each branch’s officials will defend their own branch’s power, which keeps any other branch from taking too much.`,
+ clue:`Madison argues that separation of powers and checks and balances let “ambition counteract ambition.”`},
+{id:`d-fed10`,u:1,t:`doc`,topic:`Articles & Constitution`,f:`Federalist No. 10 (Madison, 1787)`,
+ b:`Madison argues that factions (groups pursuing their own interests) are unavoidable. The cure is to control their effects with a large republic, where so many factions compete that no single one can take over.`,
+ why:`The key defense of a large republic and a foundation for the pluralist view of democracy. It answers Anti-Federalist fears like those in Brutus 1.`,
+ ex:`Federalist 10 vs. Brutus 1 is one of the most tested comparisons on the exam.`,
+ q:`Madison says you can’t remove the causes of faction. Why not, and what does he do instead?`,
+ qa:`Removing the causes would mean destroying liberty or making everyone think alike. Instead, a large republic controls the effects.`,
+ clue:`Madison argues that a large republic best controls the effects of factions.`},
+{id:`d-brutus`,u:1,t:`doc`,topic:`Articles & Constitution`,f:`Brutus No. 1 (Anti-Federalist, 1787)`,
+ b:`Argues that a large republic can’t work. The Necessary and Proper and Supremacy Clauses would give the national government nearly unlimited power, and a distant government would serve elites instead of ordinary people.`,
+ why:`The leading Anti-Federalist essay. Its fears helped win the Bill of Rights, and its debate with Federalist 10 still frames arguments about national vs. state power.`,
+ ex:`If an essay prompt involves states’ rights or limits on national power, Brutus 1 is strong evidence.`,
+ q:`What would Brutus think of the Supreme Court’s decision in McCulloch v. Maryland?`,
+ qa:`He’d see it as proof of his fear: the Court used the Necessary and Proper and Supremacy Clauses to expand national power over the states.`,
+ clue:`An Anti-Federalist argues a large republic can’t work and that the Necessary and Proper Clause gives Congress too much power.`},
+{id:`d-fed39`,u:1,t:`doc`,isNew:true,topic:`Federalism`,f:`Federalist No. 39 (Madison, 1788)`,
+ b:`Madison defines a republic as a government that gets its power from the people and is run by officials who serve limited terms or during good behavior. He argues the Constitution is “neither a national nor a federal Constitution, but a composition of both.”`,
+ why:`It answers critics who said the Constitution would wipe out the states. Madison shows that some parts draw power from the people (the House), some from the states as equals (the Senate), and some from both (amendments).`,
+ ex:`New to the required list for 2026–27. Use it as evidence on federalism or popular sovereignty questions.`,
+ q:`Give one example of how the Constitution is “partly national, partly federal.”`,
+ qa:`The House draws power directly from the people (national); the Senate gives states equal representation (federal); amendments need both Congress and the states.`,
+ clue:`Madison defines a republic and argues the Constitution is a mix of national and federal features.`},
+{id:`federalism`,u:1,t:`concept`,topic:`Federalism`,f:`Federalism`,
+ b:`Power divided between a national government and state governments, each with its own authority over the same people.`,
+ why:`Madison called it a “double security” for rights in Federalist 51. The balance between national and state power has shifted constantly since 1787.`,
+ hook:`Your state sets the rules for your driver’s license. The national government prints your money.`,
+ q:`Give one power that belongs to the national government and one reserved to the states.`,
+ qa:`National: coining money, declaring war, regulating interstate commerce, making treaties. States: running elections, issuing licenses, setting up schools and local governments.`,
+ clue:`The division of power between a national government and state governments.`},
+{id:`enumerated`,u:1,t:`concept`,topic:`Federalism`,f:`Enumerated (expressed) powers`,
+ b:`Powers specifically listed for Congress in the Constitution, mostly in Article I, Section 8: taxing, borrowing, coining money, regulating interstate commerce, declaring war, and more.`,
+ q:`Is “creating a national bank” one of these powers? How did Congress justify it?`,
+ qa:`No. Congress justified it as an implied power under the Necessary and Proper Clause, upheld in McCulloch v. Maryland.`},
+{id:`necessary-proper`,u:1,t:`concept`,topic:`Federalism`,f:`Necessary and Proper (Elastic) Clause`,
+ b:`The last clause of Article I, Section 8. It lets Congress make all laws “necessary and proper” for carrying out its listed powers, which creates implied powers.`,
+ why:`It stretches national power, which is why it’s called the elastic clause. McCulloch v. Maryland upheld it. Brutus 1 feared it would give Congress nearly unlimited power.`,
+ ex:`This clause links McCulloch (a required case) and Brutus 1 (a required document). That’s a ready-made essay connection.`,
+ q:`Why did Anti-Federalists like Brutus fear this clause?`,
+ qa:`They thought its vague wording would let the national government expand without limit and swallow up state power.`,
+ clue:`The clause at the end of Article I, Section 8 that gives Congress implied powers to carry out its listed powers.`},
+{id:`tenth`,u:1,t:`concept`,topic:`Federalism`,f:`Reserved powers (10th Amendment)`,
+ b:`Powers not given to the national government, nor denied to the states, are reserved to the states or to the people.`,
+ why:`It’s the constitutional basis for state control over schools, policing, marriage law, and elections. States cite it whenever they push back on federal power.`,
+ q:`Which required case is a win for state power under this idea?`,
+ qa:`United States v. Lopez (1995). The Court said Congress overstepped the Commerce Clause, leaving guns near schools to state law.`,
+ clue:`Powers not given to the national government, nor denied to the states, belong to the states or the people.`},
+{id:`commerce`,u:1,t:`concept`,topic:`Federalism`,f:`Commerce Clause`,
+ b:`Article I, Section 8 gives Congress the power to regulate commerce “among the several States.” Courts have read it broadly to expand federal power.`,
+ why:`Congress used it to pass the Civil Rights Act of 1964 (banning discrimination at restaurants and hotels) and much environmental law. Lopez (1995) marked a limit.`,
+ ex:`Questions often pair McCulloch (national power grows) with Lopez (national power has limits).`,
+ q:`How is Lopez different from most earlier cases about this clause?`,
+ qa:`For decades the Court let Congress stretch it. In Lopez it said carrying a gun near a school isn’t economic activity, so Congress went too far.`,
+ clue:`The Article I power Congress used to pass civil rights and environmental laws, which the Court limited in 1995.`},
+{id:`supremacy`,u:1,t:`concept`,topic:`Federalism`,f:`Supremacy Clause`,
+ b:`Article VI says the Constitution, federal laws, and treaties are “the supreme Law of the Land.” When a valid federal law conflicts with a state law, federal law wins.`,
+ why:`It’s why Maryland lost in McCulloch v. Maryland: a state can’t tax or obstruct a legitimate federal institution.`,
+ q:`In McCulloch, which two constitutional clauses did the Court rely on?`,
+ qa:`The Necessary and Proper Clause (Congress could create the bank) and the Supremacy Clause (Maryland couldn’t tax it).`,
+ clue:`The Article VI rule that valid federal law wins when it conflicts with state law.`},
+{id:`grants`,u:1,t:`concept`,topic:`Federalism`,f:`Categorical vs. block grants`,
+ b:`Categorical grants give states federal money for a specific purpose with strict conditions. Block grants give money for a broad purpose with more state flexibility.`,
+ why:`This is fiscal federalism: Washington uses money to shape state policy. States usually prefer block grants because they keep more control.`,
+ hook:`School lunch programs and special education services run partly on federal grant money with federal rules attached.`,
+ ex:`A favorite Concept Application scenario. Know which type each side of a debate prefers and why.`,
+ q:`Why would a governor prefer a block grant over a categorical grant?`,
+ qa:`Block grants let the state decide how to spend the money to fit local needs, with fewer federal strings.`,
+ clue:`Two kinds of federal money for states: one comes with strict rules for a specific purpose, the other allows broad flexibility.`},
+{id:`mandates`,u:1,t:`concept`,topic:`Federalism`,f:`Mandates and unfunded mandates`,
+ b:`Federal requirements that states must follow. When Congress doesn’t provide money to pay for them, they’re called unfunded mandates.`,
+ why:`The Americans with Disabilities Act (1990) is the textbook example: it requires state and local governments to make buildings, programs, and services accessible, largely at their own expense.`,
+ q:`Why do states often object to unfunded mandates?`,
+ qa:`States must pay to carry out federal policy without federal money, which strains budgets and limits state control.`,
+ clue:`Federal requirements states must follow, sometimes without federal money to pay for them, such as the ADA’s accessibility rules.`},
+{id:`conditions`,u:1,t:`concept`,topic:`Federalism`,f:`Conditions of aid`,
+ b:`Rules a state must accept to receive federal money. In 1984 Congress threatened to withhold some highway funds from any state with a drinking age below 21. Every state complied.`,
+ why:`The Supreme Court upheld this in South Dakota v. Dole (1987). It shows how the national government can shape policy in areas it doesn’t directly control.`,
+ hook:`This is why the drinking age is 21 in all 50 states, even though no federal law sets it.`,
+ q:`Why didn’t Congress just pass a national drinking-age law?`,
+ qa:`Setting a drinking age is generally a state power, so Congress used its spending power and attached conditions to highway money.`},
+{id:`dual-coop`,u:1,t:`concept`,topic:`Federalism`,f:`Dual vs. cooperative federalism`,
+ b:`Dual (“layer cake”) federalism keeps national and state powers in separate spheres. Cooperative (“marble cake”) federalism has both levels working together on shared policies, often through grants.`,
+ why:`The U.S. moved from mostly dual federalism toward cooperative federalism during the New Deal of the 1930s.`,
+ q:`Give an example of cooperative federalism.`,
+ qa:`Medicaid (paid for jointly by federal and state governments), highway funding, or education grants.`,
+ clue:`The shift from “layer cake” to “marble cake” relationships between national and state governments.`},
+{id:`c-mcculloch`,u:1,t:`case`,topic:`Federalism`,f:`McCulloch v. Maryland (1819)`,
+ b:`Maryland tried to tax the Second Bank of the United States. The Court ruled unanimously that Congress had implied power to create the bank (Necessary and Proper Clause) and that a state can’t tax a federal institution (Supremacy Clause).`,
+ why:`It expanded national power over the states. Chief Justice Marshall wrote that “the power to tax involves the power to destroy.”`,
+ ex:`Clauses: Necessary and Proper + Supremacy. Pairs with Brutus 1, Federalist 10, and federalism questions.`,
+ q:`Which level of government won, and why does that still matter?`,
+ qa:`The national government. It set the precedent that Congress has implied powers and that valid federal law overrides state law.`,
+ clue:`The Court ruled Congress could create a national bank under its implied powers and that a state could not tax it.`},
+{id:`c-lopez`,u:1,t:`case`,topic:`Federalism`,f:`United States v. Lopez (1995)`,
+ b:`A high school senior in San Antonio was charged under the federal Gun-Free School Zones Act of 1990 for bringing a gun to school. The Court ruled 5–4 that Congress had exceeded its Commerce Clause power, because carrying a gun near a school isn’t economic activity.`,
+ why:`The first time in about 60 years the Court limited Congress’s Commerce Clause power. A win for states’ reserved powers.`,
+ hook:`The student at the center of this case was a 12th grader.`,
+ ex:`Contrast with McCulloch: McCulloch expanded national power; Lopez limited it.`,
+ q:`Why couldn’t Congress use the Commerce Clause here?`,
+ qa:`Bringing a gun to school isn’t commercial activity that substantially affects interstate commerce, so it falls under state police powers.`,
+ clue:`The Court ruled the Gun-Free School Zones Act went beyond Congress’s Commerce Clause power.`},
+{id:`d-gettysburg`,u:1,t:`doc`,isNew:true,topic:`Ideals of democracy`,f:`Gettysburg Address (Lincoln, 1863)`,
+ b:`Lincoln’s short speech at a Civil War battlefield. It ties the war to the Declaration’s promise that “all men are created equal” and calls for “a new birth of freedom” so that “government of the people, by the people, for the people, shall not perish from the earth.”`,
+ why:`It reframes the Union as a commitment to equality and popular sovereignty. It’s about 270 words, so read the whole thing.`,
+ ex:`New to the required list for 2026–27. Strong evidence for popular sovereignty, equality, or national unity.`,
+ q:`Which earlier foundational document does the Gettysburg Address echo, and how?`,
+ qa:`The Declaration of Independence. “Four score and seven years ago” points back to 1776, and Lincoln repeats its claim that all men are created equal.`,
+ clue:`Lincoln’s battlefield speech calling for “a new birth of freedom” and “government of the people, by the people, for the people.”`},
+
+/* ===== UNIT 2 ===== */
+{id:`house-senate`,u:2,t:`concept`,topic:`Congress`,f:`House vs. Senate`,
+ b:`House: 435 members, 2-year terms, seats based on population, minimum age 25. Senate: 100 members (two per state), 6-year terms with one-third elected every two years, minimum age 30.`,
+ why:`The House was designed to respond quickly to public opinion; the Senate was designed to be slower and more deliberate.`,
+ q:`Name one power only the House has and one only the Senate has.`,
+ qa:`House: starts revenue (tax) bills, impeaches. Senate: confirms appointments, ratifies treaties (two-thirds vote), holds impeachment trials.`,
+ clue:`One chamber has 435 members on 2-year terms; the other has 100 members on 6-year terms.`},
+{id:`filibuster`,u:2,t:`concept`,topic:`Congress`,f:`Filibuster and cloture`,
+ b:`A filibuster is a Senate tactic of extended debate to delay or block a vote. Cloture ends debate and requires 60 votes.`,
+ why:`Because of the filibuster, most major bills effectively need 60 Senate votes, not a simple majority of 51. The House has no filibuster because its Rules Committee limits debate.`,
+ hook:`When the news says a bill “doesn’t have 60 votes,” this is why.`,
+ q:`Why doesn’t the House have a filibuster?`,
+ qa:`The House is much larger, so its Rules Committee sets strict time limits on debate for each bill.`,
+ clue:`A Senate delaying tactic, and the 60-vote motion that ends it.`},
+{id:`rules-committee`,u:2,t:`concept`,topic:`Congress`,f:`House Rules Committee`,
+ b:`The House committee that decides when a bill reaches the floor, how long it can be debated, and whether amendments are allowed.`,
+ why:`It’s the House’s traffic cop. The majority party controls it, which gives the Speaker major power over what gets a vote.`,
+ q:`How does this committee give the majority party power?`,
+ qa:`It can keep bills it dislikes off the floor and block amendments that would change bills it supports.`,
+ clue:`The House committee that decides when bills reach the floor and how long they can be debated.`},
+{id:`committees`,u:2,t:`concept`,topic:`Congress`,f:`Congressional committees`,
+ b:`Small groups of members that review bills in specific policy areas (standing committees), hold hearings, and decide which bills move forward. Conference committees work out differences between House and Senate versions.`,
+ why:`Most bills die in committee. Committees let members specialize and are where Congress does most of its oversight of the executive branch.`,
+ q:`Why do most bills die in committee?`,
+ qa:`Committees screen thousands of bills and advance only the ones the chair and party leaders support or have time for.`},
+{id:`spending`,u:2,t:`concept`,topic:`Congress`,f:`Mandatory vs. discretionary spending`,
+ b:`Mandatory spending is required by existing law, mostly entitlements like Social Security, Medicare, and Medicaid. Discretionary spending is set each year through appropriations bills, including defense and education.`,
+ why:`Mandatory spending plus interest on the debt is roughly 70% of the federal budget and growing, which shrinks what Congress decides each year. That squeeze drives budget fights.`,
+ hook:`Look at your first paycheck: the FICA line (7.65% = 6.2% Social Security + 1.45% Medicare) funds the biggest mandatory programs.`,
+ ex:`The Quantitative Analysis FRQ often uses budget charts. Know which programs fall in which category.`,
+ q:`Why is it hard to cut the deficit by trimming discretionary spending alone?`,
+ qa:`Discretionary spending is the smaller share. The biggest, fastest-growing costs are entitlements and interest, which change only if Congress changes the underlying laws.`,
+ clue:`Two budget categories: one is required by existing law (like Social Security), the other is set each year through appropriations.`},
+{id:`reapportion`,u:2,t:`concept`,topic:`Congress`,f:`Reapportionment vs. redistricting`,
+ b:`Reapportionment reassigns the 435 House seats among the states after each census (every 10 years). Redistricting is when states redraw district lines to match the new seat counts and population shifts.`,
+ why:`Whoever draws the lines can influence who wins. That leads directly to gerrymandering and to Baker v. Carr and Shaw v. Reno.`,
+ q:`Who usually draws congressional district lines?`,
+ qa:`State legislatures, though some states use independent or bipartisan commissions.`,
+ clue:`Reassigning House seats among states after the census, then redrawing district lines within each state.`},
+{id:`gerrymandering`,u:2,t:`concept`,topic:`Congress`,f:`Gerrymandering`,
+ b:`Drawing district lines to give one party or group an advantage. Two techniques: packing (concentrating opponents in a few districts) and cracking (spreading them thin across many).`,
+ why:`Racial gerrymanders can violate Equal Protection (Shaw v. Reno). In Rucho v. Common Cause (2019), the Court said federal courts won’t decide partisan gerrymandering claims.`,
+ ex:`Link it to Baker v. Carr and Shaw v. Reno on the SCOTUS Comparison FRQ.`,
+ q:`What’s the difference between packing and cracking?`,
+ qa:`Packing crowds the other side’s voters into a few districts they win by huge margins; cracking splits them across many districts so they can’t win any.`},
+{id:`c-baker`,u:2,t:`case`,topic:`Congress`,f:`Baker v. Carr (1962)`,
+ b:`Tennessee hadn’t redrawn its legislative districts since 1901, so rural votes counted far more than city votes. The Court ruled that redistricting challenges are justiciable: federal courts can hear them under the Equal Protection Clause.`,
+ why:`It opened the door to the “one person, one vote” rulings that followed, such as Reynolds v. Sims (1964).`,
+ ex:`Pair with Shaw v. Reno. Both involve redistricting and the 14th Amendment.`,
+ q:`What does “justiciable” mean here, and why did it matter?`,
+ qa:`It means a court can decide the issue. Before Baker, courts treated districting as a political question; after Baker, voters could sue over unequal districts.`,
+ clue:`The Court ruled that federal courts can hear challenges to unequal legislative districts, opening the door to “one person, one vote.”`},
+{id:`c-shaw`,u:2,t:`case`,topic:`Congress`,f:`Shaw v. Reno (1993)`,
+ b:`North Carolina drew a long, snaking majority-Black congressional district. The Court ruled that districts drawn mainly on the basis of race must pass strict scrutiny under the Equal Protection Clause.`,
+ why:`It limits racial gerrymandering, even when the goal is to increase minority representation.`,
+ q:`What’s the constitutional basis of this decision?`,
+ qa:`The 14th Amendment’s Equal Protection Clause.`,
+ clue:`The Court ruled that congressional districts drawn mainly by race must pass strict scrutiny.`},
+{id:`representation`,u:2,t:`concept`,topic:`Congress`,f:`Trustee, delegate, and politico`,
+ b:`Three models of how lawmakers vote. Trustee: uses their own judgment. Delegate: votes the way constituents want. Politico: balances the two depending on the issue.`,
+ q:`A senator votes against a bill most of her state supports because she thinks it’s bad policy. Which model is that?`,
+ qa:`Trustee.`,
+ clue:`Three models of how lawmakers decide votes: by their own judgment, by constituents’ wishes, or a mix of both.`},
+{id:`divided-gov`,u:2,t:`concept`,topic:`Congress`,f:`Divided government and gridlock`,
+ b:`Divided government means one party holds the presidency and the other controls at least one house of Congress. Gridlock is the resulting difficulty in passing laws.`,
+ why:`It affects confirmations, budgets, and how often vetoes happen. A common Concept Application scenario.`,
+ q:`How might divided government affect judicial confirmations?`,
+ qa:`A Senate controlled by the other party can delay or reject the president’s nominees.`,
+ clue:`One party holds the presidency while the other controls at least one chamber of Congress, often slowing lawmaking.`},
+{id:`formal-powers`,u:2,t:`concept`,topic:`Presidency`,f:`President’s formal powers`,
+ ask:`Name the president’s formal powers from Article II.`,
+ b:`Powers listed in Article II: commander in chief, veto bills, make treaties (with Senate approval), appoint officials and judges (with Senate approval), grant pardons, and receive ambassadors.`,
+ q:`Which formal powers require Senate approval?`,
+ qa:`Treaties (two-thirds vote) and major appointments such as cabinet secretaries, ambassadors, and federal judges (majority vote).`},
+{id:`informal-powers`,u:2,t:`concept`,topic:`Presidency`,f:`President’s informal powers`,
+ ask:`What are the president’s informal powers? Give examples.`,
+ b:`Powers not listed in the Constitution but used by presidents: executive orders, executive agreements, signing statements, and the bully pulpit.`,
+ why:`Presidents have expanded these powers over time, especially when Congress is gridlocked.`,
+ q:`Why have informal powers grown?`,
+ qa:`Congress is often slow or divided, so presidents act on their own, and modern media amplifies the president’s voice.`,
+ clue:`The category of presidential tools not listed in the Constitution, including executive orders, executive agreements, and signing statements.`},
+{id:`exec-order`,u:2,t:`concept`,topic:`Presidency`,f:`Executive order`,
+ b:`A directive from the president to the executive branch that carries the force of law, based on authority from the Constitution or from a law Congress passed.`,
+ why:`It’s fast and needs no one’s approval, but it’s fragile. A new president can reverse it, Congress can override it by law, and courts can strike it down.`,
+ ex:`A classic FRQ 1 task: “Explain how Congress or the courts could check this action.”`,
+ q:`Name two ways this kind of action can be checked.`,
+ qa:`Courts can rule it unconstitutional or beyond the president’s authority; Congress can pass a law overriding it or cut its funding; a later president can revoke it.`},
+{id:`exec-agreement`,u:2,t:`concept`,topic:`Presidency`,f:`Executive agreement`,
+ b:`An agreement between the president and a foreign leader that doesn’t require Senate ratification.`,
+ why:`Presidents use them to avoid the two-thirds Senate vote that treaties need. They are less permanent than treaties.`,
+ q:`Why would a president use this instead of a treaty?`,
+ qa:`To avoid needing two-thirds of the Senate, which is hard to get, especially in divided government.`,
+ clue:`A deal between the president and a foreign leader that skips the Senate’s two-thirds vote.`},
+{id:`veto`,u:2,t:`concept`,topic:`Presidency`,f:`Veto and pocket veto`,
+ b:`A veto is the president’s rejection of a bill, which Congress can override with a two-thirds vote in both houses. A pocket veto happens when the president doesn’t sign a bill within 10 days (Sundays excepted) and Congress has adjourned, so the bill dies with no chance of override.`,
+ q:`Why is a pocket veto stronger than a regular veto?`,
+ qa:`Congress has adjourned, so it can’t vote to override.`,
+ clue:`The president’s rejection of a bill, including the version that happens when Congress has adjourned and can’t override.`},
+{id:`war-powers`,u:2,t:`concept`,topic:`Presidency`,f:`War Powers Resolution (1973)`,
+ b:`A law passed after the Vietnam War. The president must notify Congress within 48 hours of sending troops into combat and must withdraw them within 60 days (plus a 30-day withdrawal period) unless Congress approves.`,
+ why:`Congress declares war, but the president is commander in chief. This law was Congress’s attempt to rebalance that tension. Presidents of both parties have questioned whether it’s constitutional.`,
+ q:`Which two constitutional roles does this law try to balance?`,
+ qa:`Congress’s power to declare war and the president’s role as commander in chief.`,
+ clue:`A 1973 law requiring the president to notify Congress within 48 hours of sending troops into combat.`},
+{id:`bully-pulpit`,u:2,t:`concept`,topic:`Presidency`,f:`Bully pulpit`,
+ b:`The president’s ability to use the visibility of the office to persuade the public and pressure Congress.`,
+ why:`Theodore Roosevelt coined the phrase. Today it includes televised addresses, the State of the Union, and social media.`,
+ hook:`Every presidential post that trends online is this power at work.`,
+ q:`How does it help a president get legislation passed?`,
+ qa:`By rallying public support, which pressures members of Congress who worry about reelection.`},
+{id:`impeachment`,u:2,t:`concept`,topic:`Presidency`,f:`Impeachment and removal`,
+ b:`The House impeaches (formally charges) by a simple majority. The Senate holds a trial and removes the official only with a two-thirds vote.`,
+ why:`It’s Congress’s ultimate check on the executive and judicial branches. The Senate has never removed a president.`,
+ q:`Which house acts like a prosecutor, and which acts like a jury?`,
+ qa:`The House brings charges, like a prosecutor; the Senate holds the trial, like a jury.`,
+ clue:`The House brings charges by majority vote; the Senate removes the official only with two-thirds.`},
+{id:`22nd`,u:2,t:`concept`,topic:`Presidency`,f:`22nd Amendment`,
+ b:`Ratified in 1951, it limits a president to two elected terms.`,
+ why:`Passed after Franklin Roosevelt won four elections. It reflects a long-running fear, shared by the Anti-Federalists, of concentrated executive power.`,
+ q:`Which foundational document makes the case for a strong executive?`,
+ qa:`Federalist No. 70, by Alexander Hamilton.`,
+ clue:`The 1951 amendment limiting presidents to two elected terms.`},
+{id:`d-fed70`,u:2,t:`doc`,topic:`Presidency`,f:`Federalist No. 70 (Hamilton, 1788)`,
+ b:`Hamilton argues for a single, energetic executive. “Energy in the executive” means acting quickly and decisively, and one person (not a council) is easier to hold accountable.`,
+ why:`It defends the presidency against Anti-Federalist fears of a king. Use it to explain why presidential power has grown.`,
+ ex:`Strong Argument Essay evidence on presidential power or accountability.`,
+ q:`Why does Hamilton prefer one president over an executive council?`,
+ qa:`One executive can act with speed and decisiveness, and it’s clear who gets the blame or credit, which makes the office accountable.`,
+ clue:`Hamilton argues for a single, energetic executive.`},
+{id:`d-emancipation`,u:2,t:`doc`,isNew:true,topic:`Presidency`,f:`Emancipation Proclamation (Lincoln, 1863)`,
+ b:`Lincoln’s order, effective January 1, 1863, declaring enslaved people in the states in rebellion “forever free.” Issued as a war measure under his power as commander in chief, it didn’t apply to the border states loyal to the Union.`,
+ why:`It turned the Civil War into a war against slavery and opened the Union army to Black soldiers. Because it was a wartime executive action, the 13th Amendment (1865) was needed to end slavery permanently everywhere.`,
+ ex:`New to the required list for 2026–27. Use it for civil rights and for the reach and limits of presidential power.`,
+ q:`Why was the 13th Amendment still needed after the Proclamation?`,
+ qa:`The Proclamation was a wartime executive action that covered only rebelling states and could have been challenged after the war. An amendment made abolition permanent and nationwide.`,
+ clue:`Lincoln’s 1863 war measure declaring enslaved people in the rebelling states free.`},
+{id:`judicial-review`,u:2,t:`concept`,topic:`Courts`,f:`Judicial review`,
+ b:`The power of courts to strike down laws or government actions that violate the Constitution.`,
+ why:`It isn’t written in the Constitution. Hamilton defended it in Federalist 78, and the Court claimed it in Marbury v. Madison (1803).`,
+ q:`Where does this power come from, if the Constitution doesn’t mention it?`,
+ qa:`Marbury v. Madison (1803), building on Hamilton’s argument in Federalist 78.`,
+ clue:`The power of courts to strike down laws that violate the Constitution.`},
+{id:`c-marbury`,u:2,t:`case`,topic:`Courts`,f:`Marbury v. Madison (1803)`,
+ b:`William Marbury sued for a judicial appointment that was never delivered. The Court ruled that the part of the Judiciary Act of 1789 he relied on was unconstitutional, establishing judicial review.`,
+ why:`Chief Justice Marshall gave up a small win (Marbury’s job) to claim a huge power for the Court: deciding what the Constitution means.`,
+ ex:`Pairs with Federalist 78. Any question about the courts’ power traces back here.`,
+ q:`How did Marshall turn a political loss into a long-term win for the Court?`,
+ qa:`He ruled the Court couldn’t give Marbury his commission because the law granting that power was unconstitutional, which established the Court’s power to strike down laws.`,
+ clue:`The 1803 case in which the Court struck down part of the Judiciary Act of 1789 and established judicial review.`},
+{id:`d-fed78`,u:2,t:`doc`,topic:`Courts`,f:`Federalist No. 78 (Hamilton, 1788)`,
+ b:`Hamilton argues the judiciary is the “least dangerous” branch because it has influence over neither “the sword” nor “the purse.” Judges should serve during good behavior (effectively for life) to stay independent, and courts should strike down laws that conflict with the Constitution.`,
+ why:`It’s the intellectual foundation for judicial review, later put into practice in Marbury v. Madison.`,
+ q:`Why does Hamilton think life tenure matters?`,
+ qa:`It frees judges from political pressure so they can protect the Constitution even when their rulings are unpopular.`,
+ clue:`Hamilton argues the judiciary is the “least dangerous” branch and defends judicial review and life tenure.`},
+{id:`stare-decisis`,u:2,t:`concept`,topic:`Courts`,f:`Stare decisis (precedent)`,
+ b:`Latin for “let the decision stand.” Courts generally follow earlier rulings on the same legal question.`,
+ why:`It keeps the law stable and predictable. The Court can overturn precedent, as Brown v. Board did to Plessy v. Ferguson and Dobbs did to Roe v. Wade.`,
+ ex:`The SCOTUS Comparison FRQ often asks how a precedent applies to a new case.`,
+ q:`Give an example of the Supreme Court overturning its own precedent.`,
+ qa:`Brown v. Board (1954) overturned Plessy v. Ferguson’s “separate but equal”; Dobbs (2022) overturned Roe v. Wade.`},
+{id:`activism`,u:2,t:`concept`,topic:`Courts`,f:`Judicial activism vs. restraint`,
+ b:`Judicial activism: judges are willing to strike down laws or overturn precedent to fix what they see as constitutional problems. Judicial restraint: judges defer to the elected branches and to precedent unless a violation is clear.`,
+ why:`Neither label belongs to one party. Whether a ruling looks “activist” often depends on whether you like the result.`,
+ q:`Is overturning precedent always activism?`,
+ qa:`It’s usually labeled that way, but people disagree. Supporters of a reversal often call it correcting a mistake.`,
+ clue:`Two judicial philosophies: one willing to strike down laws and overturn precedent, the other deferring to elected branches.`},
+{id:`cert`,u:2,t:`concept`,topic:`Courts`,f:`Writ of certiorari (rule of four)`,
+ b:`The Supreme Court agrees to hear a case by granting a writ of certiorari. It takes four of the nine justices to grant one.`,
+ why:`The Court gets thousands of petitions each year and hears only about 60 cases. Most arrive on appeal from federal appeals courts or state supreme courts.`,
+ q:`Roughly how many cases does the Court hear each term?`,
+ qa:`About 60, out of several thousand petitions.`,
+ clue:`How the Supreme Court agrees to hear a case, which takes four of the nine justices.`},
+{id:`opinions`,u:2,t:`concept`,topic:`Courts`,f:`Majority, concurring, and dissenting opinions`,
+ b:`Majority opinion: the Court’s ruling and reasoning, which sets precedent. Concurring opinion: agrees with the result for different reasons. Dissenting opinion: disagrees with the result.`,
+ why:`Dissents sometimes become future majorities. Justice Harlan’s lone dissent in Plessy (1896) was vindicated by Brown in 1954.`,
+ q:`Why write a dissent if it doesn’t change the outcome?`,
+ qa:`To lay out reasoning future courts might adopt, to signal disagreement, or to push Congress to act.`,
+ clue:`The three kinds of written Supreme Court opinions: the ruling, agreeing for different reasons, and disagreeing.`},
+{id:`court-checks`,u:2,t:`concept`,topic:`Courts`,f:`Checks on the courts`,
+ b:`The president nominates and the Senate confirms judges. Congress can change the number of justices, limit which cases courts can hear, pass new laws, or propose amendments to reverse rulings. The executive branch decides how to enforce rulings.`,
+ why:`Federalist 78 calls courts the “least dangerous” branch because they control neither the sword nor the purse. Their power depends on legitimacy.`,
+ q:`How can Congress respond to a Supreme Court ruling it disagrees with?`,
+ qa:`Pass a new law (when the ruling interpreted a statute), propose a constitutional amendment, change the Court’s size or jurisdiction, or refuse to fund enforcement.`},
+{id:`bureaucracy`,u:2,t:`concept`,topic:`Bureaucracy`,f:`Federal bureaucracy`,
+ b:`The departments, agencies, and commissions that carry out federal laws. It includes 15 cabinet departments, independent regulatory agencies (like the FCC), and government corporations (like the U.S. Postal Service).`,
+ why:`Congress writes laws broadly, and the bureaucracy fills in the details by writing regulations. That gives unelected officials real power.`,
+ q:`Why does Congress give agencies so much discretion?`,
+ qa:`Lawmakers lack the time and expertise for technical details, so they delegate rule-making to specialists.`},
+{id:`rulemaking`,u:2,t:`concept`,topic:`Bureaucracy`,f:`Discretionary and rule-making authority`,
+ b:`Agencies’ power to decide how to carry out laws and to write regulations that have the force of law. Example: the EPA setting pollution limits under the Clean Air Act.`,
+ why:`In Loper Bright Enterprises v. Raimondo (2024), the Supreme Court overturned the Chevron doctrine, so courts no longer defer to an agency’s reading of an unclear law. That shifted power from agencies to judges.`,
+ q:`Who gained power when Chevron deference ended?`,
+ qa:`Federal courts, and arguably Congress, which now needs to write clearer laws. Agencies lost some freedom to interpret statutes.`,
+ clue:`Agencies’ power to decide how to carry out laws and to write regulations with the force of law.`},
+{id:`iron-triangle`,u:2,t:`concept`,topic:`Bureaucracy`,f:`Iron triangle`,
+ b:`A stable, mutually beneficial relationship among a congressional committee, a federal agency, and an interest group in the same policy area.`,
+ why:`Example: the Armed Services committees, the Department of Defense, and defense contractors. Critics say these relationships serve insiders over the public. Issue networks are a looser, broader version.`,
+ q:`What does each side of the triangle get?`,
+ qa:`The interest group gets favorable policy, the committee gets campaign support and expertise, and the agency gets funding and political backing.`},
+{id:`oversight`,u:2,t:`concept`,topic:`Bureaucracy`,f:`Congressional oversight`,
+ b:`Congress reviews how the executive branch carries out laws by holding hearings, investigating, controlling budgets (the “power of the purse”), and confirming appointees.`,
+ q:`What’s Congress’s most powerful oversight tool?`,
+ qa:`The power of the purse: it can increase, cut, or attach conditions to an agency’s funding.`,
+ clue:`Congress reviewing how the executive branch carries out laws through hearings, investigations, and budgets.`},
+{id:`merit`,u:2,t:`concept`,topic:`Bureaucracy`,f:`Patronage vs. merit system`,
+ b:`Patronage (the “spoils system”) gave government jobs to political supporters. The Pendleton Civil Service Act (1883) began replacing it with a merit system based on exams and qualifications.`,
+ why:`It passed after President Garfield was assassinated by a disappointed office seeker. It made the bureaucracy more professional and less political.`,
+ q:`What event pushed Congress to pass the Pendleton Act?`,
+ qa:`The 1881 assassination of President James Garfield by a man who had been denied a government job.`,
+ clue:`The 1883 change that began replacing the spoils system with hiring based on exams and qualifications.`},
+
+/* ===== UNIT 3 ===== */
+{id:`liberties-rights`,u:3,t:`concept`,topic:`Civil liberties`,f:`Civil liberties vs. civil rights`,
+ b:`Civil liberties are protections from government interference, mostly in the Bill of Rights (speech, religion, fair trials). Civil rights are protections from unequal treatment, rooted in the 14th Amendment’s Equal Protection Clause.`,
+ why:`Mixing these up is one of the most common student mistakes. Liberties = freedom from government. Rights = equal treatment.`,
+ q:`Is the right to a lawyer a civil liberty or a civil right?`,
+ qa:`A civil liberty: a Sixth Amendment protection against the government.`,
+ clue:`The difference between protections from government interference and protections from unequal treatment.`},
+{id:`incorporation`,u:3,t:`concept`,topic:`Civil liberties`,f:`Selective incorporation`,
+ b:`The process of applying the Bill of Rights to the states, one right at a time, through the 14th Amendment’s Due Process Clause.`,
+ why:`The Bill of Rights originally limited only the national government. Incorporation means states can’t violate these rights either. Gideon and McDonald are required incorporation cases.`,
+ ex:`Know the clause: the Due Process Clause of the 14th Amendment.`,
+ q:`Name two required cases that incorporated a right.`,
+ qa:`Gideon v. Wainwright (Sixth Amendment right to counsel) and McDonald v. Chicago (Second Amendment).`},
+{id:`establishment`,u:3,t:`concept`,topic:`First Amendment`,f:`Establishment Clause`,
+ b:`The First Amendment bars government from establishing an official religion or favoring religion. Jefferson called it a “wall of separation between church and state.”`,
+ why:`Engel v. Vitale (1962) used it to ban official school prayer. The Court’s approach has shifted: in Kennedy v. Bremerton (2022) it protected a coach’s personal prayer on the field.`,
+ q:`How is Engel v. Vitale different from Kennedy v. Bremerton?`,
+ qa:`Engel struck down prayer written and sponsored by the state; Kennedy protected a public employee’s personal prayer, which the Court saw as private religious expression.`,
+ clue:`The First Amendment clause that bars government from sponsoring or favoring religion.`},
+{id:`c-engel`,u:3,t:`case`,topic:`First Amendment`,f:`Engel v. Vitale (1962)`,
+ b:`New York public schools began the day with a short, nondenominational prayer written by state officials. The Court ruled that school-sponsored prayer violates the Establishment Clause, even when it’s voluntary.`,
+ why:`Government can’t write or sponsor prayers in public schools. Students can still pray on their own.`,
+ q:`The prayer was voluntary and nondenominational. Why was it still unconstitutional?`,
+ qa:`The state wrote and sponsored it, which put the government’s support behind religion.`,
+ clue:`The Court ruled that a state-written, voluntary prayer in public schools violated the Establishment Clause.`},
+{id:`free-exercise`,u:3,t:`concept`,topic:`First Amendment`,f:`Free Exercise Clause`,
+ b:`The First Amendment protects people’s right to practice their religion. Government can’t target religious practice, though some general laws still apply to everyone.`,
+ why:`Wisconsin v. Yoder (1972) is the required case: Amish families didn’t have to send their children to school past 8th grade.`,
+ ex:`When the two religion clauses collide, the exam may ask you to identify the tension.`,
+ q:`How can the two religion clauses conflict?`,
+ qa:`Accommodating religious practice (free exercise) can look like government favoring religion (establishment).`,
+ clue:`The First Amendment clause protecting people’s right to practice their religion, central to the Amish schooling case.`},
+{id:`c-yoder`,u:3,t:`case`,topic:`First Amendment`,f:`Wisconsin v. Yoder (1972)`,
+ b:`Amish parents refused to send their children to school past 8th grade, violating Wisconsin’s compulsory attendance law. The Court ruled that the Free Exercise Clause outweighed the state’s interest in two more years of schooling.`,
+ why:`It shows that religious freedom can override a general state law when the burden on religion is serious.`,
+ ex:`Engel and Yoder are both religion cases but different clauses: Engel = Establishment, Yoder = Free Exercise.`,
+ q:`Which religion clause does this case involve, and which does Engel involve?`,
+ qa:`Yoder: Free Exercise. Engel: Establishment.`,
+ clue:`The Court ruled Amish parents didn’t have to send their children to school past 8th grade.`},
+{id:`speech-limits`,u:3,t:`concept`,topic:`First Amendment`,f:`Limits on free speech`,
+ b:`Speech is protected but not absolute. Unprotected categories include true threats, defamation, obscenity, and incitement to “imminent lawless action” (Brandenburg v. Ohio, 1969).`,
+ why:`Schenck’s “clear and present danger” test (1919) was later replaced by Brandenburg’s stricter incitement test, which protects more speech.`,
+ hook:`You can criticize the government online. You can’t post a real threat against a specific person.`,
+ q:`Which test replaced “clear and present danger,” and does it protect more or less speech?`,
+ qa:`Brandenburg’s “imminent lawless action” test. It protects more speech.`},
+{id:`c-schenck`,u:3,t:`case`,topic:`First Amendment`,f:`Schenck v. United States (1919)`,
+ b:`Charles Schenck mailed leaflets urging men to resist the World War I draft. The Court unanimously upheld his conviction under the Espionage Act, ruling that speech creating a “clear and present danger” can be limited.`,
+ why:`Justice Holmes compared it to falsely shouting fire in a crowded theater. The test was later replaced by Brandenburg v. Ohio (1969).`,
+ ex:`The lesson: speech isn’t absolute, and context (like wartime) matters.`,
+ q:`Would the leaflets likely be protected today? Why?`,
+ qa:`Probably yes. Under Brandenburg, speech is protected unless it’s meant to, and likely to, produce imminent lawless action.`,
+ clue:`During World War I, the Court upheld a conviction for anti-draft leaflets and created the “clear and present danger” test.`},
+{id:`symbolic`,u:3,t:`concept`,topic:`First Amendment`,f:`Symbolic speech`,
+ b:`Actions that express a message, such as wearing armbands, burning a flag, or kneeling during the anthem, are protected as speech.`,
+ why:`Tinker v. Des Moines (1969) protected students’ armbands. Texas v. Johnson (1989) protected flag burning.`,
+ q:`According to Tinker, when can schools limit student speech?`,
+ qa:`When it would cause a “substantial disruption” of school activities or invade other students’ rights.`},
+{id:`c-tinker`,u:3,t:`case`,topic:`First Amendment`,f:`Tinker v. Des Moines (1969)`,
+ b:`Students wore black armbands to school to protest the Vietnam War and were suspended. The Court ruled 7–2 that symbolic speech is protected and that students don’t “shed their constitutional rights to freedom of speech or expression at the schoolhouse gate.”`,
+ why:`Schools can limit student speech only if it causes substantial disruption. It’s the case behind most student-speech debates today.`,
+ hook:`Thinking of wearing a T-shirt with a political message to school? This is your case.`,
+ q:`What would a school need to show to legally ban a political T-shirt?`,
+ qa:`That it would cause a substantial disruption of school activities or invade other students’ rights.`,
+ clue:`The Court protected students who wore black armbands to school to protest the Vietnam War.`},
+{id:`prior-restraint`,u:3,t:`concept`,topic:`First Amendment`,f:`Prior restraint`,
+ b:`Government action that blocks publication before it happens. Courts treat it as almost always unconstitutional.`,
+ why:`In New York Times Co. v. United States (1971), the government failed to stop newspapers from publishing the Pentagon Papers.`,
+ q:`Why is blocking publication treated more harshly than punishment afterward?`,
+ qa:`It stops information from ever reaching the public, which is the most direct form of censorship.`},
+{id:`c-nyt`,u:3,t:`case`,topic:`First Amendment`,f:`New York Times Co. v. United States (1971)`,
+ b:`The Nixon administration tried to stop newspapers from publishing the Pentagon Papers, a classified history of the Vietnam War. The Court ruled 6–3 that the government hadn’t met the heavy burden required for prior restraint.`,
+ why:`It strongly protects freedom of the press against censorship before publication.`,
+ q:`What is prior restraint?`,
+ qa:`Government blocking publication in advance. The Court treats it as presumed unconstitutional.`,
+ clue:`The Court refused to stop newspapers from publishing the Pentagon Papers.`},
+{id:`fourth`,u:3,t:`concept`,topic:`Rights of the accused`,f:`4th Amendment and the exclusionary rule`,
+ b:`The Fourth Amendment protects against unreasonable searches and seizures and generally requires warrants based on probable cause. The exclusionary rule keeps illegally obtained evidence out of trial; Mapp v. Ohio (1961) applied it to the states.`,
+ why:`In schools, officials need only “reasonable suspicion” to search students (New Jersey v. T.L.O., 1985). Police generally need a warrant to search a cellphone (Riley v. California, 2014).`,
+ hook:`This amendment is behind the rules on searching your locker, car, or phone.`,
+ q:`What happens to evidence police find in an illegal search?`,
+ qa:`Under the exclusionary rule, it generally can’t be used in court against the defendant.`,
+ clue:`Protection against unreasonable searches, plus the rule that keeps illegally obtained evidence out of court.`},
+{id:`fifth-sixth`,u:3,t:`concept`,topic:`Rights of the accused`,f:`5th and 6th Amendment rights`,
+ ask:`What rights do the 5th and 6th Amendments give someone accused of a crime?`,
+ b:`The Fifth Amendment protects against self-incrimination and double jeopardy and guarantees due process. The Sixth guarantees a speedy, public trial, an impartial jury, and the right to a lawyer.`,
+ why:`Miranda v. Arizona (1966) requires police to warn suspects of these rights (“You have the right to remain silent…”). Gideon applied the right to a lawyer to the states.`,
+ q:`Which amendment does “You have the right to remain silent” come from?`,
+ qa:`The Fifth Amendment (protection against self-incrimination).`,
+ clue:`Protection against self-incrimination and double jeopardy, plus the right to a lawyer and a speedy, public trial.`},
+{id:`c-gideon`,u:3,t:`case`,topic:`Rights of the accused`,f:`Gideon v. Wainwright (1963)`,
+ b:`Clarence Gideon was charged with a felony in Florida, couldn’t afford a lawyer, and was denied one. The Court unanimously ruled that states must provide lawyers to defendants who can’t afford one in felony cases.`,
+ why:`It incorporated the Sixth Amendment right to counsel through the 14th Amendment. Gideon wrote his petition by hand from prison, and he was acquitted when retried with a lawyer.`,
+ q:`Which amendment was incorporated, and through which clause?`,
+ qa:`The Sixth Amendment right to counsel, through the 14th Amendment’s Due Process Clause.`,
+ clue:`The Court ruled that states must provide lawyers to felony defendants who can’t afford one.`},
+{id:`c-mcdonald`,u:3,t:`case`,topic:`Civil liberties`,f:`McDonald v. Chicago (2010)`,
+ b:`Chicago banned handgun ownership. The Court ruled 5–4 that the Second Amendment right to keep and bear arms applies to state and local governments through the 14th Amendment’s Due Process Clause.`,
+ why:`It built on D.C. v. Heller (2008), which recognized an individual right to bear arms. A clear example of selective incorporation.`,
+ q:`Why did this case need to be decided after Heller?`,
+ qa:`Heller involved Washington, D.C., a federal district, so it didn’t settle whether the Second Amendment limited states and cities.`,
+ clue:`The Court ruled the Second Amendment applies to state and local governments, striking down a city handgun ban.`},
+{id:`privacy`,u:3,t:`context`,topic:`Civil liberties`,f:`Right to privacy: Roe and Dobbs`,
+ ask:`Explain the right to privacy and what happened to Roe v. Wade.`,
+ b:`The Constitution never says “privacy,” but Griswold v. Connecticut (1965) found an implied right. Roe v. Wade (1973) extended it to abortion. Dobbs v. Jackson Women’s Health Organization (2022) overturned Roe and returned abortion regulation to the states.`,
+ why:`Roe is no longer a required case, but it still works as a non-required case on the SCOTUS Comparison FRQ and as a clear example of the Court overturning precedent.`,
+ ex:`Use it for stare decisis and federalism examples.`,
+ q:`After Dobbs, who decides abortion policy?`,
+ qa:`Mostly the states, through state laws and ballot measures.`,
+ clue:`An implied constitutional right, extended to abortion in 1973; that ruling was overturned in 2022.`},
+{id:`equal-protection`,u:3,t:`concept`,topic:`Civil rights`,f:`Equal Protection Clause`,
+ b:`The 14th Amendment (1868) says no state may “deny to any person within its jurisdiction the equal protection of the laws.”`,
+ why:`It’s the constitutional backbone of civil rights. Brown v. Board, Baker v. Carr, and Shaw v. Reno all rest on it.`,
+ ex:`If a question involves discrimination by a state, think of this clause first.`,
+ q:`Name two required cases decided under this clause.`,
+ qa:`Any two of Brown v. Board, Baker v. Carr, and Shaw v. Reno.`,
+ clue:`The 14th Amendment clause that bars states from treating people unequally under the law.`},
+{id:`c-brown`,u:3,t:`case`,topic:`Civil rights`,f:`Brown v. Board of Education (1954)`,
+ b:`Black students were required to attend segregated schools. The Court ruled unanimously that “separate educational facilities are inherently unequal,” violating the Equal Protection Clause and overturning Plessy v. Ferguson (1896).`,
+ why:`A landmark for civil rights and an example of the NAACP using the courts; Thurgood Marshall argued it. Desegregation was slow because enforcement depended on the other branches.`,
+ ex:`Use it for Equal Protection, stare decisis (Plessy overturned), and the limits of judicial power (enforcement).`,
+ q:`Why did desegregation move slowly after this ruling?`,
+ qa:`Courts can’t enforce their own rulings. States resisted, and real change needed executive enforcement and laws like the Civil Rights Act of 1964.`,
+ clue:`The Court ruled that “separate educational facilities are inherently unequal,” overturning Plessy v. Ferguson.`},
+{id:`d-birmingham`,u:3,t:`doc`,topic:`Civil rights`,f:`Letter from Birmingham Jail (King, 1963)`,
+ b:`Written while King was jailed for protesting segregation. He defends nonviolent civil disobedience, argues people have a moral duty to break unjust laws, and criticizes white moderates who urged patience. “Injustice anywhere is a threat to justice everywhere.”`,
+ why:`It explains why the civil rights movement used direct action instead of waiting for courts or legislatures, and it helped build support for the Civil Rights Act of 1964.`,
+ ex:`Strong Argument Essay evidence on civil rights, social movements, and participation.`,
+ q:`How does King tell a just law from an unjust one?`,
+ qa:`A just law matches moral law and applies equally. An unjust law degrades people, binds a minority but not the majority that made it, or was passed by a body the minority couldn’t vote for.`,
+ clue:`King defends nonviolent civil disobedience and the duty to break unjust laws.`},
+{id:`cra64`,u:3,t:`concept`,topic:`Civil rights`,f:`Civil Rights Act of 1964`,
+ b:`Banned discrimination based on race, color, religion, sex, or national origin in public accommodations (hotels, restaurants), in employment (Title VII), and in federally funded programs.`,
+ why:`It passed after sustained pressure from the civil rights movement, including the Birmingham campaign and the March on Washington. Congress relied on its Commerce Clause power, and the Court upheld it.`,
+ hook:`Title VII is why an employer can’t refuse to hire you because of your race or sex. In Bostock v. Clayton County (2020), the Court ruled it also protects gay and transgender employees.`,
+ q:`Which constitutional power did Congress rely on to ban discrimination by private businesses?`,
+ qa:`The Commerce Clause, upheld in Heart of Atlanta Motel v. United States (1964).`,
+ clue:`The 1964 law banning discrimination in hotels, restaurants, and employment.`},
+{id:`vra`,u:3,t:`concept`,topic:`Civil rights`,f:`Voting Rights Act of 1965`,
+ b:`Banned literacy tests and other discriminatory voting practices, and required certain states with histories of discrimination to get federal approval (“preclearance”) before changing election rules.`,
+ why:`Black voter registration in the South rose sharply. In Shelby County v. Holder (2013), the Court struck down the formula that decided which places needed preclearance.`,
+ q:`What did Shelby County v. Holder change?`,
+ qa:`It struck down the coverage formula, so places that had needed preclearance no longer have to get federal approval for election changes.`,
+ clue:`The 1965 law that banned literacy tests and required federal approval for election changes in some states.`},
+{id:`title-ix`,u:3,t:`concept`,topic:`Civil rights`,f:`Title IX (1972)`,
+ b:`Bans sex discrimination in any education program or activity that receives federal money.`,
+ why:`It transformed girls’ and women’s sports and applies to admissions, harassment, and athletics at schools and colleges.`,
+ hook:`If your school’s girls’ teams get fair access to fields and gyms, this law is a big reason.`,
+ q:`How does this law use the same strategy as the drinking-age highway funds?`,
+ qa:`Schools must follow it to keep receiving federal money. That’s a condition of aid.`,
+ clue:`The 1972 law banning sex discrimination in federally funded education programs.`},
+{id:`ada`,u:3,t:`bonus`,topic:`Civil rights`,f:`Americans with Disabilities Act (1990)`,
+ b:`Bans discrimination against people with disabilities in employment, state and local government services, and public accommodations, and requires reasonable accommodations and accessibility.`,
+ why:`Disability activists won it through years of protest, including the 1977 Section 504 sit-ins and the 1990 “Capitol Crawl,” when activists climbed the Capitol steps without their wheelchairs or crutches. A clear case of a social movement producing a civil rights law.`,
+ hook:`The 504 plans and testing accommodations many students use come from this movement and from Section 504 of the Rehabilitation Act of 1973.`,
+ ex:`Not named in the course framework, but a strong outside example for civil rights and unfunded-mandate questions.`,
+ q:`How is the ADA an example of both civil rights policy and federalism?`,
+ qa:`It guarantees equal treatment for people with disabilities (civil rights) and requires states and localities to comply largely at their own cost (an unfunded mandate).`,
+ clue:`The 1990 law banning disability discrimination and requiring reasonable accommodations.`},
+{id:`affirmative`,u:3,t:`concept`,topic:`Civil rights`,f:`Affirmative action and SFFA v. Harvard (2023)`,
+ ask:`What is affirmative action, and what did the Supreme Court decide about it in 2023?`,
+ b:`Affirmative action gave some weight to race or sex to make up for past discrimination. In Students for Fair Admissions v. Harvard (2023), the Court ruled that race-conscious college admissions violate the Equal Protection Clause and Title VI of the Civil Rights Act.`,
+ why:`It ended race as an admissions factor at nearly all colleges. Applicants can still write about how race has affected their lives.`,
+ hook:`This decision shapes the college applications you’re writing this year.`,
+ ex:`A recent example for Equal Protection questions and for showing how the Court’s interpretation changes.`,
+ q:`Can applicants still discuss race in their college essays?`,
+ qa:`Yes. The Court said applicants may describe how race affected their lives, as long as colleges judge the individual’s experience and not race itself.`,
+ clue:`The 2023 ruling that ended race-conscious college admissions.`},
+
+/* ===== UNIT 4 ===== */
+{id:`socialization`,u:4,t:`concept`,topic:`Beliefs & socialization`,f:`Political socialization`,
+ b:`The process through which people develop political beliefs and values. Family is usually the strongest influence, along with school, peers, media, religion, and major events.`,
+ hook:`If you lean the same way politically as your parents, this is why. College and first jobs often shift those views.`,
+ q:`Name the most influential source of political beliefs and two others.`,
+ qa:`Family, plus any two of school, peers, media, religion, or community.`,
+ clue:`The process through which people develop political beliefs, usually starting with family.`},
+{id:`generational`,u:4,t:`concept`,topic:`Beliefs & socialization`,f:`Generational and life-cycle effects`,
+ b:`Generational effects come from experiences an age group shares (for example, 9/11 or the COVID-19 pandemic). Life-cycle effects are changes in views as people age and their priorities shift.`,
+ q:`A 22-year-old and a 65-year-old disagree about Social Security. Which effect might explain it?`,
+ qa:`A life-cycle effect: older people rely more on Social Security, so their priorities differ.`,
+ clue:`Two ways age shapes political views: experiences a cohort shares, and priorities that change as people get older.`},
+{id:`core-values`,u:4,t:`concept`,topic:`Beliefs & socialization`,f:`Core American political values`,
+ b:`Widely shared values: individualism, equality of opportunity, free enterprise, rule of law, and limited government.`,
+ why:`Americans broadly agree on these values but disagree on how to balance them, which explains much of the conflict between the parties.`,
+ q:`How can individualism and equality of opportunity conflict?`,
+ qa:`Policies that expand opportunity (like programs paid for by taxes) can limit individual choices or property.`,
+ clue:`Individualism, equality of opportunity, free enterprise, rule of law, and limited government.`},
+{id:`polling`,u:4,t:`concept`,topic:`Polling`,f:`Scientific polling and margin of error`,
+ b:`A reliable poll uses a random, representative sample, neutral question wording, and a large enough sample. The margin of error (often ±3 points) shows the range where the true result probably falls.`,
+ why:`If two candidates’ numbers are within the margin of error, the race is a statistical tie.`,
+ ex:`The Quantitative Analysis FRQ often includes poll data. Check sample size and question wording.`,
+ q:`Candidate A leads 48% to 46%, with a margin of error of ±3. Who’s winning?`,
+ qa:`Neither, statistically. The lead is within the margin of error.`,
+ clue:`What makes a survey reliable, including random sampling and the ± range around the result.`},
+{id:`ideologies`,u:4,t:`concept`,topic:`Ideology & policy`,f:`Liberal, conservative, libertarian`,
+ ask:`How do liberals, conservatives, and libertarians differ on the role of government?`,
+ b:`Liberals generally favor more government action on economic issues and less on personal ones. Conservatives generally favor less economic regulation and more emphasis on tradition and order. Libertarians want minimal government in both economic and personal life.`,
+ q:`Where do libertarians agree with liberals, and where with conservatives?`,
+ qa:`With liberals on limiting government in personal choices; with conservatives on limiting government in the economy.`,
+ clue:`Three ideologies that differ on how much government should do in the economy and in personal life.`},
+{id:`fiscal-monetary`,u:4,t:`concept`,topic:`Ideology & policy`,f:`Fiscal vs. monetary policy`,
+ b:`Fiscal policy is taxing and spending, decided by Congress and the president. Monetary policy is managing the money supply and interest rates, run by the independent Federal Reserve.`,
+ why:`The Fed’s independence is meant to keep short-term political pressure out of interest-rate decisions.`,
+ hook:`When the Fed raises interest rates, car loans and student loans get more expensive.`,
+ q:`Which policy is controlled by elected officials, and which by an independent agency?`,
+ qa:`Fiscal: Congress and the president. Monetary: the Federal Reserve.`,
+ clue:`Taxing and spending by elected officials, versus interest rates managed by an independent agency.`},
+{id:`keynes-supply`,u:4,t:`concept`,topic:`Ideology & policy`,f:`Keynesian vs. supply-side economics`,
+ b:`Keynesian economics says government should increase spending in downturns to boost demand. Supply-side economics says cutting taxes and regulations encourages investment and growth.`,
+ why:`Liberals tend to favor Keynesian approaches; conservatives tend to favor supply-side approaches.`,
+ q:`In a recession, what would each side recommend?`,
+ qa:`Keynesian: more government spending, sometimes tax rebates. Supply-side: tax cuts, especially on business and investment, and less regulation.`,
+ clue:`Two economic approaches: boost government spending in downturns, or cut taxes and regulation to spur investment.`},
+{id:`d-wealth`,u:4,t:`doc`,isNew:true,topic:`Ideology & policy`,f:`The Wealth of Nations (Adam Smith, 1776)`,
+ b:`Smith argues that free markets, competition, and the division of labor create prosperity. When people pursue their own interests, an “invisible hand” tends to benefit society. Government’s role is limited to defense, justice, and certain public works and institutions.`,
+ why:`Its ideas shape free-enterprise values and the debate over how much government should regulate the economy. It was published the same year as the Declaration.`,
+ ex:`New to the required list for 2026–27 (its core principles). Use it in questions about economic ideology and free enterprise.`,
+ q:`What would Smith say about government setting prices for most goods?`,
+ qa:`He’d oppose it, arguing that competition in free markets sets prices better than government can.`,
+ clue:`Adam Smith’s argument that free markets and an “invisible hand” create prosperity.`},
+
+/* ===== UNIT 5 ===== */
+{id:`voting-amendments`,u:5,t:`concept`,topic:`Voting`,f:`Voting rights amendments`,
+ ask:`Name the four amendments that expanded voting rights and what each one did.`,
+ b:`15th (1870): no denying the vote based on race. 19th (1920): women’s suffrage. 24th (1964): bans poll taxes in federal elections. 26th (1971): lowers the voting age to 18.`,
+ hook:`The 26th Amendment is yours. It passed during the Vietnam War, when 18-year-olds could be drafted but couldn’t vote.`,
+ q:`Which amendment lets you vote at 18, and what was the argument for it?`,
+ qa:`The 26th. If 18-year-olds could be drafted to fight in Vietnam, they should be able to vote.`,
+ clue:`The 15th, 19th, 24th, and 26th Amendments.`},
+{id:`voter-models`,u:5,t:`concept`,topic:`Voting`,f:`Models of voting behavior`,
+ ask:`Name and explain the four models of voting behavior.`,
+ b:`Rational choice: voting for what serves your own interests. Retrospective: judging incumbents on past performance. Prospective: voting on predictions of future performance. Party-line: voting for one party’s candidates all the way down the ballot.`,
+ q:`“I’m voting against the president’s party because the economy got worse.” Which model is that?`,
+ qa:`Retrospective voting.`,
+ clue:`Rational choice, retrospective, prospective, and party-line.`},
+{id:`turnout`,u:5,t:`concept`,topic:`Voting`,f:`Voter turnout`,
+ b:`Turnout is higher among people who are older, more educated, wealthier, and more interested in politics. Rules matter too: registration deadlines, voter ID laws, early and mail voting, and whether it’s a presidential or midterm year.`,
+ why:`Young voters have the lowest turnout of any age group, so campaigns often spend less effort on them.`,
+ hook:`Many states let 16- and 17-year-olds pre-register so they’re ready to vote on their 18th birthday.`,
+ q:`Why is turnout lower in midterm elections?`,
+ qa:`There’s no presidential race to drive attention, media coverage is lighter, and many voters feel less is at stake.`,
+ clue:`Which groups are most likely to vote, and how registration rules and the type of election affect participation.`},
+{id:`linkage`,u:5,t:`concept`,topic:`Parties`,f:`Linkage institutions`,
+ b:`Channels that connect people to government: political parties, interest groups, elections, and the media.`,
+ q:`How does an interest group act as one of these?`,
+ qa:`It gathers people’s shared concerns and carries them to officials through lobbying, testimony, and campaigns.`,
+ clue:`The channels that connect people to government: parties, interest groups, elections, and the media.`},
+{id:`parties`,u:5,t:`concept`,topic:`Parties`,f:`Party functions and realignment`,
+ b:`Parties recruit candidates, mobilize voters, organize government, and simplify choices with a party label. A realignment is a lasting shift in which groups support which party, often marked by a critical election such as 1932.`,
+ why:`Parties adapt to change, such as the white South’s shift from Democratic to Republican from the 1960s on.`,
+ q:`What’s the difference between realignment and dealignment?`,
+ qa:`Realignment: groups switch party loyalties. Dealignment: people drop party loyalty altogether and call themselves independents.`,
+ clue:`What parties do (recruit, mobilize, organize), and the lasting coalition shifts marked by a critical election.`},
+{id:`two-party`,u:5,t:`concept`,topic:`Parties`,f:`Winner-take-all and third parties`,
+ b:`Most U.S. elections use single-member districts with winner-take-all (plurality) rules, which push the country toward two major parties. Third parties rarely win but can act as spoilers and push major parties to adopt their ideas.`,
+ why:`Ballot-access laws and debate rules also make it hard for third parties to compete.`,
+ q:`Why do third parties rarely win in the U.S.?`,
+ qa:`Only the top vote-getter wins, so voters fear “wasting” a vote; ballot-access and debate rules add more barriers.`,
+ clue:`Why single-member, plurality districts push the U.S. toward two major parties.`},
+{id:`interest-groups`,u:5,t:`concept`,topic:`Interest groups & money`,f:`Interest groups and the free-rider problem`,
+ b:`Organized groups that try to influence policy by lobbying, filing amicus briefs, donating through PACs, and mobilizing members. The free-rider problem: people can benefit from a group’s work without joining or paying.`,
+ q:`Give an example of the free-rider problem.`,
+ qa:`A worker who benefits from a union contract without joining, or someone who enjoys clean air won by environmental groups without donating.`,
+ clue:`Organized groups that lobby and file amicus briefs, and the problem of people benefiting without joining.`},
+{id:`superpac`,u:5,t:`concept`,topic:`Interest groups & money`,f:`PACs and super PACs`,
+ b:`A PAC collects contributions and gives limited amounts directly to candidates. A super PAC can raise and spend unlimited amounts but can’t coordinate with a candidate’s campaign.`,
+ why:`Super PACs grew out of Citizens United v. FEC and a 2010 appeals court ruling, SpeechNow.org v. FEC.`,
+ q:`What’s the one thing a super PAC can’t do?`,
+ qa:`Coordinate with a candidate’s campaign or give money directly to it.`,
+ clue:`Two kinds of groups that spend on elections: one gives limited amounts to candidates, the other spends unlimited amounts independently.`},
+{id:`bcra`,u:5,t:`concept`,topic:`Interest groups & money`,f:`Bipartisan Campaign Reform Act (2002)`,
+ b:`Also called McCain-Feingold. It banned “soft money” donations to national parties and restricted ads paid for by corporations and unions close to elections. Citizens United later struck down the limits on independent spending.`,
+ q:`Which part of this law did Citizens United strike down?`,
+ qa:`The ban on corporations and unions spending their own money on independent political ads close to elections.`,
+ clue:`The 2002 law, also called McCain-Feingold, that banned soft money donations to national parties.`},
+{id:`c-citizens`,u:5,t:`case`,topic:`Interest groups & money`,f:`Citizens United v. FEC (2010)`,
+ b:`A nonprofit group wanted to air a film criticizing Hillary Clinton close to the 2008 primaries. The Court ruled 5–4 that corporations and unions can spend unlimited amounts on independent political communications, because political spending is protected speech.`,
+ why:`It led to the rise of super PACs and far more outside spending in elections.`,
+ ex:`First Amendment + campaign finance. Pairs with questions about interest groups, PACs, and BCRA.`,
+ q:`Does this ruling let corporations give unlimited money directly to candidates?`,
+ qa:`No. Direct contributions are still limited. It allows unlimited independent spending that isn’t coordinated with campaigns.`,
+ clue:`The Court ruled corporations and unions may spend unlimited amounts on independent political ads.`},
+{id:`primaries`,u:5,t:`concept`,topic:`Elections`,f:`Primaries and caucuses`,
+ b:`Primaries let voters choose a party’s nominees. Closed primaries allow only party members; open primaries let any registered voter take part. Caucuses are meetings where party members choose candidates.`,
+ why:`Primary voters tend to be more ideological than general-election voters, which can pull candidates toward the extremes.`,
+ q:`Why might primaries produce more extreme candidates?`,
+ qa:`Primary voters are fewer and more partisan, so candidates appeal to the party base.`,
+ clue:`How parties choose nominees: open or closed elections, or meetings of party members.`},
+{id:`electoral-college`,u:5,t:`concept`,topic:`Elections`,f:`Electoral College`,
+ b:`538 electors (one for each House seat and Senate seat, plus 3 for D.C.). A candidate needs 270 to win. Most states give all their electors to the statewide winner; Maine and Nebraska split theirs by district.`,
+ why:`A candidate can win the presidency while losing the national popular vote, as in 2000 and 2016. Campaigns focus on swing states.`,
+ q:`Why do candidates spend most of their time in a few states?`,
+ qa:`Winner-take-all rules mean only competitive swing states are likely to change the outcome.`,
+ clue:`538 votes, 270 to win, awarded mostly winner-take-all by state.`},
+{id:`incumbency`,u:5,t:`concept`,topic:`Elections`,f:`Incumbency advantage`,
+ b:`Officeholders running for reelection usually win; House incumbents often win more than 90% of the time. Name recognition, fundraising, help with constituents’ problems (casework), and friendly district lines all help.`,
+ q:`Name two sources of this advantage.`,
+ qa:`Any two: name recognition, fundraising, free mail to constituents (franking), casework, media coverage, gerrymandered districts.`,
+ clue:`Why officeholders running for reelection usually win.`},
+{id:`media`,u:5,t:`concept`,topic:`Media`,f:`Agenda-setting and horse-race coverage`,
+ b:`The media sets the agenda by choosing which issues get covered (gatekeeping). Horse-race journalism focuses on who’s ahead in the polls rather than on policy.`,
+ why:`Social media and partisan outlets create echo chambers that can deepen polarization. Fewer people share the same news sources than in the past.`,
+ hook:`Your feed decides much of what you see. That’s agenda-setting by algorithm.`,
+ q:`How can social media increase political polarization?`,
+ qa:`Algorithms show people content they already agree with, which reinforces their views and limits exposure to other perspectives.`,
+ clue:`How news outlets decide which issues get attention, and their focus on who’s ahead in the polls.`},
+{id:`social-movements`,u:5,t:`concept`,topic:`Media`,f:`Social movements`,
+ b:`Large, informal groups working for change through protests, boycotts, civil disobedience, and public pressure, such as the civil rights, women’s rights, disability rights, and LGBTQ+ rights movements.`,
+ why:`Movements often push issues onto the agenda before parties or Congress act. Letter from Birmingham Jail defends their tactics.`,
+ q:`Give one example of a social movement leading to a federal law.`,
+ qa:`The civil rights movement → Civil Rights Act of 1964 and Voting Rights Act of 1965; the disability rights movement → the ADA (1990).`}
+];
+CARDS.forEach((c,i)=>{c.n=i+1;});
+const BY_ID = {}; CARDS.forEach(c=>{BY_ID[c.id]=c;});
+const TOTAL = CARDS.length;
+
+/* ---------------------------------------------------------------
+   Storage (this browser only; the page works without it)
+---------------------------------------------------------------- */
+const KEY = `apgov-flashcards-v1`;
+function load(){
+  try{ const raw = localStorage.getItem(KEY); if(raw){ const d = JSON.parse(raw); return {status:d.status||{}, sessions:d.sessions||[], prefs:d.prefs||{}}; } }catch(e){}
+  return {status:{}, sessions:[], prefs:{}};
+}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(store)); }catch(e){} }
+let store = load();
+
+/* ---------------------------------------------------------------
+   Helpers
+---------------------------------------------------------------- */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s).replace(/&/g,`&amp;`).replace(/</g,`&lt;`).replace(/>/g,`&gt;`).replace(/"/g,`&quot;`);
+function shuffleArr(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function announce(msg){ const l=$(`#live`); l.textContent=``; setTimeout(()=>{l.textContent=msg;},30); }
+function fmtDate(ts){ try{ return new Date(ts).toLocaleDateString(`en-US`,{month:`short`,day:`numeric`}); }catch(e){ return ``; } }
+function pct(a,b){ return b ? Math.round(a/b*100) : 0; }
+
+const DECKS = [
+  {key:`all`, label:`All cards`, test:()=>true},
+  {key:`u1`, label:`Unit 1 · Foundations`, test:c=>c.u===1},
+  {key:`u2`, label:`Unit 2 · Branches`, test:c=>c.u===2},
+  {key:`u3`, label:`Unit 3 · Liberties & Rights`, test:c=>c.u===3},
+  {key:`u4`, label:`Unit 4 · Ideologies`, test:c=>c.u===4},
+  {key:`u5`, label:`Unit 5 · Participation`, test:c=>c.u===5},
+  {key:`cases`, label:`Required cases`, test:c=>c.t===`case`},
+  {key:`docs`, label:`Foundational docs`, test:c=>c.t===`doc`},
+  {key:`learning`, label:`Still learning`, test:c=>store.status[c.id]===`learning`}
+];
+function deckOf(key){ return DECKS.find(d=>d.key===key) || DECKS[0]; }
+function deckCards(key){ return CARDS.filter(deckOf(key).test); }
+function chipsHTML(active, scope){
+  return `<div class="deckbar" role="group" aria-label="Choose a deck">` + DECKS.map(d=>{
+    const n = deckCards(d.key).length;
+    return `<button type="button" class="chip" data-scope="${scope}" data-deck="${d.key}" aria-pressed="${d.key===active}" ${n===0?`disabled`:``}>${esc(d.label)} <span class="count">${n}</span></button>`;
+  }).join(``) + `</div>`;
+}
+function badgeText(c){
+  if(c.t===`case`) return `Required case`;
+  if(c.t===`doc`) return c.isNew ? `Foundational document · New for 2026–27` : `Foundational document`;
+  if(c.t===`context`) return `Context · not a required case`;
+  if(c.t===`bonus`) return `Bonus example`;
+  return ``;
+}
+function badgeHTML(c){ const t=badgeText(c); return t ? `<span class="badge${c.isNew?` new`:``}">${esc(t)}</span>` : `<span></span>`; }
+function eyebrow(c){ return `Unit ${c.u} · ${c.topic}`; }
+
+/* ---------------------------------------------------------------
+   Preferences: text size + animation
+---------------------------------------------------------------- */
+const SIZES = [`Standard`,`Large`,`Extra large`];
+function applyPrefs(){
+  const size = store.prefs.size || 0;
+  document.documentElement.dataset.size = String(size);
+  $(`#size-btn`).textContent = `Text size: ${SIZES[size]}`;
+  let motion = store.prefs.motion;
+  if(motion===undefined){ motion = !(window.matchMedia && matchMedia(`(prefers-reduced-motion: reduce)`).matches); }
+  document.documentElement.dataset.motion = motion ? `on` : `off`;
+  $(`#motion-btn`).textContent = `Card animation: ${motion?`On`:`Off`}`;
+  $(`#motion-btn`).setAttribute(`aria-pressed`, String(motion));
+}
+$(`#size-btn`).addEventListener(`click`,()=>{ store.prefs.size = ((store.prefs.size||0)+1)%3; save(); applyPrefs(); });
+$(`#motion-btn`).addEventListener(`click`,()=>{ const on = document.documentElement.dataset.motion===`on`; store.prefs.motion = !on; save(); applyPrefs(); });
+
+/* ---------------------------------------------------------------
+   STUDY
+---------------------------------------------------------------- */
+const S = { view:`study`, deck:`all`, shuffle:false, queue:[], pos:0, flipped:false, done:false, resetArmed:false };
+function buildQueue(){
+  const ids = deckCards(S.deck).map(c=>c.id);
+  if(S.shuffle) shuffleArr(ids);
+  S.queue = ids; S.pos = 0; S.flipped = false; S.done = ids.length===0;
+}
+function masteryHTML(){
+  const cards = deckCards(S.deck);
+  let k=0,l=0; cards.forEach(c=>{ const s=store.status[c.id]; if(s===`known`) k++; else if(s===`learning`) l++; });
+  const n = cards.length - k - l;
+  const seg = [[k,`good-bg`],[l,`warn-bg`],[n,`new-bg`]].filter(x=>x[0]>0).map(x=>`<span class="${x[1]}" style="flex-grow:${x[0]}"></span>`).join(``);
+  return `<div class="mastery">
+    <div class="seg" role="img" aria-label="Deck progress: ${k} known, ${l} still learning, ${n} new">${seg}</div>
+    <ul class="legend" aria-hidden="true">
+      <li><span class="dot good-bg"></span>Known <b>${k}</b></li>
+      <li><span class="dot warn-bg"></span>Still learning <b>${l}</b></li>
+      <li><span class="dot new-bg"></span>New <b>${n}</b></li>
+    </ul></div>`;
+}
+function frontHTML(c){
+  return `<div class="face front" id="face-front">
+    <div class="card-top"><span>${esc(eyebrow(c))}</span><span class="cardno tnum">No. ${String(c.n).padStart(3,`0`)} of ${TOTAL}</span></div>
+    <div class="ruled"><p class="term">${esc(c.f)}</p></div>
+    <div class="card-foot">${badgeHTML(c)}<span class="hint">Tap to flip</span></div>
+  </div>`;
+}
+function backHTML(c){
+  const notes = [[`Why it matters`,c.why],[`Real-life hook`,c.hook],[`On the exam`,c.ex]].filter(x=>x[1]);
+  return `<div class="face back" id="face-back">
+    <div class="card-top"><span class="back-term">${esc(c.f)}</span><span class="cardno tnum">Unit ${c.u}</span></div>
+    <p class="def">${esc(c.b)}</p>
+    ${notes.length?`<dl class="notes">${notes.map(x=>`<div><dt>${x[0]}</dt><dd>${esc(x[1])}</dd></div>`).join(``)}</dl>`:``}
+  </div>`;
+}
+function renderStudy(focusDeck){
+  const el = $(`#view-study`);
+  if(!S.queue.length && !S.done) buildQueue();
+  el.innerHTML = `
+    ${chipsHTML(S.deck,`study`)}
+    <div class="studyhead" id="studyhead"></div>
+    <div id="study-body"></div>
+    <div class="study-foot">
+      <label class="check" for="shuffle"><input type="checkbox" id="shuffle" ${S.shuffle?`checked`:``}> Shuffle this deck</label>
+      <button type="button" class="link" id="reset-deck">Reset progress for this deck</button>
+    </div>
+    <p class="keys">Keyboard: <kbd>Space</kbd> flip · <kbd>←</kbd> <kbd>→</kbd> move · <kbd>1</kbd> still learning · <kbd>2</kbd> got it</p>`;
+  el.querySelectorAll(`.chip`).forEach(b=>b.addEventListener(`click`,()=>{ S.deck=b.dataset.deck; buildQueue(); renderStudy(b.dataset.deck); }));
+  $(`#shuffle`).addEventListener(`change`,e=>{ S.shuffle=e.target.checked; buildQueue(); renderStudy(); $(`#shuffle`).focus(); });
+  $(`#reset-deck`).addEventListener(`click`,e=>{
+    const btn=e.currentTarget;
+    if(!S.resetArmed){ S.resetArmed=true; btn.textContent=`Click again to reset ${deckCards(S.deck).length} cards`; setTimeout(()=>{ S.resetArmed=false; if(document.body.contains(btn)) btn.textContent=`Reset progress for this deck`; },4000); return; }
+    S.resetArmed=false; deckCards(S.deck).forEach(c=>{ delete store.status[c.id]; }); save(); buildQueue(); renderStudy(); announce(`Progress reset for this deck.`);
+  });
+  if(S.done) renderStudyDone(); else renderCardShell();
+  if(focusDeck){ const f=el.querySelector(`.chip[data-deck="${focusDeck}"]`); if(f) f.focus(); }
+}
+function renderCardShell(){
+  $(`#study-body`).innerHTML = `
+    <div class="scene"><div class="card" id="card" role="button" tabindex="0" aria-describedby="card-help"><div class="card-inner" id="card-inner"></div></div></div>
+    <p id="card-help" class="sr-only">Press Space or Enter to flip. Left and right arrows move between cards. Press 1 for still learning or 2 for got it.</p>
+    <div class="controls">
+      <button type="button" class="btn prev" id="prev">← Previous</button>
+      <button type="button" class="btn primary flip" id="flip">Show answer</button>
+      <button type="button" class="btn next" id="next">Next →</button>
+    </div>
+    <div class="rate" role="group" aria-label="How well do you know this card?">
+      <button type="button" class="btn" id="mark-learning"><span class="dot warn-bg" aria-hidden="true"></span>Still learning <kbd>1</kbd></button>
+      <button type="button" class="btn" id="mark-known"><span class="dot good-bg" aria-hidden="true"></span>Got it <kbd>2</kbd></button>
+    </div>`;
+  $(`#card`).addEventListener(`click`, flip);
+  $(`#flip`).addEventListener(`click`, flip);
+  $(`#prev`).addEventListener(`click`, ()=>go(-1));
+  $(`#next`).addEventListener(`click`, ()=>go(1));
+  $(`#mark-learning`).addEventListener(`click`, ()=>rate(`learning`));
+  $(`#mark-known`).addEventListener(`click`, ()=>rate(`known`));
+  updateCard();
+}
+function updateCard(){
+  const c = BY_ID[S.queue[S.pos]]; if(!c) return;
+  const card=$(`#card`), inner=$(`#card-inner`);
+  card.classList.add(`no-anim`);
+  card.classList.toggle(`flipped`, S.flipped);
+  inner.innerHTML = frontHTML(c) + backHTML(c);
+  void inner.offsetWidth;
+  card.classList.remove(`no-anim`);
+  syncFaces();
+  $(`#studyhead`).innerHTML = `<p class="pos"><span class="tnum">Card ${S.pos+1} of ${S.queue.length}</span> <span class="muted">· ${esc(deckOf(S.deck).label)}</span></p>` + masteryHTML();
+  $(`#prev`).disabled = S.pos===0;
+  $(`#next`).disabled = S.pos>=S.queue.length-1;
+}
+function syncFaces(){
+  const c = BY_ID[S.queue[S.pos]];
+  const front=$(`#face-front`), back=$(`#face-back`);
+  if(front) front.setAttribute(`aria-hidden`, String(S.flipped));
+  if(back) back.setAttribute(`aria-hidden`, String(!S.flipped));
+  $(`#flip`).textContent = S.flipped ? `Show question` : `Show answer`;
+  $(`#card`).setAttribute(`aria-label`, `${c.f}. ${S.flipped?`Answer side`:`Question side`}. Card ${S.pos+1} of ${S.queue.length}.`);
+}
+function flip(){ if(S.done) return; S.flipped=!S.flipped; $(`#card`).classList.toggle(`flipped`, S.flipped); syncFaces(); }
+function go(d){ if(S.done) return; const p=S.pos+d; if(p<0||p>=S.queue.length) return; S.pos=p; S.flipped=false; updateCard(); }
+function rate(status){
+  if(S.done) return;
+  const id=S.queue[S.pos];
+  store.status[id]=status; save();
+  if(status===`learning` && S.queue.indexOf(id,S.pos+1)===-1){
+    S.queue.splice(Math.min(S.pos+5,S.queue.length),0,id);
+  }
+  announce(status===`known`?`Marked got it.`:`Marked still learning. It will come back soon.`);
+  if(S.pos<S.queue.length-1){ S.pos++; S.flipped=false; updateCard(); }
+  else { S.done=true; renderStudyDone(); }
+}
+function renderStudyDone(){
+  const cards=deckCards(S.deck);
+  const learning = cards.filter(c=>store.status[c.id]===`learning`).length;
+  const known = cards.filter(c=>store.status[c.id]===`known`).length;
+  $(`#studyhead`).innerHTML = `<p class="pos">Deck complete <span class="muted">· ${esc(deckOf(S.deck).label)}</span></p>` + masteryHTML();
+  $(`#study-body`).innerHTML = `<div class="panel stack">
+    <h2>${cards.length ? `You went through the whole deck.` : `This deck is empty.`}</h2>
+    <p class="lede">${cards.length ? `${known} of ${cards.length} cards are marked “Got it.” ${learning ? `${learning} still need work, and they’re waiting in the Still learning deck.` : `Nothing is marked Still learning.`}` : `Mark cards “Still learning” while you study and they’ll collect here.`}</p>
+    <div class="row-btns">
+      ${learning?`<button type="button" class="btn primary" id="go-learning">Study the ${learning} still learning</button>`:``}
+      <button type="button" class="btn" id="restart">Start this deck over</button>
+      <a class="btn" href="#quiz">Take a quiz</a>
+    </div></div>`;
+  const gl=$(`#go-learning`); if(gl) gl.addEventListener(`click`,()=>{ S.deck=`learning`; buildQueue(); renderStudy(`learning`); });
+  $(`#restart`).addEventListener(`click`,()=>{ buildQueue(); renderStudy(); });
+}
+
+/* ---------------------------------------------------------------
+   QUIZ (self-test, multiple choice)
+---------------------------------------------------------------- */
+const TIMERS = [{v:0,label:`Off`},{v:87,label:`AP pace · 87 s`},{v:131,label:`Time and a half · 131 s`},{v:175,label:`Double time · 175 s`}];
+const Q = { phase:`setup`, deck:`all`, count:10, timer:0, items:[], i:0, score:0, answered:false, tick:null, deadline:0 };
+function familyOf(c){ return (c.t===`case`||c.t===`doc`) ? c.t : `concept`; }
+function promptFor(c){ const f=familyOf(c); return f===`case` ? `Which required Supreme Court case is this?` : f===`doc` ? `Which foundational document is this?` : `Which term matches this description?`; }
+function buildQuiz(){
+  const pool = shuffleArr(deckCards(Q.deck).slice()).slice(0, Q.count);
+  Q.items = pool.map(c=>{
+    const fam = familyOf(c);
+    let cands = CARDS.filter(x=>x.id!==c.id && familyOf(x)===fam);
+    const sameUnit = cands.filter(x=>x.u===c.u);
+    let picks = shuffleArr(fam===`concept` && sameUnit.length>=3 ? sameUnit.slice() : cands.slice()).slice(0,3);
+    return { id:c.id, options: shuffleArr([c.id, ...picks.map(p=>p.id)]), result:null, chosen:null };
+  });
+  Q.i=0; Q.score=0; Q.answered=false; Q.phase = Q.items.length ? `question` : `setup`;
+}
+function stopTick(){ if(Q.tick){ clearInterval(Q.tick); Q.tick=null; } }
+function renderQuiz(focusDeck){
+  stopTick();
+  const el=$(`#view-quiz`);
+  if(Q.phase===`setup`){
+    const avail = deckCards(Q.deck).length;
+    el.innerHTML = `<div class="stack">
+      <div><h2>Quiz me</h2><p class="lede">Multiple choice, like Section I of the exam. Each question gives a description; pick the matching term, case, or document from four choices. Missed cards go to the Still learning deck.</p></div>
+      <div class="panel stack">
+        <div><span class="lbl" id="quiz-deck-lbl">Deck</span>${chipsHTML(Q.deck,`quiz`)}</div>
+        <fieldset><legend class="lbl">Questions</legend><div class="pills">
+          ${[10,20,30].map(n=>`<label class="pill" for="qn-${n}"><input type="radio" name="qn" id="qn-${n}" value="${n}" ${Q.count===n?`checked`:``}><span>${n}</span></label>`).join(``)}
+        </div></fieldset>
+        <fieldset><legend class="lbl">Timer per question</legend><div class="pills">
+          ${TIMERS.map(t=>`<label class="pill" for="qt-${t.v}"><input type="radio" name="qt" id="qt-${t.v}" value="${t.v}" ${Q.timer===t.v?`checked`:``}><span>${t.label}</span></label>`).join(``)}
+        </div>
+        <p class="note">AP pace is 80 minutes ÷ 55 questions. The longer settings match the extended-time accommodations the College Board commonly approves (time and a half, double time), so students who use them can practice at their real pace.</p></fieldset>
+        <div class="row-btns"><button type="button" class="btn primary" id="quiz-start" ${avail?``:`disabled`}>Start ${Math.min(Q.count,avail)}-question quiz</button></div>
+      </div></div>`;
+    el.querySelectorAll(`.chip`).forEach(b=>b.addEventListener(`click`,()=>{ Q.deck=b.dataset.deck; renderQuiz(b.dataset.deck); }));
+    el.querySelectorAll(`input[name="qn"]`).forEach(r=>r.addEventListener(`change`,()=>{ Q.count=+r.value; const b=$(`#quiz-start`); b.textContent=`Start ${Math.min(Q.count,deckCards(Q.deck).length)}-question quiz`; }));
+    el.querySelectorAll(`input[name="qt"]`).forEach(r=>r.addEventListener(`change`,()=>{ Q.timer=+r.value; }));
+    $(`#quiz-start`).addEventListener(`click`,()=>{ buildQuiz(); renderQuiz(); });
+    if(focusDeck){ const f=el.querySelector(`.chip[data-deck="${focusDeck}"]`); if(f) f.focus(); }
+    return;
+  }
+  if(Q.phase===`question`){ renderQuestion(); return; }
+  renderQuizResults();
+}
+function renderQuestion(){
+  const el=$(`#view-quiz`); const it=Q.items[Q.i]; const c=BY_ID[it.id];
+  if(!Q.answered && Q.timer){ Q.deadline = Date.now()+Q.timer*1000; }
+  el.innerHTML = `<div class="qhead"><span class="tnum">Question ${Q.i+1} of ${Q.items.length}</span><span class="muted tnum">Score ${Q.score}</span></div>
+    ${Q.timer?`<div class="timer" id="timer"><div class="track"><div class="fill" id="timer-fill" style="width:100%"></div></div><span class="tnum" id="timer-txt">${Q.timer} s</span></div>`:``}
+    <div class="sheet" id="qsheet" tabindex="-1">
+      <div class="card-top"><span>${esc(eyebrow(c))}</span><span class="cardno">${esc(badgeText(c)||`Concept`)}</span></div>
+      <p class="prompt">${promptFor(c)}</p>
+      <p class="clue">${esc(c.clue||c.b)}</p>
+    </div>
+    <ol class="options" id="options">${it.options.map((oid,k)=>`<li><button type="button" class="btn opt" data-k="${k}"><kbd>${k+1}</kbd><span>${esc(BY_ID[oid].f)}</span><span class="mark"></span></button></li>`).join(``)}</ol>
+    <div class="feedback" id="feedback" aria-live="polite"></div>`;
+  el.querySelectorAll(`.opt`).forEach(b=>b.addEventListener(`click`,()=>choose(+b.dataset.k)));
+  $(`#qsheet`).focus({preventScroll:true});
+  if(Q.timer){
+    Q.tick=setInterval(()=>{
+      const left=Math.max(0,Q.deadline-Date.now()); const frac=left/(Q.timer*1000);
+      const fill=$(`#timer-fill`), txt=$(`#timer-txt`), box=$(`#timer`);
+      if(fill) fill.style.width=(frac*100)+`%`;
+      if(txt) txt.textContent=Math.ceil(left/1000)+` s`;
+      if(box) box.classList.toggle(`low`, frac<0.2);
+      if(left<=0){ stopTick(); choose(-1); }
+    },250);
+  }
+}
+function choose(k){
+  if(Q.answered || Q.phase!==`question`) return;
+  stopTick(); Q.answered=true;
+  const it=Q.items[Q.i]; const c=BY_ID[it.id];
+  const chosenId = k>=0 ? it.options[k] : null;
+  it.chosen=chosenId;
+  it.result = chosenId===c.id ? `correct` : (k<0 ? `timeout` : `wrong`);
+  if(it.result===`correct`) Q.score++; else { store.status[c.id]=`learning`; save(); }
+  $$(`#options .opt`).forEach((b,idx)=>{
+    b.disabled=true;
+    const oid=it.options[idx];
+    if(oid===c.id){ b.classList.add(`correct`); b.querySelector(`.mark`).innerHTML=`<span class="icon good" aria-hidden="true">✓</span>Answer`; }
+    else if(oid===chosenId){ b.classList.add(`wrong`); b.querySelector(`.mark`).innerHTML=`<span class="icon bad" aria-hidden="true">✕</span>Your pick`; }
+  });
+  const verdict = it.result===`correct`
+    ? `<p class="verdict"><span class="icon good" aria-hidden="true">✓</span>Correct.</p>`
+    : it.result===`timeout`
+      ? `<p class="verdict"><span class="icon warn" aria-hidden="true">!</span>Time’s up. The answer is ${esc(c.f)}.</p>`
+      : `<p class="verdict"><span class="icon bad" aria-hidden="true">✕</span>Not quite. The answer is ${esc(c.f)}.</p>`;
+  const last = Q.i>=Q.items.length-1;
+  $(`#feedback`).innerHTML = `${verdict}${c.why?`<p class="note" style="margin-top:0">${esc(c.why)}</p>`:``}
+    <div class="row-btns"><button type="button" class="btn primary" id="next-q">${last?`See results`:`Next question`} <kbd>Enter</kbd></button></div>`;
+  $(`#next-q`).addEventListener(`click`, nextQ);
+  $(`#next-q`).focus({preventScroll:true});
+  $(`.qhead .muted`).textContent=`Score ${Q.score}`;
+}
+function nextQ(){
+  if(!Q.answered) return;
+  if(Q.i<Q.items.length-1){ Q.i++; Q.answered=false; renderQuestion(); }
+  else { Q.phase=`done`; logSession(`quiz`, Q.deck, Q.items.map(it=>({id:it.id, pts:it.result===`correct`?2:0}))); renderQuizResults(); }
+}
+function unitBreakdown(rows){
+  const by={}; rows.forEach(r=>{ const u=BY_ID[r.id].u; by[u]=by[u]||{got:0,max:0}; by[u].got+=r.pts; by[u].max+=2; });
+  return Object.keys(by).sort().map(u=>({u:+u, got:by[u].got, max:by[u].max, p:pct(by[u].got,by[u].max)}));
+}
+function barsHTML(rows){
+  return `<ul class="bars">${rows.map(r=>`<li class="bar-row"><span>Unit ${r.u} · ${esc(UNITS[r.u].short)}</span>
+    <span class="bar-cell" title="Unit ${r.u}: ${r.p}%"><span class="bar-fill" style="width:calc((100% - 3.5rem) * ${r.p/100})"></span><span class="bar-val">${r.p}%</span></span></li>`).join(``)}</ul>`;
+}
+function renderQuizResults(){
+  const el=$(`#view-quiz`);
+  const rows=Q.items.map(it=>({id:it.id, pts:it.result===`correct`?2:0}));
+  const missed=Q.items.filter(it=>it.result!==`correct`);
+  el.innerHTML = `<div class="stack">
+    <div class="panel stack">
+      <span class="lbl">Quiz results · ${esc(deckOf(Q.deck).label)}</span>
+      <div class="hero-row"><span class="hero">${pct(Q.score,Q.items.length)}%</span><span class="muted">${Q.score} of ${Q.items.length} correct</span></div>
+      <div><span class="lbl">By unit</span>${barsHTML(unitBreakdown(rows))}</div>
+    </div>
+    ${missed.length?`<div class="panel stack"><h3>Review these</h3><ul class="missed">${missed.map(it=>`<li><span>${esc(BY_ID[it.id].f)}</span><span class="tag"><span class="dot ${it.result===`timeout`?`warn-bg`:``}" style="${it.result===`timeout`?``:`background:var(--bad)`}" aria-hidden="true"></span>${it.result===`timeout`?`Out of time`:`Missed`}</span></li>`).join(``)}</ul>
+      <p class="note" style="margin-top:0">These are now in the Still learning deck.</p></div>`:``}
+    <div class="row-btns">
+      ${missed.length?`<button type="button" class="btn primary" id="study-missed">Study the ones I missed</button>`:``}
+      <button type="button" class="btn" id="quiz-again">New quiz</button>
+    </div></div>`;
+  const sm=$(`#study-missed`); if(sm) sm.addEventListener(`click`,()=>{ S.deck=`learning`; buildQueue(); location.hash=`study`; });
+  $(`#quiz-again`).addEventListener(`click`,()=>{ Q.phase=`setup`; renderQuiz(); });
+}
+
+/* ---------------------------------------------------------------
+   PARENT MODE
+---------------------------------------------------------------- */
+const P = { phase:`setup`, deck:`all`, count:10, items:[], i:0, ratings:[], revealed:false };
+function askText(c){
+  if(c.ask) return c.ask;
+  if(c.t===`case`) return `What happened in ${c.f}, and what did the Court decide?`;
+  if(c.t===`doc`) return `What is the main argument or purpose of ${c.f}?`;
+  if(/ vs\. /.test(c.f)) return `Explain the difference: ${c.f}.`;
+  return `What is “${c.f},” and why does it matter?`;
+}
+function historyHTML(){
+  const list=store.sessions.slice(0,8);
+  if(!list.length) return `<p class="note" style="margin-top:0">No sessions yet. Quizzes your student takes in this browser will show up here too.</p>`;
+  return `<ul class="hist">${list.map(s=>`<li><span class="tnum">${fmtDate(s.date)}</span><span>${s.kind===`parent`?`Parent check-in`:`Self quiz`} <span class="muted">· ${esc(deckOf(s.deck).label)} · ${s.n} q</span></span>
+    <span class="bar-cell" title="${s.pct}%"><span class="bar-fill" style="width:calc((100% - 3rem) * ${s.pct/100})"></span><span class="bar-val">${s.pct}%</span></span></li>`).join(``)}</ul>`;
+}
+function renderParent(focusDeck){
+  const el=$(`#view-parent`);
+  if(P.phase===`setup`){
+    const avail=deckCards(P.deck).length;
+    el.innerHTML = `<div class="stack">
+      <div><h2>Parent mode</h2><p class="lede">You ask the questions out loud, and your student answers without seeing the screen. You get the answer key plus a follow-up question that checks real understanding, which is closer to how the free-response section is graded.</p></div>
+      <div class="panel stack">
+        <div><span class="lbl">How it works</span><ol class="how">
+          <li>Pick a deck and a length below.</li>
+          <li>Read the question aloud and let your student answer fully.</li>
+          <li>Tap <b>Show answer key</b>, compare, then ask the follow-up.</li>
+          <li>Mark it <b>Nailed it</b>, <b>Partly</b>, or <b>Missed it</b>. Partly and Missed cards go into your student’s Still learning deck.</li>
+          <li>At the end, copy the report or send the weak cards to Study.</li>
+        </ol></div>
+        <div><span class="lbl">Deck</span>${chipsHTML(P.deck,`parent`)}</div>
+        <fieldset><legend class="lbl">Questions</legend><div class="pills">
+          ${[5,10,15,20].map(n=>`<label class="pill" for="pn-${n}"><input type="radio" name="pn" id="pn-${n}" value="${n}" ${P.count===n?`checked`:``}><span>${n}</span></label>`).join(``)}
+        </div><p class="note">About a minute per question with the follow-up, so 10 questions is roughly a 10–15 minute check-in.</p></fieldset>
+        <div class="row-btns"><button type="button" class="btn primary" id="parent-start" ${avail?``:`disabled`}>Start check-in</button></div>
+      </div>
+      <div class="panel stack"><h3>Recent sessions in this browser</h3>${historyHTML()}</div>
+    </div>`;
+    el.querySelectorAll(`.chip`).forEach(b=>b.addEventListener(`click`,()=>{ P.deck=b.dataset.deck; renderParent(b.dataset.deck); }));
+    el.querySelectorAll(`input[name="pn"]`).forEach(r=>r.addEventListener(`change`,()=>{ P.count=+r.value; }));
+    $(`#parent-start`).addEventListener(`click`,()=>{
+      P.items = shuffleArr(deckCards(P.deck).map(c=>c.id)).slice(0,P.count);
+      P.i=0; P.ratings=[]; P.revealed=false; P.phase=`ask`; renderParent();
+    });
+    if(focusDeck){ const f=el.querySelector(`.chip[data-deck="${focusDeck}"]`); if(f) f.focus(); }
+    return;
+  }
+  if(P.phase===`ask`){ renderAsk(); return; }
+  renderParentReport();
+}
+function renderAsk(){
+  const el=$(`#view-parent`); const c=BY_ID[P.items[P.i]];
+  el.innerHTML = `<div class="qhead"><span class="tnum">Question ${P.i+1} of ${P.items.length}</span><button type="button" class="link" id="end-early">End session</button></div>
+    <div class="sheet">
+      <div class="card-top"><span>${esc(eyebrow(c))}</span><span class="cardno">${esc(badgeText(c)||`Concept`)}</span></div>
+      <p class="prompt">Ask out loud</p>
+      <p class="ask-text">${esc(askText(c))}</p>
+      <div class="row-btns" style="margin-top:1rem"><button type="button" class="btn" id="reveal" aria-expanded="${P.revealed}" aria-controls="answer-key">${P.revealed?`Hide answer key`:`Show answer key`}</button></div>
+      <div class="key" id="answer-key" ${P.revealed?``:`hidden`}>
+        <div><span class="lbl">A strong answer includes</span><p>${esc(c.b)}</p></div>
+        ${c.why?`<div><span class="lbl">Bonus points if they mention</span><p>${esc(c.why)}</p></div>`:``}
+        <div><span class="lbl">Then ask the follow-up</span><p class="ask-text small">${esc(c.q)}</p></div>
+        <div><span class="lbl">Strong follow-up answer</span><p>${esc(c.qa)}</p></div>
+      </div>
+    </div>
+    <div class="ratings" role="group" aria-label="How did your student do?">
+      <button type="button" class="btn" data-r="2"><span><span class="icon good" aria-hidden="true">✓</span> Nailed it</span><small>Main idea + follow-up</small></button>
+      <button type="button" class="btn" data-r="1"><span><span class="icon warn" aria-hidden="true">~</span> Partly</span><small>Some of it</small></button>
+      <button type="button" class="btn" data-r="0"><span><span class="icon bad" aria-hidden="true">✕</span> Missed it</span><small>Not yet</small></button>
+    </div>`;
+  $(`#reveal`).addEventListener(`click`,()=>{ P.revealed=!P.revealed; const k=$(`#answer-key`); k.hidden=!P.revealed; const b=$(`#reveal`); b.textContent=P.revealed?`Hide answer key`:`Show answer key`; b.setAttribute(`aria-expanded`,String(P.revealed)); });
+  el.querySelectorAll(`.ratings .btn`).forEach(b=>b.addEventListener(`click`,()=>rateParent(+b.dataset.r)));
+  $(`#end-early`).addEventListener(`click`,()=>{ if(P.ratings.length){ P.items=P.items.slice(0,P.ratings.length); finishParent(); } else { P.phase=`setup`; renderParent(); } });
+}
+function rateParent(r){
+  const id=P.items[P.i];
+  P.ratings.push({id, pts:r});
+  store.status[id] = r===2 ? `known` : `learning`; save();
+  if(P.i<P.items.length-1){ P.i++; P.revealed=false; renderAsk(); window.scrollTo({top:0}); }
+  else finishParent();
+}
+function finishParent(){ logSession(`parent`, P.deck, P.ratings); P.phase=`done`; renderParent(); }
+function logSession(kind, deck, rows){
+  const got=rows.reduce((a,r)=>a+r.pts,0), max=rows.length*2;
+  store.sessions.unshift({kind, deck, date:Date.now(), n:rows.length, pct:pct(got,max)});
+  store.sessions=store.sessions.slice(0,20); save();
+}
+function reportText(){
+  const got=P.ratings.reduce((a,r)=>a+r.pts,0), max=P.ratings.length*2;
+  const lines=[`AP Gov check-in · ${new Date().toLocaleDateString(`en-US`,{month:`long`,day:`numeric`,year:`numeric`})}`,
+    `Deck: ${deckOf(P.deck).label} · ${P.ratings.length} questions`,
+    `Score: ${got} of ${max} points (${pct(got,max)}%)`, ``, `By unit`];
+  unitBreakdown(P.ratings).forEach(r=>lines.push(`  Unit ${r.u} ${UNITS[r.u].short}: ${r.got}/${r.max} (${r.p}%)`));
+  const weak=P.ratings.filter(r=>r.pts<2);
+  lines.push(``, weak.length?`Review together`:`Nothing to review. Every answer was solid.`);
+  weak.forEach(r=>lines.push(`  - ${BY_ID[r.id].f} (${r.pts===1?`partly`:`missed`})`));
+  return lines.join(`\n`);
+}
+function renderParentReport(){
+  const el=$(`#view-parent`);
+  const got=P.ratings.reduce((a,r)=>a+r.pts,0), max=P.ratings.length*2;
+  const weak=P.ratings.filter(r=>r.pts<2);
+  const full=P.ratings.filter(r=>r.pts===2).length;
+  el.innerHTML = `<div class="stack">
+    <div class="panel stack">
+      <span class="lbl">Check-in report · ${esc(deckOf(P.deck).label)}</span>
+      <div class="hero-row"><span class="hero">${pct(got,max)}%</span><span class="muted">${got} of ${max} points · ${full} of ${P.ratings.length} nailed</span></div>
+      <p class="note" style="margin-top:0">Scoring: Nailed it = 2 points, Partly = 1, Missed it = 0.</p>
+      <div><span class="lbl">By unit</span>${barsHTML(unitBreakdown(P.ratings))}</div>
+    </div>
+    <div class="panel stack">
+      <h3>${weak.length?`Review together`:`Nothing to review`}</h3>
+      ${weak.length?`<ul class="missed">${weak.map(r=>`<li><span>${esc(BY_ID[r.id].f)}</span><span class="tag"><span class="icon ${r.pts===1?`warn`:`bad`}" style="width:1rem;height:1rem;font-size:.6rem" aria-hidden="true">${r.pts===1?`~`:`✕`}</span>${r.pts===1?`Partly`:`Missed`}</span></li>`).join(``)}</ul>
+      <p class="note" style="margin-top:0">These cards are now in the Still learning deck, so they’ll come up first the next time your student studies.</p>`:`<p class="lede" style="margin-top:0">Every answer was solid. Try a harder deck next time, like Required cases.</p>`}
+      <div class="row-btns">
+        <button type="button" class="btn primary" id="copy-report">Copy report</button>
+        ${weak.length?`<button type="button" class="btn" id="study-weak">Send weak cards to Study</button>`:``}
+        <button type="button" class="btn" id="parent-again">Start another check-in</button>
+      </div>
+      <div id="copy-fallback" hidden><label class="lbl" for="report-text">Select all and copy</label><textarea id="report-text" rows="9" readonly></textarea></div>
+    </div></div>`;
+  $(`#copy-report`).addEventListener(`click`, async e=>{
+    const txt=reportText(); const btn=e.currentTarget;
+    try{ await navigator.clipboard.writeText(txt); btn.textContent=`Copied`; announce(`Report copied.`); setTimeout(()=>{ if(document.body.contains(btn)) btn.textContent=`Copy report`; },2500); }
+    catch(err){ const fb=$(`#copy-fallback`); fb.hidden=false; const ta=$(`#report-text`); ta.value=txt; ta.focus(); ta.select(); announce(`Copying isn’t allowed here. The report text is selected below.`); }
+  });
+  const sw=$(`#study-weak`); if(sw) sw.addEventListener(`click`,()=>{ S.deck=`learning`; buildQueue(); location.hash=`study`; });
+  $(`#parent-again`).addEventListener(`click`,()=>{ P.phase=`setup`; renderParent(); });
+}
+
+/* ---------------------------------------------------------------
+   EXAM GUIDE
+---------------------------------------------------------------- */
+function openCard(id){
+  const c=BY_ID[id]; S.deck = c.t===`case`?`cases`:c.t===`doc`?`docs`:`u${c.u}`;
+  S.shuffle=false; buildQueue(); S.pos=Math.max(0,S.queue.indexOf(id)); location.hash=`study`;
+}
+function renderGuide(){
+  const el=$(`#view-guide`);
+  const cases=CARDS.filter(c=>c.t===`case`).slice().sort((a,b)=>(+a.f.match(/\((\d{4})\)/)[1])-(+b.f.match(/\((\d{4})\)/)[1]));
+  const docs=CARDS.filter(c=>c.t===`doc`);
+  const MAX=50;
+  el.innerHTML = `<div class="guide">
+    <div><h2>Exam guide</h2><p class="lede">What the AP U.S. Government and Politics exam looks like, where the points are, and a routine that fits around senior year.</p></div>
+
+    <div class="panel stack"><h3>The exam at a glance</h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th scope="col">Section</th><th scope="col">Questions</th><th scope="col">Time</th><th scope="col">Share of score</th></tr></thead>
+        <tbody>
+          <tr><td>I · Multiple choice</td><td class="num">55</td><td class="num">80 min</td><td class="num">50%</td></tr>
+          <tr><td>II · Free response</td><td class="num">4</td><td class="num">100 min</td><td class="num">50%</td></tr>
+        </tbody></table></div>
+      <p class="note" style="margin-top:0">The exam is taken in the College Board’s Bluebook testing app.</p>
+    </div>
+
+    <div class="panel stack"><h3>Where the multiple-choice points are</h3>
+      <p class="note" style="margin-top:0">Each bar shows the range of Section I questions that come from that unit.</p>
+      <div class="rng-chart">
+        ${[1,2,3,4,5].map(u=>{ const [lo,hi]=UNITS[u].w; return `<div class="rng-row"><span>Unit ${u} · ${esc(UNITS[u].short)}</span>
+          <span class="rng-track"><span class="rng" tabindex="0" style="left:${lo/MAX*100}%;width:${(hi-lo)/MAX*100}%" aria-label="Unit ${u}, ${esc(UNITS[u].name)}: ${lo} to ${hi} percent"><span class="tip">Unit ${u}: ${lo}–${hi}% of Section I</span></span>
+          <span class="rng-lab" style="left:calc(${hi/MAX*100}% + .4rem)">${lo}–${hi}%</span></span></div>`; }).join(``)}
+        <div class="rng-axis" aria-hidden="true"><span></span><span class="ticks"><span>0%</span><span>10%</span><span>20%</span><span>30%</span><span>40%</span><span>50%</span></span></div>
+      </div>
+      <p class="lede" style="margin-top:0">Units 2 and 5 together are 45–63% of the multiple-choice section, so put study time there first.</p>
+    </div>
+
+    <div class="panel stack"><h3>The four free-response questions</h3>
+      <ul class="frq">
+        <li><span class="nm">1 · Concept Application <span class="muted">· about 20 min</span></span><span>A short political scenario. Explain how it connects to a principle, institution, or process, and how another branch or actor could respond.</span><span class="note" style="margin-top:0">Practice with: checks and balances, federalism, and Congress–president cards.</span></li>
+        <li><span class="nm">2 · Quantitative Analysis <span class="muted">· about 20 min</span></span><span>A chart, table, or map. Describe the data, find a trend, draw a conclusion, and connect it to a political concept.</span><span class="note" style="margin-top:0">Practice with: polling, turnout, and budget cards.</span></li>
+        <li><span class="nm">3 · SCOTUS Comparison <span class="muted">· about 20 min</span></span><span>A case you haven’t studied is described. Compare it to one of the 14 required cases and explain how the earlier ruling applies.</span><span class="note" style="margin-top:0">Practice with: the Required cases deck. Know each case’s facts, clause, and holding.</span></li>
+        <li><span class="nm">4 · Argument Essay <span class="muted">· about 40 min</span></span><span>Take a defensible position, support it with at least two pieces of evidence (one from the foundational documents listed in the prompt), and respond to an opposing view.</span><span class="note" style="margin-top:0">Practice with: the Foundational docs deck. Have two documents ready for each big theme.</span></li>
+      </ul>
+    </div>
+
+    <div class="panel stack"><h3>Required Supreme Court cases <span class="muted">(14)</span></h3>
+      <p class="note" style="margin-top:0">Roe v. Wade was removed from the required list after Dobbs (2022). It’s in the deck as a context card.</p>
+      <ul class="reqlist">${cases.map(c=>`<li><button type="button" data-open="${c.id}"><span class="nm">${esc(c.f)}</span><span class="go">Open card →</span><span class="ln">${esc(c.clue)}</span></button></li>`).join(``)}</ul>
+    </div>
+
+    <div class="panel stack"><h3>Required foundational documents <span class="muted">(13)</span></h3>
+      <p class="note" style="margin-top:0">Four were added for 2026–27 and are marked New.</p>
+      <ul class="reqlist">${docs.map(c=>`<li><button type="button" data-open="${c.id}"><span class="nm">${esc(c.f)}${c.isNew?` <span class="tag" style="font-family:var(--font-body);margin-left:.35rem"><span class="dot" style="background:var(--card-rule)" aria-hidden="true"></span>New</span>`:``}</span><span class="go">Open card →</span><span class="ln">${esc(c.clue)}</span></button></li>`).join(``)}</ul>
+    </div>
+
+    <div class="panel stack"><h3>A weekly routine that works</h3>
+      <ul class="plan">
+        <li><b>Most nights · 15 min</b><span>Study 20 cards from one unit. Mark them honestly; Still learning cards come back a few cards later, which beats rereading.</span></li>
+        <li><b>Twice a week · 10 min</b><span>Take a 10-question quiz. Once scores stay above 80%, turn on AP pace.</span></li>
+        <li><b>Once a week · 15 min</b><span>Parent check-in. The follow-up questions test the “why,” which is what the free-response section rewards.</span></li>
+        <li><b>Every weekend</b><span>Run the Still learning deck until it’s empty.</span></li>
+      </ul>
+    </div>
+
+    <div class="panel stack"><h3>Testing accommodations</h3>
+      <p style="max-width:66ch">If your student has an IEP or a 504 plan, ask the school’s AP or SSD coordinator about College Board accommodations, such as extended time or extra breaks. The school submits the request and approval can take weeks, so start well before spring. Use the quiz timer’s time-and-a-half or double-time setting so practice matches test day.</p>
+    </div>
+
+    <p class="src">Content follows the College Board’s AP U.S. Government and Politics Course and Exam Description, including the update that took effect in fall 2026. Check the <a href="https://apcentral.collegeboard.org/courses/ap-united-states-government-and-politics">official course page</a> for later changes. Progress and session history are saved only in this browser.</p>
+  </div>`;
+  el.querySelectorAll(`[data-open]`).forEach(b=>b.addEventListener(`click`,()=>openCard(b.dataset.open)));
+}
+
+/* ---------------------------------------------------------------
+   Routing + keyboard
+---------------------------------------------------------------- */
+const VIEWS=[`study`,`quiz`,`parent`,`guide`];
+function route(){
+  const h=(location.hash||``).slice(1);
+  const v=VIEWS.includes(h)?h:`study`;
+  if(S.view===`quiz` && v!==`quiz`) stopTick();
+  S.view=v;
+  VIEWS.forEach(x=>{ $(`#view-`+x).hidden = x!==v; });
+  $$(`.tabs a`).forEach(a=>{ if(a.dataset.view===v) a.setAttribute(`aria-current`,`page`); else a.removeAttribute(`aria-current`); });
+  if(v===`study`) renderStudy();
+  else if(v===`quiz`){ if(Q.phase===`question` && Q.answered){ nextQ(); } else renderQuiz(); }
+  else if(v===`parent`) renderParent();
+  else renderGuide();
+}
+window.addEventListener(`hashchange`, ()=>{ route(); window.scrollTo({top:0}); });
+
+document.addEventListener(`keydown`, e=>{
+  if(e.altKey||e.ctrlKey||e.metaKey) return;
+  const tag=(e.target.tagName||``).toLowerCase();
+  if([`input`,`select`,`textarea`].includes(tag)) return;
+  const onControl = tag===`button` || tag===`a`;
+  if(S.view===`study` && !S.done && $(`#card`)){
+    if((e.key===` `||e.key===`Enter`) && !onControl){ e.preventDefault(); flip(); }
+    else if(e.key===`ArrowRight`){ e.preventDefault(); go(1); }
+    else if(e.key===`ArrowLeft`){ e.preventDefault(); go(-1); }
+    else if(e.key===`1`){ rate(`learning`); }
+    else if(e.key===`2`){ rate(`known`); }
+  } else if(S.view===`quiz` && Q.phase===`question`){
+    if(!Q.answered && [`1`,`2`,`3`,`4`].includes(e.key)){ e.preventDefault(); choose(+e.key-1); }
+    else if(Q.answered && e.key===`Enter` && !onControl){ e.preventDefault(); nextQ(); }
+  }
+});
+
+/* ---------------------------------------------------------------
+   Boot (keeps the viewer's place across a republish)
+---------------------------------------------------------------- */
+function start(data){
+  if(data && Array.isArray(data.queue) && data.queue.every(id=>BY_ID[id])){
+    S.deck = DECKS.some(d=>d.key===data.deck) ? data.deck : `all`;
+    S.queue = data.queue; S.pos = Math.min(data.pos||0, Math.max(0,data.queue.length-1)); S.shuffle=!!data.shuffle;
+  }
+  applyPrefs();
+  route();
+}
+if(window.claude && window.claude.hot && window.claude.hot.snapshot){
+  window.claude.hot.snapshot(()=>({deck:S.deck, queue:S.queue, pos:S.pos, shuffle:S.shuffle}));
+}
+if(window.claude && window.claude.hot && window.claude.hot.ready){ window.claude.hot.ready(start); }
+else { start((window.claude && window.claude.hot && window.claude.hot.data) || {}); }
+</script>
+</body>
+</html>
