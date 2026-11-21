@@ -1,0 +1,504 @@
+{
+  "id": "intermediate-navigation-search",
+  "track": "intermediate",
+  "title": "Finding anything: search, shortcuts and notifications",
+  "minutes": 15,
+  "summary": "You can reach almost anything on GitHub faster by asking than by clicking. A few keys jump to any file, a few search qualifiers find any line of code, issue or pull request, a permalink freezes what you are pointing at, and a tuned inbox shows only what needs you.",
+  "outcomes": [
+    "Jump to any file, line or symbol in a repository without clicking through folders",
+    "Write code searches with `repo:`, `path:`, `language:` and `symbol:` qualifiers",
+    "Filter issues and pull requests down to the ones waiting on you",
+    "Share a permanent link to exact lines that will not drift when the file changes",
+    "Trace why a line exists with blame and file history",
+    "Set watch levels and inbox filters so that notifications stay useful"
+  ],
+  "prereqs": ["basics-repo-tour"],
+  "lenses": {
+    "everyday": "A big library can be used two ways. You can wander the stacks, or you can sit at the catalog and filter by author, year and subject. Shortcuts and search are the catalog. When you tell a friend where to find a passage, \"third edition, page 212\" will still be right next year, while \"the page about owls in the current edition\" will not. That is a permalink. Notifications are your mail. You choose which magazines to subscribe to, you cancel the catalogs you never read, and you sort what arrives into done, keep and stop sending me this.",
+    "legal": "Legal research has the same two modes. You can page through reporters, or you can run a field-restricted search by court, date and judge. GitHub's qualifiers are field restrictions. A permalink is a pinpoint citation to a fixed edition: you cite the volume and page, or the statute as amended through a stated date, never \"the current version,\" which may change tomorrow. Blame is the annotation history of a statute. For each line it names the amendment that put it there, who introduced it and when, and the commit message is the statement of purpose. Notifications are docket alerts. Subscribe to the matters you are counsel on, because an inbox of everything hides the one notice with a deadline.",
+    "ml": "You inherit a research codebase. Where is the learning rate set? Search `repo:lab/project path:configs lr`. Where is `collate_fn` defined? Search by symbol. Which change altered the augmentation, and why did accuracy drop afterward? Open blame on `transforms.py`, follow the line to its commit, and read the pull request with the results table. In your paper's appendix, link to the loss function at the exact commit the experiments used, not to `main`, so the link still shows that code after the next refactor. For the upstream library you depend on, watch only releases and security alerts.",
+    "technical": "Code search indexes the default branch of repositories you can see. It accepts exact phrases in quotes, regular expressions between slashes, boolean operators, and qualifiers such as `repo:`, `path:`, `language:` and `symbol:`. Issue and pull request search is a separate index with its own qualifiers, such as `is:`, `author:`, `label:` and `review-requested:`. A file URL that contains a branch name is mutable, because the branch moves. A URL that contains a full commit hash is immutable. Pressing {{y}} swaps the first for the second. Notifications come from subscriptions: watching a repository, participating in a thread, being mentioned, assigned or asked for review. Each carries a reason you can filter on."
+  },
+  "sections": [
+    {
+      "heading": "Stop clicking through folders",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Almost every page on github.com responds to single keys. You do not need many. These few replace most of the clicking you do in a repository."
+        },
+        {
+          "type": "table",
+          "caption": "Seven keys worth learning",
+          "head": ["Key", "What it does", "Where"],
+          "rows": [
+            ["{{t}}", "Opens the file finder. Type any part of a file name", "Any page in a repository"],
+            ["{{/}}", "Puts the cursor in the search bar", "Anywhere"],
+            ["{{l}}", "Jumps to a line number", "A file view"],
+            ["{{b}}", "Opens blame for the file", "A file view"],
+            ["{{y}}", "Rewrites the address into a permalink", "A file view"],
+            ["{{.}}", "Opens the repository in the github.dev editor", "Any page in a repository"],
+            ["{{?}}", "Lists every shortcut available on the current page", "Anywhere"]
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Shortcuts are optional, and so is motion",
+          "text": "Single-key shortcuts can collide with screen reader commands and with voice control. In your account's **Settings**, the **Accessibility** page lets you turn off character-key shortcuts while keeping the ones that use a modifier key. The same page has settings for link underlines and for whether animated images play on their own."
+        },
+        {
+          "type": "p",
+          "text": "GitHub has also offered a command palette, opened with {{Ctrl}}+{{K}} or {{Cmd}}+{{K}}, as a preview feature whose availability has changed over time. If the shortcut does nothing in your account, the search bar covers the same jumps."
+        }
+      ]
+    },
+    {
+      "heading": "Code search",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The search bar understands structure. Plain words find text. Qualifiers narrow where to look. When you start typing inside a repository, the query begins with that repository already selected."
+        },
+        {
+          "type": "table",
+          "caption": "Code search building blocks",
+          "head": ["Qualifier", "Narrows to", "Example"],
+          "rows": [
+            ["`repo:`", "One repository", "`repo:lab/project warmup`"],
+            ["`path:`", "Files whose path matches", "`path:configs lr`"],
+            ["`language:`", "One programming language", "`language:python collate_fn`"],
+            ["`symbol:`", "Definitions of a function, class or variable", "`symbol:collate_fn`"],
+            ["Quotes", "An exact phrase", "`\"label smoothing\"`"],
+            ["`OR` and `NOT`", "Combinations of terms", "`cosine OR linear NOT path:tests`"]
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "You search GitHub for a function you added to a feature branch an hour ago. Nothing is found. Why?",
+          "answer": "Code search covers the default branch only. Code that exists only on another branch is not indexed. Use {{t}} and the branch selector to browse that branch, open it in github.dev with {{.}}, or search your clone with `git grep`."
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Search your clone when you need every branch",
+          "text": "`git grep -n \"collate_fn\"` searches the files in your working tree. `git log -S \"label_smoothing\" --oneline` lists the commits that added or removed that exact text, on any branch you have. That is often the quickest route to the change that introduced something."
+        }
+      ]
+    },
+    {
+      "heading": "Issues and pull requests that need you",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Issues and pull requests have their own search, with qualifiers about people and state. The pages at `github.com/pulls` and `github.com/issues` run these searches across every repository you can see."
+        },
+        {
+          "type": "table",
+          "caption": "Queries worth bookmarking",
+          "head": ["Query", "Finds"],
+          "rows": [
+            ["`is:open is:pr review-requested:@me`", "Pull requests waiting for your review"],
+            ["`is:open is:pr author:@me`", "Your own open pull requests"],
+            ["`is:open is:issue assignee:@me`", "Issues assigned to you"],
+            ["`is:open label:experiment no:assignee`", "Experiments nobody has picked up"],
+            ["`is:pr is:merged author:@me merged:>2026-01-01`", "What you have merged since the start of 2026"]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Bookmark the two or three queries you run every morning. A saved search is a task list that maintains itself."
+        }
+      ]
+    },
+    {
+      "heading": "Links that do not drift",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A normal file link contains a branch name, such as `main`. Branches move, so next month the same link may show different code, or line 42 may be a different line. Press {{y}} on a file and the address changes to one that contains the full commit hash. That link shows the same content forever."
+        },
+        {
+          "type": "graph",
+          "caption": "A link to main followed the branch from B to D. A permalink made at B names commit B and always shows the file as it was there.",
+          "commits": [
+            {"id": "A", "msg": "Add loss function"},
+            {"id": "B", "parents": ["A"], "msg": "Experiments for the paper ran here"},
+            {"id": "C", "parents": ["B"], "msg": "Refactor loss module"},
+            {"id": "D", "parents": ["C"], "msg": "Rename arguments"}
+          ],
+          "branches": {"main": "D"},
+          "head": "main",
+          "highlight": ["B"]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Select a line number to highlight it. Hold {{Shift}} and select another to highlight a range. The address gains an ending such as `#L10-L20`.",
+            "Press {{y}}, or use the menu beside the highlighted lines and choose **Copy permalink**.",
+            "Paste a permalink with a line range into an issue or pull request comment in the same repository, and GitHub shows the code itself as an embedded snippet."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Cite the edition, not the shelf",
+          "text": "In a memo, a methods section or an audit workpaper, a link to a branch is a citation to whatever the file says today. A permalink is a pinpoint citation to a fixed version, which someone can check next year and find unchanged. If a reference might ever be relied on as evidence of what the code said, make it a permalink."
+        }
+      ]
+    },
+    {
+      "heading": "Why is this line here?",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Blame shows, for every line of a file, the last commit that changed it, with its author and date. The name is unfortunate. Its real use is finding the reasoning behind a line."
+        },
+        {
+          "type": "flow",
+          "caption": "From a line of code to the reason it exists",
+          "steps": [
+            {"label": "A puzzling line", "note": "Why is the seed fixed here?"},
+            {"label": "Blame", "via": "press b", "note": "The commit that last changed it"},
+            {"label": "Commit", "via": "select it", "note": "The message and the full change"},
+            {"label": "Pull request", "via": "linked number", "note": "The discussion and the results"}
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "If the last change was only a reformat, use the control beside the line that shows blame from before that commit.",
+            "**History**, at the top of a file view, lists every commit that touched the file.",
+            "In a terminal, `git blame -L 40,60 train.py` blames only lines 40 to 60, and `git log -p -- train.py` shows each change to the file in full."
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Notifications you can live with",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "GitHub notifies you about threads you are subscribed to. You become subscribed by watching a repository, taking part in a thread, or being mentioned, assigned or asked for a review. Left at its defaults the inbox grows without limit. Two settings and one habit keep it useful."
+        },
+        {
+          "type": "compare",
+          "caption": "Watch levels for a repository",
+          "items": [
+            {
+              "title": "Participating and @mentions",
+              "points": [
+                "Only threads you are part of or named in",
+                "The right default for most repositories"
+              ]
+            },
+            {
+              "title": "All Activity",
+              "points": [
+                "Every issue, pull request and comment",
+                "Only for small repositories you own or lead"
+              ]
+            },
+            {
+              "title": "Custom",
+              "points": [
+                "Chosen event types, such as releases and security alerts",
+                "Good for libraries you depend on"
+              ]
+            },
+            {
+              "title": "Ignore",
+              "points": [
+                "Nothing at all, not even mentions",
+                "For repositories you never need to hear from"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Review what you are watching at `github.com/watching`, and lower anything set to all activity that you do not actively maintain.",
+            "On any issue or pull request, the sidebar has a control to unsubscribe from that one thread.",
+            "Triage the inbox with three actions. **Done** removes a notification, **Save** keeps it for later, and **Unsubscribe** stops the thread.",
+            "Filter the inbox with queries such as `reason:review-requested` or `reason:mention`, and save the ones you use as custom filters."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Two smaller tools work in the same spirit. A star bookmarks a repository, and lists let you group your stars by topic. A saved reply stores a comment you write often, such as a request for reproduction steps, and inserts it from the comment toolbar."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Find a definition and share a permanent link to it",
+      "browser": [
+        "In the repository, press {{t}}, type part of the file name and press {{Enter}}. Or press {{/}} and search `symbol:collate_fn` to go straight to a definition.",
+        "In the file, select a line number, then hold {{Shift}} and select another to mark a range.",
+        "Press {{y}}. The address now contains a commit hash in place of the branch name.",
+        "Copy the address, or use the menu beside the highlighted lines and choose **Copy permalink**.",
+        "Paste it into an issue or pull request comment and check that the snippet appears."
+      ],
+      "phone": [
+        "GitHub Mobile's search finds repositories, issues, pull requests and people. As of this writing, code search with qualifiers is more reliable in the mobile browser.",
+        "In your phone's browser, open the repository and use the search bar with the same qualifiers.",
+        "Open the file, tap a line number, and use the line menu to copy a permalink. If the menu does not appear, switch to the desktop site.",
+        "Keyboard shortcuts need a physical keyboard, so on a phone rely on the search bar and the menus."
+      ],
+      "cli": [
+        "`git grep -n \"collate_fn\"` searches your clone and prints file names with line numbers.",
+        "`gh search code \"collate_fn\" --repo OWNER/REPO` runs a GitHub code search from the terminal.",
+        "`gh browse train.py:42` opens that file at that line in your browser.",
+        "Add `--commit` to open the permalink for the current commit, and `--no-browser` to print the address without opening it. Run `gh browse --help` to confirm the flags in your version."
+      ],
+      "editor": [
+        "In VS Code, {{Ctrl}}+{{P}} opens a file by name and {{Ctrl}}+{{Shift}}+{{F}} searches across files. On a Mac use {{Cmd}} in place of {{Ctrl}}.",
+        "{{F12}} jumps to the definition of the symbol under the cursor.",
+        "With the GitHub Pull Requests extension installed, the editor's context menu offers a command that copies a GitHub permalink for the selected lines.",
+        "Ask a coding agent where something is defined and which commit last changed it, with file paths and line numbers. Then open the lines yourself. Agents sometimes cite lines that do not exist."
+      ]
+    },
+    {
+      "task": "Tune notifications so only real work reaches you",
+      "browser": [
+        "Open `github.com/watching`. For each repository, choose **Participating and @mentions** or **Custom** unless you truly need every event.",
+        "On a repository page, the **Watch** menu sets the level for that repository. **Custom** lets you pick, for example, releases and security alerts only.",
+        "In your account **Settings**, open **Notifications** and decide whether GitHub should watch repositories for you automatically, and where each kind of notification is delivered.",
+        "Open the inbox from the bell icon. Type `reason:review-requested` in the filter box to see what is waiting on you.",
+        "Clear the rest with **Done**, **Save** or **Unsubscribe**."
+      ],
+      "phone": [
+        "GitHub Mobile's inbox shows the same notifications. Swipe a row to act on it. As of this writing the swipe actions can be changed in the app's settings.",
+        "In the app's notification settings, choose which events may send a push notification, such as direct mentions and review requests.",
+        "Use the inbox filters in the app to show only unread items or one repository.",
+        "Watch levels for individual repositories are set from the repository's page, in the app's menu or the mobile browser."
+      ],
+      "cli": [
+        "`gh status` prints your assigned issues, review requests, mentions and recent activity across repositories.",
+        "`gh search prs --review-requested=@me --state=open` lists pull requests waiting for your review.",
+        "`gh search issues --assignee=@me --state=open` lists issues assigned to you.",
+        "Watch levels and inbox triage are done in the browser or the app."
+      ],
+      "editor": [
+        "The GitHub Pull Requests extension groups pull requests under headings such as waiting for your review, assigned to you and created by you.",
+        "Those groups are saved queries. You can edit them in the extension's settings with the same qualifiers you use on github.com.",
+        "A coding agent can summarize your queue from `gh status`. Do not let it mark notifications as done or reply for you without your review."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Pasting a link to `main` at line 120 into an issue. Next week the file has changed and the link points at unrelated code.",
+      "fix": "Press {{y}} before you copy. A permalink keeps pointing at the lines you meant."
+    },
+    {
+      "trap": "Watching every repository at all activity. Real review requests drown in hundreds of notifications.",
+      "fix": "Set most repositories to participating and mentions, and use custom for the few events you need."
+    },
+    {
+      "trap": "Searching GitHub for code that exists only on a feature branch and concluding that it does not exist.",
+      "fix": "Code search covers the default branch. Search your clone with `git grep`, or browse the branch directly."
+    },
+    {
+      "trap": "Reading blame as an accusation, or stopping at a commit that only reformatted the file.",
+      "fix": "Step back to the blame from before the formatting commit, and read the pull request to learn why the line changed."
+    },
+    {
+      "trap": "Searching for two words without quotes and getting every file that mentions both somewhere.",
+      "fix": "Put an exact phrase in quotes, and add `path:` or `language:` to narrow the result."
+    },
+    {
+      "trap": "Managing GitHub mail only with email filters, so the same threads keep arriving.",
+      "fix": "Unsubscribe from the thread itself, or lower the watch level on the repository."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "Which key rewrites a file's address so that it names an exact commit?",
+      "choices": [
+        "{{t}}",
+        "{{.}}",
+        "{{y}}",
+        "{{l}}"
+      ],
+      "answer": 2,
+      "why": "{{y}} replaces the branch name in the address with the full hash of the commit you are viewing, which makes the link permanent. {{t}} opens the file finder, {{.}} opens github.dev and {{l}} jumps to a line."
+    },
+    {
+      "q": "Which query lists open pull requests that are waiting for your review?",
+      "choices": [
+        "`is:open is:pr author:@me`",
+        "`is:open is:pr review-requested:@me`",
+        "`is:open is:issue mentions:@me`",
+        "`is:pr assignee:@me is:closed`"
+      ],
+      "answer": 1,
+      "why": "`review-requested:@me` matches pull requests where someone asked you for a review. `author:@me` lists the ones you opened yourself, which is the common mix-up."
+    },
+    {
+      "q": "You depend on a library and want to hear about its releases and security alerts and nothing else. Which watch level fits?",
+      "choices": [
+        "All Activity",
+        "Participating and @mentions",
+        "Custom",
+        "Ignore"
+      ],
+      "answer": 2,
+      "why": "Custom lets you subscribe to chosen event types, such as releases and security alerts. Participating would tell you nothing unless you were already in a thread, and All Activity would send every comment."
+    },
+    {
+      "q": "You search GitHub for a function that exists only on a feature branch and get no results. Why?",
+      "choices": [
+        "Code search needs the repository to be starred",
+        "Code search covers the default branch only",
+        "A new branch cannot be searched for a day",
+        "Functions cannot be searched, only file names"
+      ],
+      "answer": 1,
+      "why": "The code search index is built from each repository's default branch. Work on other branches is invisible to it until it is merged. Searching your clone with `git grep` has no such limit."
+    },
+    {
+      "q": "What does blame show for each line of a file?",
+      "choices": [
+        "Who is responsible for fixing it",
+        "The first commit that ever created the line",
+        "The most recent commit that changed the line, with its author and date",
+        "Every comment made about the line"
+      ],
+      "answer": 2,
+      "why": "Blame reports the last commit to touch each line. That commit and its pull request usually explain why the line reads as it does. If the line has been edited since it was first written, the original author is further back in the history."
+    }
+  ],
+  "mission": {
+    "title": "Rebuild your routes through GitHub",
+    "where": "Your own repository and your own notification settings.",
+    "steps": [
+      "In your repository press {{?}} and read the shortcut list. Then open a file with {{t}} and jump to a line with {{l}}.",
+      "Highlight three lines, press {{y}}, and paste the permalink into a new issue. Confirm that the snippet renders.",
+      "Run one code search that uses `repo:` and `path:`, and one issue search that uses `is:open author:@me`. Bookmark `github.com/pulls`.",
+      "Open blame on a file with some history and follow one line back to its commit.",
+      "Visit `github.com/watching` and lower every repository that does not need all activity.",
+      "Empty your inbox with **Done**, **Save** and **Unsubscribe**, and save one custom filter such as `reason:review-requested`."
+    ]
+  },
+  "terms": [
+    {
+      "term": "permalink",
+      "def": "A link that contains a full commit hash, so it always shows the same version of a file, whatever happens to the branch later."
+    },
+    {
+      "term": "search qualifier",
+      "def": "A `name:value` term in a search, such as `repo:` or `is:open`, that restricts where or what the search matches."
+    },
+    {
+      "term": "symbol",
+      "def": "A named thing defined in code, such as a function, class or variable. Symbol search finds definitions instead of every mention."
+    },
+    {
+      "term": "blame",
+      "def": "A view that shows, for each line of a file, the most recent commit that changed it, with author and date."
+    },
+    {
+      "term": "watching",
+      "def": "Your subscription level for a whole repository. It decides which of its events create notifications for you."
+    },
+    {
+      "term": "subscription",
+      "def": "Your link to one issue or pull request thread. While you are subscribed, new activity on it creates a notification."
+    },
+    {
+      "term": "saved reply",
+      "def": "A reusable comment stored in your account settings that you can insert into any issue or pull request."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "t",
+      "does": "Opens the file finder in a repository. Type any part of a file name.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "y",
+      "does": "Turns the current file address into a permalink that names the exact commit.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": ".",
+      "does": "Opens the repository in the github.dev editor in your browser.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "?",
+      "does": "Shows every keyboard shortcut available on the current page.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "repo:OWNER/REPO path:configs lr",
+      "does": "Code search limited to one repository and to paths that contain `configs`.",
+      "kind": "search",
+      "risk": "safe"
+    },
+    {
+      "cmd": "symbol:collate_fn language:python",
+      "does": "Finds where a function or class is defined, in Python files only.",
+      "kind": "search",
+      "risk": "safe"
+    },
+    {
+      "cmd": "is:open is:issue assignee:@me sort:updated-desc",
+      "does": "Open issues assigned to you, most recently updated first.",
+      "kind": "search",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git log -S \"label_smoothing\" --oneline",
+      "does": "Lists the commits that added or removed that exact text.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh status",
+      "does": "Summarizes your assigned issues, review requests and mentions across repositories.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "https://github.com/OWNER/REPO/blob/COMMIT-HASH/train.py#L10-L20",
+      "does": "The shape of a permalink to lines 10 to 20 of a file at one commit.",
+      "kind": "web",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: Keyboard shortcuts",
+      "url": "https://docs.github.com/en/get-started/accessibility/keyboard-shortcuts"
+    },
+    {
+      "label": "GitHub Docs: Understanding GitHub Code Search syntax",
+      "url": "https://docs.github.com/en/search-github/github-code-search/understanding-github-code-search-syntax"
+    },
+    {
+      "label": "GitHub Docs: Searching issues and pull requests",
+      "url": "https://docs.github.com/en/search-github/searching-on-github/searching-issues-and-pull-requests"
+    },
+    {
+      "label": "GitHub Docs: Getting permanent links to files",
+      "url": "https://docs.github.com/en/repositories/working-with-files/using-files/getting-permanent-links-to-files"
+    },
+    {
+      "label": "GitHub Docs: About notifications",
+      "url": "https://docs.github.com/en/account-and-profile/managing-subscriptions-and-notifications-on-github/setting-up-notifications/about-notifications"
+    },
+    {
+      "label": "Git reference: git-blame",
+      "url": "https://git-scm.com/docs/git-blame"
+    }
+  ]
+}

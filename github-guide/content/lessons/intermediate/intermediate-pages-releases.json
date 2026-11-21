@@ -1,0 +1,510 @@
+{
+  "id": "intermediate-pages-releases",
+  "track": "intermediate",
+  "title": "Publishing: tags, releases and GitHub Pages",
+  "minutes": 16,
+  "summary": "A tag names one commit permanently. A release wraps a tag with notes and downloadable files. GitHub Pages turns files from a repository into a public website. This guide reaches you through that last one: a workflow builds it, tests it and deploys it to Pages on every push to main.",
+  "outcomes": [
+    "Create annotated tags and push them to GitHub",
+    "Number versions with semantic versioning",
+    "Publish a release with generated notes and attached files",
+    "Turn on GitHub Pages and choose between publishing from a branch and from GitHub Actions",
+    "Read the workflow that builds and deploys this guide and say what each job does"
+  ],
+  "prereqs": ["basics-commits", "basics-remotes"],
+  "lenses": {
+    "everyday": "A manuscript keeps changing until the day you declare it the second edition and send it to print. The label on the spine never moves to a different text. That label is a tag. The edition ships in a box with a leaflet that says what is new and a few extras. That box is a release. The bookstore window is what the public sees, and it only changes when you tell the shop to restock from the latest approved copy. That window is GitHub Pages. Anyone walking past can read what is in it, so you check the display before you put it out.",
+    "legal": "Drafts circulate with redlines until signing. Then one version is designated the execution version and never changes. Later changes are amendments with their own numbers. That is a tag such as `v1.0.0`, followed by `v1.0.1`. The closing binder gathers the executed documents with an index and a closing memo. That is a release with its notes and attached files. A tax preparer keeps the return as filed for each year, so the firm can always produce exactly what was submitted. GitHub Pages is a public filing. Once it is published anyone can read it, so deciding what goes into the published folder is a disclosure decision, made before the fact.",
+    "ml": "You submit a paper. Tag the exact commit that produced the results as `v1.0-submission`, so a reviewer, or you in six months, can check out that tag and rerun the experiments. Publish a release from the tag with notes on what is included, and attach the results table and a small checkpoint as files. The camera-ready version gets its own tag. If the code is a library other people import, version numbers carry meaning: a change that breaks existing config files is a new major version. A Pages site becomes the project page, with the abstract, the figures and links to the paper and the code.",
+    "technical": "A tag is a ref under `refs/tags/`. A lightweight tag points directly at a commit. An annotated tag is its own object, with a tagger, a date and a message, that points at a commit. Tags are not pushed by default. A GitHub release is metadata attached to a tag: a title, notes, a pre-release flag and uploaded assets, plus source archives that GitHub generates. GitHub Pages serves static files over HTTPS, either from a branch and folder or from an artifact that an Actions workflow uploads and deploys to the `github-pages` environment. A project site is served at `https://USERNAME.github.io/REPOSITORY/`."
+  },
+  "sections": [
+    {
+      "heading": "Tags: a name that never moves",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A branch is a label that moves every time you commit. A tag is a label that stays put. You create one when a particular commit matters: the version you submitted, shipped or cited."
+        },
+        {
+          "type": "graph",
+          "caption": "main keeps moving as you commit. The tag v1.0.0 stays on B, so that version can always be checked out.",
+          "commits": [
+            {"id": "A", "msg": "Start project"},
+            {"id": "B", "parents": ["A"], "msg": "Results for submission"},
+            {"id": "C", "parents": ["B"], "msg": "Refactor data loader"},
+            {"id": "D", "parents": ["C"], "msg": "Try new augmentation"}
+          ],
+          "branches": {"main": "D"},
+          "tags": {"v1.0.0": "B"},
+          "head": "main"
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Lightweight tag",
+              "points": [
+                "A bare pointer to a commit",
+                "No message, date or author of its own",
+                "Fine for a private bookmark"
+              ]
+            },
+            {
+              "title": "Annotated tag",
+              "points": [
+                "A full object stored in the repository",
+                "Records who tagged, when, and a message",
+                "The right choice for anything you publish"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git tag -a v1.0.0 -m \"First public version\"    # annotated tag on the current commit\ngit tag -a v0.9.0 3f2a9c1 -m \"Workshop draft\"  # tag an earlier commit by hash\ngit tag                                        # list tags\ngit show v1.0.0                                # see the tag message and the commit\ngit push origin v1.0.0                         # tags are not pushed unless you ask",
+          "caption": "Creating, inspecting and pushing tags"
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Do not move a published tag",
+          "text": "Once a tag is pushed, other people and other tools may already have it, and Git does not update a tag that someone has already fetched. If the tagged version was wrong, publish a new version with a new number and say what changed."
+        }
+      ]
+    },
+    {
+      "heading": "Version numbers that mean something",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Semantic versioning gives each of the three numbers in `MAJOR.MINOR.PATCH` a job. A reader can tell from the number alone whether upgrading is safe."
+        },
+        {
+          "type": "table",
+          "caption": "Which number to raise",
+          "head": ["Part", "Increase it when", "Example"],
+          "rows": [
+            ["Major", "You make a change that breaks existing use", "`1.4.2` to `2.0.0`"],
+            ["Minor", "You add something in a backward-compatible way", "`1.4.2` to `1.5.0`"],
+            ["Patch", "You fix a bug without changing behavior people rely on", "`1.4.2` to `1.4.3`"]
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "Your library is at `2.4.1`. You rename a required config key, so existing config files stop loading. What is the next version?",
+          "answer": "`3.0.0`. A change that breaks existing use is a major change, and the minor and patch numbers reset to zero. The size of the diff does not matter. One renamed key that breaks every user's config is major."
+        },
+        {
+          "type": "p",
+          "text": "Research code that nobody imports does not need strict versioning. Milestone tags such as `paper-submission` and `camera-ready` do the job. What matters is that every result you report can be traced to one tag."
+        }
+      ]
+    },
+    {
+      "heading": "Releases: a tag with packaging",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A release is GitHub's presentation of a tag. It adds a title, notes written for people, and files to download. GitHub also attaches the source code at that tag as archives."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Generated notes.** One button drafts the notes from the pull requests merged since the previous release, with their authors. Good pull request titles become good release notes.",
+            "**Assets.** Attach files that do not belong in the history, such as a results table or a model checkpoint.",
+            "**Pre-release.** Marks a version as not yet stable, so it is not presented as the latest.",
+            "**Draft.** Lets you prepare a release and publish it later."
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "gh release create v1.0.0 --generate-notes --title \"v1.0.0\"\ngh release upload v1.0.0 results.csv\ngh release list",
+          "caption": "Publishing a release from an existing tag"
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "What exactly did we deliver?",
+          "text": "A release answers that question later without argument: this tag, these notes, these files, on this date. It plays the part of a closing binder or the return as filed. For anything you submit to a client, a reviewer or a regulator, tag the commit and publish a release at the moment of delivery, not afterward from memory."
+        }
+      ]
+    },
+    {
+      "heading": "GitHub Pages: a repository as a website",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "GitHub Pages serves static files from a repository as a website: HTML, CSS, JavaScript, images and data files. There is no server-side code. You choose where the files come from."
+        },
+        {
+          "type": "compare",
+          "caption": "Two publishing sources",
+          "items": [
+            {
+              "title": "Deploy from a branch",
+              "points": [
+                "Pages publishes a branch and folder, such as the root or `/docs`",
+                "No workflow file to write",
+                "Good when the files in the repository are the site as it should appear"
+              ]
+            },
+            {
+              "title": "GitHub Actions",
+              "points": [
+                "A workflow builds the site and deploys the result",
+                "Tests can run first, and a failed build leaves the old site up",
+                "Good when the site is generated from source files, as this guide is"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "caption": "Where a Pages site appears",
+          "head": ["Kind of site", "Repository", "Address"],
+          "rows": [
+            ["Project site", "Any repository", "`https://USERNAME.github.io/REPOSITORY/`"],
+            ["User site", "A repository named `USERNAME.github.io`", "`https://USERNAME.github.io/`"]
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "A Pages site is public",
+          "text": "A site published with GitHub Pages can be read by anyone on the internet who has the address. Restricting who can view a Pages site is available on some plans only. Before you publish, look at what is in the folder being deployed: no data files, no notes, no credentials."
+        },
+        {
+          "type": "p",
+          "text": "A project site lives under `/REPOSITORY/`, not at the top of the domain. A page that loads `/css/app.css` with a leading slash will look in the wrong place. Use relative paths such as `css/app.css`, which is what this guide does. A custom domain can be set in the Pages settings, with HTTPS enforced."
+        }
+      ]
+    },
+    {
+      "heading": "How this guide ships",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "This guide is not written as HTML pages. Lessons are JSON files. A Python script validates them and assembles the site into a folder named `github-guide/dist`. A workflow in `.github/workflows/guide.yml` runs that script on GitHub's machines and deploys the folder to Pages."
+        },
+        {
+          "type": "flow",
+          "caption": "From a merged pull request to the page you are reading",
+          "steps": [
+            {"label": "Push to main", "note": "A merged pull request"},
+            {"label": "Build job", "via": "workflow starts", "note": "Check out, validate, build, run tests"},
+            {"label": "Pages artifact", "via": "upload", "note": "The built dist folder, packaged"},
+            {"label": "Deploy job", "via": "needs: build", "note": "Publishes the artifact to Pages"},
+            {"label": "Live site", "via": "deploy", "note": "Served at your github.io address"}
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "file": ".github/workflows/guide.yml",
+          "code": "on:\n  push:\n    branches: [main]\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-python@v7\n        with:\n          python-version: \"3.13\"\n      - run: python github-guide/tools/build.py --strict\n      # the real file also runs the Python and JavaScript tests here\n      - uses: actions/upload-pages-artifact@v5\n        with:\n          path: github-guide/dist\n\n  deploy:\n    needs: build\n    runs-on: ubuntu-latest\n    permissions:\n      pages: write\n      id-token: write\n    environment:\n      name: github-pages\n      url: ${{ steps.deployment.outputs.page_url }}\n    steps:\n      - id: deployment\n        uses: actions/deploy-pages@v5",
+          "caption": "The shape of the workflow, simplified. Open the real file in the repository for the exact text."
+        },
+        {
+          "type": "list",
+          "items": [
+            "`needs: build` makes the deploy job wait for the build job. If validation or a test fails, nothing is deployed and the previous site stays up.",
+            "`permissions` gives the deploy job the two rights it needs and no others: `pages: write` to publish, and `id-token: write` so that Pages can verify where the deployment came from.",
+            "`environment: github-pages` records each deployment and shows the site address on the workflow run.",
+            "The version after each `@` pins a major version of an action, so a breaking change in the action does not arrive unannounced."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Publishing does not make a site accessible",
+          "text": "Pages serves whatever you give it. Headings in order, text alternatives for images, sufficient contrast and keyboard access are properties of the files you build. Check a new site with the keyboard alone and with a screen reader before you share the address, and write release notes in plain sentences that do not depend on screenshots."
+        },
+        {
+          "type": "p",
+          "text": "The details of workflows, jobs and permissions are the subject of [GitHub Actions](#advanced-actions-fundamentals). For now it is enough to read the file and recognize its shape."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Tag a version and publish a release",
+      "browser": [
+        "On the repository's main page, select **Releases** in the right sidebar, then the button to draft or create a new release.",
+        "Open **Choose a tag**, type a new tag name such as `v1.0.0`, and choose the option to create that tag on publish.",
+        "Check that the target is the branch or commit you mean, usually `main`.",
+        "Select **Generate release notes**, then edit the title and the notes.",
+        "Attach any files by dropping them onto the upload area.",
+        "Tick the pre-release option if the version is not stable, then select **Publish release**."
+      ],
+      "phone": [
+        "GitHub Mobile shows a repository's releases. As of this writing, creating one is more dependable in the phone's browser.",
+        "In the mobile browser, open the repository, go to **Releases** and follow the same steps as on a computer.",
+        "Attaching large files from a phone is impractical. Publish the release, then add assets later from a computer."
+      ],
+      "cli": [
+        "`git switch main` then `git pull` so that you tag the latest commit.",
+        "`git tag -a v1.0.0 -m \"First public version\"` to create an annotated tag.",
+        "`git push origin v1.0.0` to send the tag to GitHub.",
+        "`gh release create v1.0.0 --generate-notes --title \"v1.0.0\"` to publish a release from it.",
+        "`gh release upload v1.0.0 results.csv` to attach a file, and `gh release view v1.0.0 --web` to check the page."
+      ],
+      "editor": [
+        "In VS Code, open the Command Palette and run **Git: Create Tag**. Enter the name and a message.",
+        "Run **Git: Push Tags** from the Command Palette to send the tag to GitHub.",
+        "Create the release with `gh release create` in the built-in terminal, or in the browser.",
+        "With a coding agent, ask it to create an annotated tag and a draft release with generated notes. Read the draft in the browser and publish it yourself."
+      ]
+    },
+    {
+      "task": "Turn on GitHub Pages and watch this guide deploy",
+      "browser": [
+        "Open the repository's **Settings** and select **Pages** in the sidebar.",
+        "Under **Build and deployment**, set **Source** to **GitHub Actions**.",
+        "Merge the branch that contains the guide and its workflow file into `main`.",
+        "Open the **Actions** tab and select the newest run. Watch the build job finish, then the deploy job.",
+        "Open the deploy job. The site address appears there, and also back on the **Pages** settings page.",
+        "On the repository's main page, open the gear beside **About** and tick the option to show your GitHub Pages website."
+      ],
+      "phone": [
+        "Repository settings are not available in GitHub Mobile as of this writing. Open the repository in your phone's browser, switch to the desktop site if needed, and follow the same path: **Settings**, **Pages**, **Source**.",
+        "Merge the pull request from the app or the browser.",
+        "As of this writing the app shows workflow runs, so you can watch the build and the deploy there. The mobile browser's **Actions** tab shows the same thing.",
+        "Open the site address on your phone when the deploy job turns green."
+      ],
+      "cli": [
+        "`gh browse --settings` opens the repository's settings in your browser. Set the Pages source there the first time.",
+        "After merging to `main`, `gh run list --workflow guide.yml` shows the runs of the guide's workflow.",
+        "`gh run watch` follows the run in progress until it finishes.",
+        "`gh api repos/OWNER/REPO/pages --jq .html_url` prints the address of the published site."
+      ],
+      "editor": [
+        "There is no Pages setting in an editor. Turn it on in the browser.",
+        "Preview the site on your own machine first with `python github-guide/tools/serve.py`, which builds it and serves it at `http://127.0.0.1:8000`.",
+        "The GitHub Actions extension for VS Code lists workflow runs and their logs, so you can follow the deployment without leaving the editor.",
+        "If the build job fails, read its log, fix the content file it names, and push again. The live site is untouched until a build passes."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Creating a tag locally and forgetting to push it. The release you make on GitHub then points somewhere else, or the tag exists only on your laptop.",
+      "fix": "Push the tag by name with `git push origin v1.0.0` and confirm that it appears under the repository's tags."
+    },
+    {
+      "trap": "Moving or reusing a tag after publishing it. Clones that already fetched it keep the old commit, so two people disagree about what the version is.",
+      "fix": "Leave published tags alone. Release a new version number and explain the correction in its notes."
+    },
+    {
+      "trap": "Absolute paths on a project site. The page loads at `USERNAME.github.io/REPOSITORY/` and looks for its styles at the top of the domain.",
+      "fix": "Use relative paths for styles, scripts and data, and test the site under a subfolder before publishing."
+    },
+    {
+      "trap": "Publishing a folder that also holds notes, data or a credentials file. Everything in the published folder is public.",
+      "fix": "Deploy a build output folder that contains only the site, and look inside it before the first deployment."
+    },
+    {
+      "trap": "The first deployment fails because Pages was never turned on for the repository.",
+      "fix": "Set the source to GitHub Actions in the Pages settings, then re-run the failed job from the Actions tab."
+    },
+    {
+      "trap": "Using a lightweight tag for a release. It carries no message, date or tagger.",
+      "fix": "Create tags with `-a` and a message for anything you publish."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "What does an annotated tag have that a lightweight tag lacks?",
+      "choices": [
+        "The ability to be pushed",
+        "A link to a branch",
+        "Protection against deletion",
+        "Its own object with a tagger, a date and a message"
+      ],
+      "answer": 3,
+      "why": "An annotated tag is stored as an object that records who created it, when, and why. A lightweight tag is only a name for a commit. Both can be pushed and both can be deleted."
+    },
+    {
+      "q": "You run `git tag -a v1.2.0 -m \"Release\"` and then `git push`. Is the tag on GitHub?",
+      "choices": [
+        "Yes, tags travel with every push",
+        "No, tags are pushed only when you name them or ask for tags",
+        "Yes, but only as a draft release",
+        "No, tags can only be created on GitHub"
+      ],
+      "answer": 1,
+      "why": "A plain `git push` sends branch commits and leaves tags behind. Push the tag by name with `git push origin v1.2.0`. Assuming tags travel automatically is the most common reason a release cannot find its tag."
+    },
+    {
+      "q": "User `ada` enables Pages on a repository named `notes`. Where is the site?",
+      "choices": [
+        "`https://github.com/ada/notes/pages`",
+        "`https://notes.github.io/ada/`",
+        "`https://ada.github.io/notes/`",
+        "`https://ada.github.io/`"
+      ],
+      "answer": 2,
+      "why": "A project site is served under the owner's `github.io` domain, in a folder named after the repository. The bare `https://ada.github.io/` address belongs to a user site, which comes from a repository named `ada.github.io`."
+    },
+    {
+      "q": "In this guide's workflow, the build job fails on a push to `main`. What happens to the published site?",
+      "choices": [
+        "It stays at the last successful deployment",
+        "It goes offline until the build is fixed",
+        "It shows an error page",
+        "It is rebuilt from the previous commit"
+      ],
+      "answer": 0,
+      "why": "The deploy job has `needs: build`, so it does not run when the build job fails. Nothing replaces the existing deployment, and visitors keep seeing the last version that built and passed its tests."
+    },
+    {
+      "q": "A library is at version `1.4.2`. You fix a bug and change nothing that users rely on. What is the next version under semantic versioning?",
+      "choices": [
+        "`2.0.0`",
+        "`1.5.0`",
+        "`1.4.3`",
+        "`1.4.2-fixed`"
+      ],
+      "answer": 2,
+      "why": "A backward-compatible bug fix raises the patch number. A minor bump signals new backward-compatible features, and a major bump signals a breaking change. Neither applies here."
+    }
+  ],
+  "mission": {
+    "title": "Turn on Pages and ship this guide",
+    "where": "Your own repository, the one that contains the `github-guide` folder.",
+    "steps": [
+      "In the browser, open **Settings**, then **Pages**, and set **Source** to **GitHub Actions**.",
+      "Open the pull request for the branch that adds `github-guide/` and `.github/workflows/guide.yml`. In **Files changed**, read the workflow and find the build job, the artifact upload and the deploy job.",
+      "Merge the pull request into `main`.",
+      "Open the **Actions** tab, select the newest run, and watch the build job and then the deploy job finish.",
+      "Open the address shown on the deploy job. Open it again on your phone.",
+      "Tag the commit with `git tag -a guide-v1.0.0 -m \"First published guide\"`, push the tag, and publish a release with generated notes.",
+      "Change one sentence in a lesson file on a new branch, merge it, and watch the site update itself."
+    ]
+  },
+  "terms": [
+    {
+      "term": "tag",
+      "def": "A name that points at one commit and does not move. Used to mark versions."
+    },
+    {
+      "term": "annotated tag",
+      "def": "A tag stored as its own object, with a tagger, a date and a message. The kind to use for published versions."
+    },
+    {
+      "term": "semantic versioning",
+      "def": "A numbering scheme, `MAJOR.MINOR.PATCH`, in which each part signals whether a change is breaking, additive or a fix."
+    },
+    {
+      "term": "release",
+      "def": "A GitHub page built on a tag, with a title, notes for people and downloadable files."
+    },
+    {
+      "term": "release asset",
+      "def": "A file attached to a release, such as a results table or a checkpoint, stored outside the repository's history."
+    },
+    {
+      "term": "GitHub Pages",
+      "def": "A GitHub feature that serves static files from a repository as a public website."
+    },
+    {
+      "term": "project site",
+      "def": "A Pages site for one repository, served at `https://USERNAME.github.io/REPOSITORY/`."
+    },
+    {
+      "term": "Pages artifact",
+      "def": "The packaged folder of built files that a workflow uploads for GitHub Pages to deploy."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git tag -a v1.0.0 -m \"First public version\"",
+      "does": "Creates an annotated tag on the current commit.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git push origin v1.0.0",
+      "does": "Sends one tag to GitHub. Tags are not included in a plain push.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git push --follow-tags",
+      "does": "Pushes your commits together with the annotated tags that point at them.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git tag -d v1.0.0",
+      "does": "Deletes a tag from your clone. A copy already pushed to GitHub is not affected.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git switch --detach v1.0.0",
+      "does": "Checks out the exact files of a tagged version for inspection, without moving any branch.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh release create v1.0.0 --generate-notes",
+      "does": "Publishes a release for a tag, with notes drafted from merged pull requests. Everyone who can see the repository can see the release.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh release list",
+      "does": "Lists the repository's releases and shows which one is marked latest.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh run watch",
+      "does": "Follows a workflow run in the terminal until it finishes.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh workflow run guide.yml",
+      "does": "Starts the guide's workflow by hand. Works only if the workflow file declares a manual trigger.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "https://USERNAME.github.io/REPOSITORY/",
+      "does": "The address pattern of a project site on GitHub Pages.",
+      "kind": "web",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About releases",
+      "url": "https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases"
+    },
+    {
+      "label": "GitHub Docs: Automatically generated release notes",
+      "url": "https://docs.github.com/en/repositories/releasing-projects-on-github/automatically-generated-release-notes"
+    },
+    {
+      "label": "GitHub Docs: About GitHub Pages",
+      "url": "https://docs.github.com/en/pages/getting-started-with-github-pages/about-github-pages"
+    },
+    {
+      "label": "GitHub Docs: Configuring a publishing source for your GitHub Pages site",
+      "url": "https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site"
+    },
+    {
+      "label": "Git reference: git-tag",
+      "url": "https://git-scm.com/docs/git-tag"
+    },
+    {
+      "label": "Semantic Versioning 2.0.0",
+      "url": "https://semver.org/"
+    }
+  ]
+}

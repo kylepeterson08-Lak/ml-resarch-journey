@@ -1,0 +1,560 @@
+{
+  "id": "advanced-actions-fundamentals",
+  "track": "advanced",
+  "title": "GitHub Actions: workflows, jobs, steps, runners",
+  "minutes": 20,
+  "summary": "GitHub Actions runs your instructions on a fresh machine every time something happens in the repository. A workflow file says when to run, a job says where, and steps say what. Learn to read one and you can read them all.",
+  "outcomes": [
+    "Read a workflow file and name its trigger, jobs, steps and runner",
+    "Write a workflow that runs on push, on pull requests and on demand",
+    "Tell a `uses` step from a `run` step and choose between them",
+    "Find the failing step in a run's log and re-run only what failed",
+    "Explain what `GITHUB_TOKEN` is and why its permissions matter",
+    "Avoid the YAML mistakes that break most first workflows"
+  ],
+  "prereqs": [
+    "basics-pull-requests"
+  ],
+  "lenses": {
+    "everyday": "Think of a standing order with a cleaning service. You leave a checklist on the fridge: every time a guest checks out, send someone with a fresh kit, strip the beds, run the dishwasher, and text me a photo when it is done. You do not supervise. The checkout is the trigger. The checklist is the workflow. Each cleaner is a job, each line on the list is a step, and the kit, brand new on every visit, is the runner. If something fails, the text tells you which line.",
+    "legal": "A workflow is a written procedure that executes itself. A firm's closing checklist says: when a matter reaches signing, confirm signatures, file the certificate, update the docket. Each item is logged with a time and a result. Actions turns that checklist into a control a busy person cannot skip. The event fires, the steps run in order on a clean machine, and the run log is the contemporaneous record. Someone testing the control reads the workflow file for its design and the run history for evidence that it operated.",
+    "ml": "You push a change to `train.py`. Without being asked, a clean Linux machine boots, checks out your commit, installs the pinned requirements, runs the unit tests and a ten-step smoke run on a tiny dataset, then puts a green check or a red cross on the commit. That is a workflow. It answers the question every collaborator has about your branch, which is whether it still runs from a clean checkout, before anyone spends GPU hours finding out.",
+    "technical": "A workflow is a YAML file under `.github/workflows/`. Its `on` key names the events that trigger it. Each trigger creates a workflow run made of jobs. A job declares a runner with `runs-on` and receives a fresh virtual machine. Jobs run in parallel unless `needs` orders them. A job is a list of steps that share one filesystem and run in sequence. A step either executes shell commands with `run` or calls a packaged action with `uses`. Expressions written as `${{ }}` read contexts such as `github`, `matrix` and `secrets`."
+  },
+  "sections": [
+    {
+      "heading": "The four nouns",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Almost everything in Actions is one of four things, each nested inside the one before: an **event** starts a **workflow**, a workflow contains **jobs**, and a job contains **steps**. A fifth word, **runner**, names the machine a job runs on."
+        },
+        {
+          "type": "flow",
+          "steps": [
+            {
+              "label": "Event",
+              "note": "A push, a pull request, a schedule or a button"
+            },
+            {
+              "label": "Workflow run",
+              "via": "matches on:",
+              "note": "One YAML file, one run per trigger"
+            },
+            {
+              "label": "Job",
+              "via": "starts",
+              "note": "A fresh runner each, in parallel by default"
+            },
+            {
+              "label": "Step",
+              "via": "executes",
+              "note": "Commands or actions, in order, on that runner"
+            }
+          ],
+          "caption": "One event can start several workflows. One workflow can start several jobs."
+        },
+        {
+          "type": "table",
+          "head": [
+            "Term",
+            "What it is",
+            "Where you see it"
+          ],
+          "rows": [
+            [
+              "Event",
+              "Something that happened: `push`, `pull_request`, `schedule`, `workflow_dispatch`",
+              "The `on` key"
+            ],
+            [
+              "Workflow",
+              "One YAML file in `.github/workflows/`",
+              "The left sidebar of the **Actions** tab"
+            ],
+            [
+              "Job",
+              "A group of steps on one runner",
+              "The boxes in a run's graph"
+            ],
+            [
+              "Step",
+              "One command or one action",
+              "The expandable lines in a job's log"
+            ],
+            [
+              "Runner",
+              "The machine that executes a job",
+              "The `runs-on` key"
+            ]
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "A workflow has two jobs, `lint` and `test`, with nothing connecting them. The `lint` job writes a file called `report.txt`. Can `test` read it?",
+          "answer": "No. Each job gets its own fresh runner, so files do not travel between jobs. Steps inside one job do share a filesystem. To pass a file from one job to another, upload it as an artifact in the first, download it in the second, and order the two with `needs`."
+        }
+      ]
+    },
+    {
+      "heading": "A first workflow, line by line",
+      "blocks": [
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "name: Hello\n\non:\n  push:\n    branches: [main]\n  pull_request:\n  workflow_dispatch:\n\npermissions:\n  contents: read\n\njobs:\n  greet:\n    runs-on: ubuntu-latest\n    steps:\n      - name: Check out the repository\n        uses: actions/checkout@v7\n\n      - name: Show what triggered this run\n        run: |\n          echo \"Event:  $GITHUB_EVENT_NAME\"\n          echo \"Branch: $GITHUB_REF_NAME\"\n          echo \"Commit: $GITHUB_SHA\"\n\n      - name: Greet pull requests by title\n        if: github.event_name == 'pull_request'\n        env:\n          PR_TITLE: ${{ github.event.pull_request.title }}\n        run: echo \"Pull request title is $PR_TITLE\"\n\n      - name: Count tracked files\n        run: git ls-files | wc -l",
+          "file": ".github/workflows/hello.yml"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`name` is the label shown in the Actions tab. Without it GitHub shows the file path.",
+            "`on` lists the triggers. This workflow runs on pushes to `main`, on every pull request, and when someone presses **Run workflow**.",
+            "`permissions` limits what the run's built-in token may do. Read access to the code is enough here.",
+            "`jobs` holds one job with the id `greet`. The id becomes the name of the check on a pull request.",
+            "`runs-on: ubuntu-latest` asks for a GitHub-hosted Linux machine.",
+            "The first step **uses** an action, packaged code that someone published. `actions/checkout` copies your repository onto the runner. Without it the machine is empty.",
+            "The other steps **run** shell commands. The `|` starts a block of several lines.",
+            "`if` makes a step conditional. The title step runs only when the event was a pull request."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "When to use which",
+          "text": "Reach for `run` when a few shell commands do the job. Reach for `uses` when someone has already packaged the hard part, such as installing a language, caching dependencies or uploading files. An action reference has three parts: owner, repository, and a version after the `@`."
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Text from outside goes through env",
+          "text": "A pull request title is written by whoever opened the pull request. The example copies it into an environment variable and lets the shell read `$PR_TITLE`. Pasting `${{ github.event.pull_request.title }}` straight into the script would make that text part of the script itself, where a crafted title could run commands."
+        }
+      ]
+    },
+    {
+      "heading": "Triggers: when a workflow runs",
+      "blocks": [
+        {
+          "type": "table",
+          "head": [
+            "Event",
+            "Fires when",
+            "Typical use"
+          ],
+          "rows": [
+            [
+              "`push`",
+              "Commits land on a matching branch or tag",
+              "Test `main`, deploy"
+            ],
+            [
+              "`pull_request`",
+              "A pull request is opened, updated or reopened",
+              "Checks before merge"
+            ],
+            [
+              "`workflow_dispatch`",
+              "Someone presses **Run workflow** or calls the API",
+              "Manual jobs, with optional inputs"
+            ],
+            [
+              "`schedule`",
+              "A cron expression matches, in UTC",
+              "Nightly tests, weekly reports"
+            ]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "on:\n  push:\n    branches: [main]\n    paths:\n      - \"src/**\"\n      - \"requirements.txt\"\n  pull_request:\n    branches: [main]\n  schedule:\n    - cron: \"30 6 * * 1\"   # Mondays at 06:30 UTC\n  workflow_dispatch:\n    inputs:\n      epochs:\n        description: \"Epochs for the smoke run\"\n        default: \"1\"",
+          "caption": "Filters narrow a trigger. Inputs give a manual run its parameters."
+        },
+        {
+          "type": "list",
+          "items": [
+            "`workflow_dispatch` shows the **Run workflow** button only once the workflow file exists on the default branch.",
+            "`schedule` runs on the default branch, uses UTC, and can start late when the service is busy. Do not rely on it for anything that must happen at an exact minute.",
+            "`branches` and `paths` filters decide whether the workflow starts at all. A workflow skipped by a filter reports nothing, which matters once a check is required. See [CI in practice](#advanced-ci-pipelines).",
+            "A pull request from a fork runs with a read-only token and no secrets. That default is a safety feature. See [Secrets, variables, environments and deployments](#advanced-secrets-environments)."
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Runners, the token and the Marketplace",
+      "blocks": [
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "GitHub-hosted runner",
+              "points": [
+                "A fresh virtual machine for every job, discarded afterward",
+                "Linux, Windows and macOS images with common tools preinstalled",
+                "Nothing for you to maintain",
+                "Usage is metered on private repositories; check your plan"
+              ]
+            },
+            {
+              "title": "Self-hosted runner",
+              "points": [
+                "A machine you register and keep running",
+                "Your hardware, including GPUs and private networks",
+                "Files can persist between jobs unless you clean up",
+                "Risky on public repositories, where a stranger's pull request could run code on your machine"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Every job receives a short-lived credential called `GITHUB_TOKEN`. Actions such as `actions/checkout` use it to talk to GitHub on the workflow's behalf. It stops working when the job ends. The `permissions` key sets what it may do, and once you list one permission, everything you did not list is switched off. Start from `contents: read` and add only what a job needs."
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "An action is someone else's code with your token",
+          "text": "A step that says `uses: someone/thing@v1` downloads that repository's code and runs it inside your job. Prefer actions published by GitHub under `actions/` and by verified creators, read what an unfamiliar action does before adopting it, and keep the token's permissions narrow. [Actions at scale](#expert-actions-architecture) covers pinning an action to an exact commit."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "The run history is evidence",
+          "text": "Each run records the commit, the trigger, who or what started it, every step's output and the result. For a control such as tests must pass before release, the workflow file shows how the control is designed and the run history shows that it operated. Logs and artifacts are kept for a limited retention period, so export anything you must keep longer."
+        }
+      ]
+    },
+    {
+      "heading": "Reading a run and fixing a failure",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Open the **Actions** tab, choose a workflow on the left and a run from the list. The run page shows a graph of jobs. Select a job to see its steps. A failed step is expanded for you, and the cause is usually within its last twenty lines."
+        },
+        {
+          "type": "list",
+          "items": [
+            "Read the first error, not the last. Later failures are often consequences of the first.",
+            "Check which commit and which event the run used. A red run on an old commit may already be fixed.",
+            "Reproduce the failing command on your machine or in a codespace.",
+            "Push a fix. A new commit starts a new run.",
+            "If the failure was a network hiccup, use **Re-run failed jobs** and leave the jobs that passed alone.",
+            "Still stuck? Re-run with **Enable debug logging** ticked to get far more detail."
+          ],
+          "ordered": true
+        },
+        {
+          "type": "table",
+          "head": [
+            "Mistake",
+            "What happens",
+            "Fix"
+          ],
+          "rows": [
+            [
+              "Tabs or uneven indentation",
+              "The file fails to parse and no run starts",
+              "Indent with two spaces per level"
+            ],
+            [
+              "`python-version: 3.10` without quotes",
+              "YAML reads the number 3.1 and the wrong Python is requested",
+              "Quote it: `\"3.10\"`"
+            ],
+            [
+              "A value that starts with `*` or contains a colon and a space",
+              "A parse error, or a value different from what you typed",
+              "Wrap the value in quotes"
+            ],
+            [
+              "The file saved outside `.github/workflows/`",
+              "GitHub never sees it",
+              "Check the folder name, including the leading dot"
+            ],
+            [
+              "No `actions/checkout` step",
+              "Commands fail because the files are not there",
+              "Make checkout the first step"
+            ]
+          ],
+          "caption": "YAML mistakes that break first workflows"
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Logs are text, and that helps",
+          "text": "The log viewer has a search box, and its settings menu offers **View raw logs**, which opens the whole log as one plain page. If the collapsible viewer is hard to use with a screen reader or at high zoom, the raw page and `gh run view --log-failed` in a terminal give the same content as a simple stream of text."
+        }
+      ]
+    },
+    {
+      "heading": "This guide's own workflow",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The guide you are reading is built and published by a workflow in its own repository: `.github/workflows/guide.yml`. Open that file next to this lesson. You should now be able to name every part of it."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Triggers.** It runs when files under `github-guide/` change, on pull requests, and on demand.",
+            "**A build job.** It checks out the code, sets up Python, runs the validator and the build script that turn the lesson files into the site, and runs the tests. If a lesson file is malformed, this job fails and nothing is published.",
+            "**A deploy job.** It waits for the build with `needs`, runs only for the default branch, and asks for two extra permissions, `pages: write` and `id-token: write`, because publishing to GitHub Pages needs them.",
+            "**An artifact in between.** The build job uploads the finished site and the deploy job publishes that exact upload, so what was tested is what ships."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The details in the file may have moved on since this lesson was written. That is the point of the exercise: the file is the truth, and you can read it."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Add a workflow and watch it run",
+      "browser": [
+        "Open your repository and select the **Actions** tab.",
+        "Choose **set up a workflow yourself**. If the repository already has workflows, select **New workflow** first.",
+        "Name the file `hello.yml`, paste the workflow from this lesson, and select **Commit changes**.",
+        "Return to the **Actions** tab. A run appears within a few seconds. Select it, then the job, to read the log.",
+        "To start it by hand, select the workflow in the left sidebar, then **Run workflow**."
+      ],
+      "phone": [
+        "Create the file in your phone's browser at github.com, following the browser steps. Paste the YAML instead of typing it, because a small keyboard invites indentation errors.",
+        "To watch runs, open the repository in GitHub Mobile and go to **Actions**. As of this writing the app lists workflow runs and shows job logs.",
+        "Open a failed run to read the failing step. If the app offers a re-run, use it. Otherwise re-run from the mobile browser.",
+        "Turn on notifications for failed workflow runs so a red run reaches your phone."
+      ],
+      "cli": [
+        "`mkdir -p .github/workflows` and save the file as `.github/workflows/hello.yml`.",
+        "`git add .github/workflows/hello.yml`, then `git commit -m \"Add hello workflow\"` and `git push`.",
+        "`gh run list --limit 5` to see recent runs.",
+        "`gh run watch` to follow a run until it finishes.",
+        "`gh run view --log-failed` to print only the failing steps of a run.",
+        "`gh workflow run hello.yml` to trigger it by hand once the file is on the default branch."
+      ],
+      "editor": [
+        "In VS Code or a codespace, create `.github/workflows/hello.yml`. The GitHub Actions extension adds syntax checking and autocomplete for workflow keys.",
+        "Commit and push from the Source Control view.",
+        "With the extension installed, open its panel to see runs and logs without leaving the editor.",
+        "A coding agent can draft a workflow from a sentence such as: add a workflow that runs pytest on pull requests. Verify three things before you merge: the triggers are what you asked for, `permissions` is as narrow as possible, and every `uses` line names an action you recognize."
+      ]
+    },
+    {
+      "task": "Find and re-run a failed job",
+      "browser": [
+        "In the **Actions** tab, select the run marked as failed.",
+        "Select the failed job in the left column. The failing step is expanded.",
+        "Read the error. If the cause is in your code, fix it and push.",
+        "For a one-off failure, select **Re-run jobs**, then **Re-run failed jobs**.",
+        "Tick **Enable debug logging** in the re-run dialog when you need more detail."
+      ],
+      "phone": [
+        "In GitHub Mobile, open the repository's **Actions** list, or tap the failed check on the pull request.",
+        "Open the failed job and read the log of the failing step.",
+        "Re-run from the app if the option is shown. As of this writing that works for most runs, and the mobile browser is the fallback."
+      ],
+      "cli": [
+        "`gh run list --status failure --limit 5` to find the run id.",
+        "`gh run view <run-id> --log-failed` to read the failing output.",
+        "`gh run rerun <run-id> --failed` to re-run only the failed jobs.",
+        "`gh run rerun <run-id> --failed --debug` to do the same with debug logging."
+      ],
+      "editor": [
+        "Open the GitHub Actions panel in VS Code, expand the failed run and open the job log.",
+        "Fix and push from the editor. The new commit starts a fresh run.",
+        "If you ask an agent to fix a failing check, give it the log text. Then confirm the fix addresses the cause and did not delete or skip the failing test."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Writing `python-version: 3.10` without quotes. YAML reads the number 3.1, and the setup step fails or installs the wrong version.",
+      "fix": "Quote every version string: `\"3.10\"`."
+    },
+    {
+      "trap": "Expecting a file created in one job to exist in another job.",
+      "fix": "Jobs do not share a disk. Upload an artifact and download it in the later job, or put the steps in one job."
+    },
+    {
+      "trap": "Pasting untrusted text, such as a pull request title, straight into a `run` script with `${{ }}`. The text becomes part of the script and can execute.",
+      "fix": "Pass it through `env` and read it as a shell variable, as the example in this lesson does."
+    },
+    {
+      "trap": "Adding `workflow_dispatch` on a feature branch and wondering why the **Run workflow** button is missing.",
+      "fix": "The button appears only once the workflow file is on the default branch. Merge it first."
+    },
+    {
+      "trap": "Giving every workflow broad write permissions because one step once needed them.",
+      "fix": "Set `permissions` per workflow or per job and list only what is needed. Start from `contents: read`."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "A workflow has jobs `build` and `test` with no `needs` between them. When do they run?",
+      "choices": [
+        "`build` first, then `test`, in file order",
+        "At the same time, each on its own fresh runner",
+        "Only `build` runs; `test` waits for a manual start",
+        "One after the other on the same runner, sharing files"
+      ],
+      "answer": 1,
+      "why": "Jobs run in parallel by default and each gets its own machine. The order in the file means nothing. Add `needs: build` to `test` if it must wait."
+    },
+    {
+      "q": "Which line makes a step run packaged code that someone else published?",
+      "choices": [
+        "`uses: actions/checkout@v7`",
+        "`run: actions/checkout@v7`",
+        "`with: actions/checkout@v7`",
+        "`needs: actions/checkout@v7`"
+      ],
+      "answer": 0,
+      "why": "`uses` calls an action. `run` executes shell commands, so it would look for a program with that literal name. `with` only passes inputs to an action, and `needs` orders jobs."
+    },
+    {
+      "q": "You add `workflow_dispatch` to a workflow on a feature branch and push. The **Run workflow** button does not appear. Why?",
+      "choices": [
+        "Manual runs need a paid plan",
+        "The YAML must be invalid",
+        "The workflow file is not on the default branch yet",
+        "The button only appears for scheduled workflows"
+      ],
+      "answer": 2,
+      "why": "GitHub reads the list of manually runnable workflows from the default branch. Once the file is merged there, the button appears and lets you choose which branch to run."
+    },
+    {
+      "q": "What is `GITHUB_TOKEN`?",
+      "choices": [
+        "A personal access token you must create and store as a secret",
+        "Your account password, passed to the runner",
+        "A permanent key that identifies the repository",
+        "A short-lived credential created for each job and limited by `permissions`"
+      ],
+      "answer": 3,
+      "why": "GitHub creates it automatically for every job and it stops working when the job ends. You never create or store it. What it may do is set by the `permissions` key and the repository's default."
+    },
+    {
+      "q": "A step sets `python-version: 3.10` and the job fails saying version 3.1 was not found. What happened?",
+      "choices": [
+        "The runner image is out of date",
+        "YAML parsed the unquoted value as the number 3.1",
+        "Python 3.10 is no longer available",
+        "The cache restored an old interpreter"
+      ],
+      "answer": 1,
+      "why": "Unquoted, `3.10` is a decimal number and the trailing zero disappears. Quoting it as `\"3.10\"` keeps it a string. This is the most common bug in a first workflow."
+    }
+  ],
+  "mission": {
+    "title": "Give your repository its first workflow",
+    "where": "Your own repository. The workflow only reads the code, so nothing can be damaged.",
+    "steps": [
+      "Create a branch named `add-hello-workflow` and add `.github/workflows/hello.yml` from this lesson.",
+      "Open a pull request. Watch the check appear at the bottom of the pull request and turn green.",
+      "Break it on purpose: add a step with `run: exit 1`, push, and find the failing step in the log.",
+      "Remove the failing step, push, and confirm the check recovers.",
+      "Merge the pull request, then start the workflow by hand with **Run workflow** or `gh workflow run hello.yml`.",
+      "Open `.github/workflows/guide.yml`, the workflow that publishes this guide, and name its triggers, jobs and permissions in a short note."
+    ]
+  },
+  "terms": [
+    {
+      "term": "workflow",
+      "def": "A YAML file in `.github/workflows/` that describes an automated process: when it runs, on what machine, and which steps it executes."
+    },
+    {
+      "term": "event",
+      "def": "Something that happens in or to a repository, such as a push or a pull request, that can trigger a workflow through the `on` key."
+    },
+    {
+      "term": "job",
+      "def": "A group of steps that run in order on one runner. Jobs in a workflow run in parallel unless `needs` says otherwise."
+    },
+    {
+      "term": "step",
+      "def": "One unit of work inside a job: either shell commands with `run` or a packaged action with `uses`."
+    },
+    {
+      "term": "runner",
+      "def": "The machine that executes a job. GitHub-hosted runners are fresh virtual machines. Self-hosted runners are machines you provide."
+    },
+    {
+      "term": "action",
+      "def": "Reusable packaged code that a step calls with `uses`, referenced by owner, repository and version."
+    },
+    {
+      "term": "GITHUB_TOKEN",
+      "def": "A credential GitHub creates for each job and revokes when the job ends. Its powers are set by the `permissions` key."
+    },
+    {
+      "term": "context",
+      "def": "A named set of values available to expressions in a workflow, such as `github`, `secrets`, `vars` and `matrix`."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh run list",
+      "does": "Lists recent workflow runs with their status, branch and trigger.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh run watch",
+      "does": "Follows a run in the terminal until it finishes.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh run view <run-id> --log-failed",
+      "does": "Prints the log output of only the failed steps in a run.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh run rerun <run-id> --failed",
+      "does": "Re-runs only the failed jobs of a run, on the same commit.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh workflow run <file.yml>",
+      "does": "Starts a workflow that has a `workflow_dispatch` trigger. Add `--ref <branch>` to choose the branch.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh workflow list",
+      "does": "Lists the workflows GitHub has found in the repository and whether each is active.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "https://github.com/<owner>/<repo>/actions",
+      "does": "The Actions tab: every workflow and every run for the repository.",
+      "kind": "web",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: GitHub Actions",
+      "url": "https://docs.github.com/en/actions"
+    },
+    {
+      "label": "GitHub Docs: Workflow syntax for GitHub Actions",
+      "url": "https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions"
+    },
+    {
+      "label": "GitHub Docs: Events that trigger workflows",
+      "url": "https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows"
+    },
+    {
+      "label": "GitHub CLI manual: gh run",
+      "url": "https://cli.github.com/manual/gh_run"
+    }
+  ]
+}

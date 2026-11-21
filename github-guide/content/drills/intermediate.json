@@ -1,0 +1,280 @@
+[
+  {
+    "id": "drill-pr-conflict",
+    "track": "intermediate",
+    "title": "Your pull request shows conflicts on deadline day",
+    "minutes": 5,
+    "situation": "It is 4 p.m. and the workshop deadline is midnight. Your pull request with the final results table was approved this morning. Since then a labmate merged a change that touches the same `results.md` and `config.yaml`. The merge box now says the branch has conflicts, and the merge button is grey.",
+    "steps": [
+      {
+        "prompt": "What is your first move?",
+        "choices": [
+          {
+            "text": "Open the conflict view and read which files and lines conflict before changing anything",
+            "verdict": "best",
+            "feedback": "Scope first. Two files and a handful of lines is a ten-minute job, and knowing that lowers the pressure. You cannot choose a tool or a plan until you have seen the size of the conflict."
+          },
+          {
+            "text": "Close the pull request and open a new one from a fresh branch with your files copied over",
+            "verdict": "bad",
+            "feedback": "You would lose the review history and the approval, and copying your versions of the files over the new `main` silently deletes your labmate's merged change. The conflict exists to stop exactly that."
+          },
+          {
+            "text": "Message your labmate and wait for them to fix it",
+            "verdict": "ok",
+            "feedback": "Talking to them is right, because they know why they changed those lines. Waiting is the weak part. The conflict is on your branch and you can resolve it yourself, so ask your question and keep working."
+          },
+          {
+            "text": "Ask an admin to force your branch over `main`",
+            "verdict": "bad",
+            "feedback": "That replaces `main` with your version and erases your labmate's merged work for everyone. A conflict is a question about two changes, and deleting one of them answers nothing."
+          }
+        ]
+      },
+      {
+        "prompt": "In `results.md`, both of you added a new row at the same place in the table. How do you resolve that block?",
+        "choices": [
+          {
+            "text": "Accept your side only",
+            "verdict": "bad",
+            "feedback": "Your row is in, and your labmate's result has vanished from the table without anyone deciding that. This is the most common way a merge loses work, because the file still looks reasonable afterward."
+          },
+          {
+            "text": "Keep both rows in a sensible order and delete the marker lines",
+            "verdict": "best",
+            "feedback": "Both changes are valid additions that happened to land on the same spot, so the correct result contains both. Many conflicts are like this: nobody disagrees, and Git cannot know that the two additions are independent."
+          },
+          {
+            "text": "Accept the incoming side only",
+            "verdict": "bad",
+            "feedback": "Now the table is missing the result this pull request exists to add. Taking one side whole is right only when the other side is truly obsolete."
+          }
+        ]
+      },
+      {
+        "prompt": "In `config.yaml`, you set `seed: 13` and your labmate set `seed: 42` for the final runs. Your results table was produced with seed 13. What now?",
+        "choices": [
+          {
+            "text": "Take seed 42 to be agreeable and leave your table as it is",
+            "verdict": "bad",
+            "feedback": "The repository now claims that seed 42 produced numbers that came from seed 13. Nobody can reproduce the table from the committed config, and nothing in the history says why."
+          },
+          {
+            "text": "Keep seed 13 because your table used it, and say so in the commit message and the pull request",
+            "verdict": "ok",
+            "feedback": "The config and the table stay consistent and you left a record, so this is defensible under time pressure. You have still overridden a deliberate change without asking, so flag it for your labmate to confirm."
+          },
+          {
+            "text": "Ask your labmate which seed the paper's numbers should use, then make the config and the table agree",
+            "verdict": "best",
+            "feedback": "This block is a disagreement about a research decision, and a text merge cannot settle it. Two minutes of conversation gives you a config and a table that match, which is the property a reader of the paper depends on."
+          }
+        ]
+      },
+      {
+        "prompt": "The conflicts are resolved and committed. The approval on the pull request is from this morning. What do you do before merging?",
+        "choices": [
+          {
+            "text": "Wait for the checks, ask the reviewer for a quick look at the resolution commit, then merge",
+            "verdict": "best",
+            "feedback": "The resolution is new code that nobody has reviewed and no check has run against. A second pair of eyes on one small commit takes minutes and is cheap insurance at a deadline."
+          },
+          {
+            "text": "Merge as soon as the checks pass, since the pull request was already approved",
+            "verdict": "ok",
+            "feedback": "The rules may allow it, and green checks are real evidence. The approval covered the code before the resolution, though, so you are merging one unreviewed decision. Acceptable when the resolution was trivial."
+          },
+          {
+            "text": "Squash and force-push the branch first so the history looks tidy",
+            "verdict": "bad",
+            "feedback": "Rewriting the branch now makes the reviewer lose track of what changed since the approval, and adds risk for no benefit. If you want a tidy history, let the merge method squash for you."
+          }
+        ]
+      }
+    ],
+    "debrief": "A conflict on deadline day is an ordinary merge with a clock beside it. Read the scope before you act. Resolve each block on its merits: keep both when both are valid, and treat a disagreement about values as a question for a person. Let the checks and one reviewer see the resolution. Syncing with `main` the day before would have surfaced all of this while it was cheap.",
+    "lesson": "intermediate-merge-conflicts"
+  },
+  {
+    "id": "drill-rebased-shared-branch",
+    "track": "intermediate",
+    "title": "You rebased a branch your teammate was also using",
+    "minutes": 6,
+    "situation": "You and Priya both commit to `feature/data-loader`. To tidy up before review you ran `git rebase origin/main` and then `git push --force`. You had not fetched since the morning. Ten minutes later Priya writes that her push was rejected and that `git status` says her branch and the remote have diverged. Two of her commits were pushed an hour ago. A third exists only on her laptop.",
+    "steps": [
+      {
+        "prompt": "What happened to the two commits Priya pushed an hour ago?",
+        "choices": [
+          {
+            "text": "Nothing happened to them. A force push only adds commits",
+            "verdict": "bad",
+            "feedback": "A force push replaces the branch. That is the whole difference from a normal push, which is refused when it would discard commits."
+          },
+          {
+            "text": "They are no longer on the remote branch. Your force push replaced the branch with your rebased copy, which never contained them",
+            "verdict": "best",
+            "feedback": "Plain `--force` overwrites the remote branch with whatever you have, without checking what is there. You had not fetched her commits, so your version did not include them. They still exist in her clone, which is now the copy that matters."
+          },
+          {
+            "text": "Git merged them into your rebased commits automatically",
+            "verdict": "bad",
+            "feedback": "A push never merges anything. It sets the remote branch to the commit you send, and with `--force` it does so even when other commits are lost."
+          }
+        ]
+      },
+      {
+        "prompt": "What do you ask Priya to do right now?",
+        "choices": [
+          {
+            "text": "Run `git pull` to get back in sync",
+            "verdict": "bad",
+            "feedback": "Pulling merges the old copies of your commits, which she still has, with the rebased copies now on the remote. The branch ends up with every one of your changes twice and a pile of conflicts."
+          },
+          {
+            "text": "Run `git push --force` to put her version back",
+            "verdict": "bad",
+            "feedback": "That restores her commits and destroys your rebased ones, and now you are taking turns overwriting each other. Nobody's work is safe in that loop."
+          },
+          {
+            "text": "Stop, and make a backup branch of her current work with `git branch priya-backup` before anything else",
+            "verdict": "best",
+            "feedback": "Her clone is the only place where all three of her commits certainly exist. A backup branch costs one command and guarantees that no later step can lose them."
+          }
+        ]
+      },
+      {
+        "prompt": "How do her three commits get onto the rebased branch?",
+        "choices": [
+          {
+            "text": "She fetches, resets her branch to the new remote branch, and cherry-picks her three commits from the backup branch",
+            "verdict": "best",
+            "feedback": "Her commits are replayed on top of the rebased history, one at a time, and her next push is an ordinary fast-forward. The backup branch stays untouched until she has confirmed the result."
+          },
+          {
+            "text": "She merges her backup branch into the rebased branch",
+            "verdict": "bad",
+            "feedback": "The backup branch contains the old versions of your commits as well as hers. Merging it brings all of them back beside the rebased copies, which is the duplicate history you were trying to avoid."
+          },
+          {
+            "text": "She pushes the backup branch under a new name and you cherry-pick her commits onto the shared branch",
+            "verdict": "ok",
+            "feedback": "This works and keeps a copy of her work on GitHub while you sort it out. It adds a round trip, and she still has to reset her local branch afterward."
+          }
+        ]
+      },
+      {
+        "prompt": "What changes so that this does not happen again?",
+        "choices": [
+          {
+            "text": "Switch to `--force-with-lease` and change nothing else",
+            "verdict": "ok",
+            "feedback": "It would have refused this particular push, because the remote held commits you had never fetched. It is a seat belt and no substitute for a rule: after a fetch, the lease is satisfied and the push goes through."
+          },
+          {
+            "text": "Never rebase anything again",
+            "verdict": "bad",
+            "feedback": "That gives up a useful tool to avoid one mistake. Rebasing a branch only you use harms nobody. The problem was rewriting history that someone else already had."
+          },
+          {
+            "text": "Agree that shared branches are updated with merges, rebase only private branches, and always push rewritten history with `--force-with-lease`",
+            "verdict": "best",
+            "feedback": "The rule removes the cause, and the lease catches the day someone forgets the rule. Rebase stays available where it is harmless, on branches that only one person pushes to."
+          }
+        ]
+      }
+    ],
+    "debrief": "A rebase replaces commits with new copies, and a force push replaces the remote branch with your version. On a branch only you use, that is tidy. On a shared branch it removes other people's work from the remote and leaves their clones diverged. Recovery is calm and mechanical: back up, fetch, replay. Prevention is one team rule and one habit, `--force-with-lease`.",
+    "lesson": "intermediate-merge-strategies"
+  },
+  {
+    "id": "drill-huge-file",
+    "track": "intermediate",
+    "title": "Your push is rejected because of a 412 MB file",
+    "minutes": 6,
+    "situation": "You trained overnight and made three commits this morning. The first one added code and, by accident, `checkpoints/best.pt` at 412 MB. The next two were code only. `git push` fails: GitHub refuses the push because the file is over its 100 MB limit. None of the three commits has reached GitHub.",
+    "steps": [
+      {
+        "prompt": "What do you try first?",
+        "choices": [
+          {
+            "text": "Delete the file, commit the deletion, and push again",
+            "verdict": "bad",
+            "feedback": "The push is rejected again. The commit that added the file is still among the commits you are sending, so GitHub still sees a 412 MB file in the history."
+          },
+          {
+            "text": "Find out which commit added the file with `git log --stat -- checkpoints/best.pt`, since that commit is what has to change",
+            "verdict": "best",
+            "feedback": "The limit is checked against every commit in the push. Knowing that the file entered three commits back, and that nothing is pushed yet, tells you the fix is to rewrite local commits, which is safe."
+          },
+          {
+            "text": "Split the checkpoint into pieces under 100 MB and commit those",
+            "verdict": "bad",
+            "feedback": "It gets past the limit and leaves 412 MB in the history permanently. Every future clone downloads it, and every new checkpoint adds as much again."
+          }
+        ]
+      },
+      {
+        "prompt": "The file was added three commits ago and nothing is pushed. How do you take it out of the history?",
+        "choices": [
+          {
+            "text": "Run `git reset --hard origin/main` to start clean",
+            "verdict": "bad",
+            "feedback": "That discards all three commits from the branch and deletes the tracked files, checkpoint included, from your working tree. The reflog could bring the commits back, but you have turned a small problem into a recovery."
+          },
+          {
+            "text": "Use an interactive rebase to edit the first commit, remove the file from it with `git rm --cached`, amend, and continue",
+            "verdict": "ok",
+            "feedback": "This removes the file and keeps your three separate commits. It takes more steps and more care, so it is worth it only when the commit boundaries are valuable."
+          },
+          {
+            "text": "Run `git reset --soft origin/main`, unstage the checkpoint with `git restore --staged checkpoints/best.pt`, add `checkpoints/` to `.gitignore`, and commit the code again",
+            "verdict": "best",
+            "feedback": "A soft reset keeps every change staged and keeps the checkpoint on disk. Unstaging the one file and committing gives you a history without it. You lose the split into three commits, which you can recreate if it matters."
+          }
+        ]
+      },
+      {
+        "prompt": "Where should the checkpoint live?",
+        "choices": [
+          {
+            "text": "Outside ordinary Git: in Git LFS, a DVC remote, lab storage or a release asset, with the commit hash and config that produced it recorded beside it",
+            "verdict": "best",
+            "feedback": "The repository keeps a small pointer or a written reference, and the large file lives where large files are cheap. Recording the commit and the config means the checkpoint can be traced or rebuilt."
+          },
+          {
+            "text": "Nowhere. It can be retrained from the config and the seed",
+            "verdict": "ok",
+            "feedback": "Legitimate when training is cheap and the run is deterministic enough. For an overnight run, a stored checkpoint with its provenance saves compute and removes doubt about whether a retrained model matches."
+          },
+          {
+            "text": "In a second repository used only for checkpoints, committed normally",
+            "verdict": "bad",
+            "feedback": "The same limit applies there, and so does the same history growth. Moving the problem to another repository does not change what Git is good at."
+          }
+        ]
+      },
+      {
+        "prompt": "How do you stop the next one?",
+        "choices": [
+          {
+            "text": "Raise the file size limit in the repository's settings",
+            "verdict": "bad",
+            "feedback": "There is no such setting. The limit is fixed by GitHub, and the reason behind it, that Git history keeps every version forever, would still apply."
+          },
+          {
+            "text": "Ignore `checkpoints/` and `*.pt` in `.gitignore` now, and read `git status` before each commit instead of running `git add .` blind",
+            "verdict": "best",
+            "feedback": "The ignore rule removes the hazard, and the habit catches whatever the rule does not cover. Both are free."
+          },
+          {
+            "text": "Add a pre-commit hook that refuses files over a size threshold",
+            "verdict": "ok",
+            "feedback": "A good automatic guard. It only protects clones where the hook is installed, so it complements the ignore rule and does not replace it."
+          }
+        ]
+      }
+    ],
+    "debrief": "The size limit is checked at push time against every commit you send, so the fix is to change those commits, which is safe because they were never shared. Git keeps every version of every file forever. That is why large binaries belong in LFS or outside the repository, with a pointer and a record of how they were made, and why a `.gitignore` written on day one is the cheapest insurance in the project.",
+    "lesson": "intermediate-ignore-lfs"
+  }
+]

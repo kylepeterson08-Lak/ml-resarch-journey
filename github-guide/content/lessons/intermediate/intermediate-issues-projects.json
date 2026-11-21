@@ -1,0 +1,518 @@
+{
+  "id": "intermediate-issues-projects",
+  "track": "intermediate",
+  "title": "Issues, labels, milestones and Projects",
+  "minutes": 17,
+  "summary": "An issue is one unit of work with a number, a discussion and a state. Labels sort issues, milestones group them toward a date, and a Project lays issues and pull requests out as a table, a board or a roadmap. Together they turn a repository into a plan anyone can read.",
+  "outcomes": [
+    "Write an issue someone else could pick up without asking you a question",
+    "Break a large goal into sub-issues or a task list and track its progress",
+    "Use labels, assignees and milestones so open work can be filtered in seconds",
+    "Link pull requests to issues so that merging closes the right items",
+    "Build a Project with table, board and roadmap views and a custom field",
+    "Decide whether something belongs in an issue or a discussion"
+  ],
+  "prereqs": ["basics-repo-tour", "basics-pull-requests"],
+  "lenses": {
+    "everyday": "Picture a shared whiteboard for running a household. Each sticky note is one job: \"fix the porch light.\" The color of the note says what kind of job it is. A name on the note says who has it. A line across the board marked \"before Saturday's party\" groups the notes that share a deadline. Moving a note from the left column to the right shows progress to anyone who walks past. When a job is finished the note comes down and goes in a shoebox, where you can still find it later. Issues are the notes, labels the colors, milestones the deadline line, and a Project the board.",
+    "legal": "Think of matter management. At intake each matter gets a number, a responsible attorney, a practice-area code and a docketed deadline, and every later note goes in the running file. That is an issue with its assignee, label, milestone and comments. A Project is the status report that shows every open matter by stage. A tax team will recognize the open-items list on an engagement: each request has an owner, a status and a due date, and the file does not close until every item is cleared. A pull request that says `Closes #23` is the cross-reference from the work product to the request it satisfies. Closed items are kept, never deleted, so the record survives.",
+    "ml": "Your research backlog becomes a list of issues: `Reproduce the baseline from Table 2`, `Ablation: remove augmentation`, `Read: the label smoothing paper`. Labels `reading`, `experiment`, `bug` and `infra` let you filter in one click. A milestone named `Workshop submission` with a due date shows how much is left. A parent issue for the reproduction holds one sub-issue per model. A Project adds custom fields the repository cannot: `Dataset`, `Val accuracy`, `Compute hours`. When the pull request that adds the ResNet baseline says `Closes #23`, merging it closes the issue and moves the card to done.",
+    "technical": "Issues and pull requests share one number sequence per repository. An issue has a state, open or closed, and a closing reason such as completed or not planned. Its metadata includes assignees, labels, one milestone, an optional type, parent and sub-issue relationships, and linked pull requests. A closing keyword in a pull request description links the two, and merging into the default branch closes the issue. A Project belongs to a user or an organization, not to a repository, and can hold items from many repositories plus draft items. Its views are saved layouts, table, board or roadmap, over the same items, with built-in and custom fields."
+  },
+  "sections": [
+    {
+      "heading": "An issue is one unit of work",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "An issue records something that should happen: a bug to fix, an experiment to run, a paper to read, a decision to make. It has a number, a title, a body, a discussion thread and a state. Because everyone can see it and link to it, it replaces the private list in your head or your notes app. A good issue can be picked up by someone else without a question to you."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**A specific title.** `Training diverges with batch size 256` beats `Fix training`.",
+            "**Context.** What you saw, what you expected, and a link or a log excerpt.",
+            "**A finish line.** One sentence that starts *Done when*.",
+            "**One outcome.** If the title needs the word *and*, open two issues."
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "Reproduce the ResNet-18 baseline from Table 2\n\nThe paper reports 93.1 percent test accuracy on CIFAR-10. We need our own\nnumber before we change anything.\n\nDone when: three seeds are run and the mean is within 0.5 points of the paper.\n\n- [ ] Add `configs/resnet18_baseline.yaml`\n- [ ] Run seeds 0, 1 and 2\n- [ ] Record results in `results/baseline.md`",
+          "caption": "An issue body with a finish line and a task list"
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Templates ask the questions for you",
+          "text": "Files in `.github/ISSUE_TEMPLATE/` give people a menu of issue kinds when they select **New issue**. A Markdown template pre-fills the body. A YAML issue form goes further and shows real form fields, so a report cannot be submitted with the important part left blank."
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "file": ".github/ISSUE_TEMPLATE/experiment.yml",
+          "code": "name: Experiment\ndescription: Plan one experiment with a clear finish line\ntitle: \"Experiment: \"\nlabels: [\"experiment\"]\nbody:\n  - type: textarea\n    id: hypothesis\n    attributes:\n      label: Hypothesis\n      description: What do you expect to happen, and why?\n    validations:\n      required: true\n  - type: input\n    id: done-when\n    attributes:\n      label: Done when\n      placeholder: Three seeds run, results table committed\n    validations:\n      required: true",
+          "caption": "An issue form with two required fields"
+        }
+      ]
+    },
+    {
+      "heading": "Labels, assignees, milestones and types",
+      "blocks": [
+        {
+          "type": "table",
+          "caption": "The fields on an issue and the question each one answers",
+          "head": ["Field", "Answers", "Example"],
+          "rows": [
+            ["Assignee", "Who is doing this?", "You, or a labmate"],
+            ["Label", "What kind of work is it?", "`experiment`, `reading`, `bug`"],
+            ["Milestone", "Which goal or date is it part of?", "`Workshop submission`, due March 14"],
+            ["Type", "Is it a task, a bug or a feature?", "Defined by an organization, so a personal repository may not show it"],
+            ["State", "Is it still open, and if closed, why?", "Closed as completed, or closed as not planned"]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Keep the label set small. Three to eight labels that everyone uses beat forty that nobody remembers. A milestone shows a progress bar and a due date, and an issue can belong to only one milestone at a time."
+        },
+        {
+          "type": "reveal",
+          "prompt": "You decide not to run an experiment after all and close its issue as not planned. Is the issue gone?",
+          "answer": "No. A closed issue keeps its number, its full discussion and its links, and it still appears in search with `is:closed`. Closing as not planned records a decision, which is often as valuable as the work would have been. Deleting an issue is a separate and rarely needed action."
+        }
+      ]
+    },
+    {
+      "heading": "Breaking a goal into pieces",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A goal such as reproducing a paper's main table is too big to be one unit of work. GitHub gives you two ways to break it down, and they suit different sizes of piece."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Task list",
+              "points": [
+                "Checkboxes written in the issue body",
+                "Good for a short checklist one person will finish",
+                "The issue shows how many boxes are ticked",
+                "Items have no assignee, label or discussion of their own"
+              ]
+            },
+            {
+              "title": "Sub-issues",
+              "points": [
+                "Real issues attached to a parent issue",
+                "Good when pieces have different owners or need their own discussion",
+                "The parent shows progress as its sub-issues close",
+                "Each piece can be assigned, labeled and linked to a pull request"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "flow",
+          "caption": "From a goal to a closed issue",
+          "steps": [
+            {"label": "Goal", "note": "A parent issue states the outcome"},
+            {"label": "Sub-issues", "via": "break down", "note": "One for each piece of work"},
+            {"label": "Branch", "via": "start work", "note": "Named for the issue it serves"},
+            {"label": "Pull request", "via": "Closes #23", "note": "Linked to the issue it finishes"},
+            {"label": "Closed", "via": "merge", "note": "The issue closes and the parent's progress updates"}
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Linking pull requests to issues",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A link between a pull request and an issue does two things. It lets a reader jump from the request to the change that answered it. And when the pull request merges into the default branch, GitHub closes the issue for you."
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "Adds the ResNet-18 baseline config and results.\n\nCloses #23\nRefs #19",
+          "caption": "In a pull request description. Closes, Fixes and Resolves close the issue on merge. Refs is ordinary text that only creates a mention."
+        },
+        {
+          "type": "list",
+          "items": [
+            "The keywords are `close`, `fix` and `resolve`, with their usual endings, followed by the issue number.",
+            "They work in a pull request description, and in a commit message that lands on the default branch.",
+            "The pull request must target the default branch for the issue to close automatically.",
+            "You can also link by hand in the **Development** section of the issue or pull request sidebar."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Traceability from request to change",
+          "text": "Issue, pull request, review and merge form a chain: what was asked, what was changed, who checked it, and when it took effect. Auditors call that traceability. The chain is built from the links you write, so one line of text in a pull request is the difference between a history you can demonstrate and one you have to reconstruct."
+        }
+      ]
+    },
+    {
+      "heading": "Projects: one plan, several views",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A repository's issue list is flat. A Project lays the same issues and pull requests out the way you want to think about them, and adds fields the repository does not have. A Project belongs to your account or your organization, so it can collect work from several repositories."
+        },
+        {
+          "type": "table",
+          "caption": "Three layouts over the same items",
+          "head": ["View", "Looks like", "Use it for"],
+          "rows": [
+            ["Table", "A spreadsheet with one row per item", "Triage, sorting, grouping and bulk edits"],
+            ["Board", "Columns of cards, one column per status", "Seeing what is in progress and what is stuck"],
+            ["Roadmap", "Bars on a timeline", "Planning against dates or iterations"]
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Custom fields** can be text, a number, a date, a single-select list or an iteration. A research Project might add `Dataset`, `Val accuracy` and `Compute hours`.",
+            "**Views are saved.** One view can show only `label:experiment` grouped by dataset, and another only the items assigned to you.",
+            "**Built-in workflows** can set an item's status when it is added, closed or merged, so the board keeps itself current.",
+            "**Draft items** let you jot an idea in the Project before it deserves a real issue."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Every board move has a keyboard path",
+          "text": "Dragging cards is the least accessible way to use a Project. Changing an item's **Status** field does the same thing and works with a keyboard and a screen reader, and the table view exposes every field as an ordinary cell. If someone on your team does not use a mouse, make the table the default view."
+        }
+      ]
+    },
+    {
+      "heading": "Issue or discussion?",
+      "blocks": [
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Issue",
+              "points": [
+                "Work that can be finished",
+                "Has an assignee and a closed state",
+                "Bugs, tasks, experiments, decisions with an owner"
+              ]
+            },
+            {
+              "title": "Discussion",
+              "points": [
+                "Conversation with no finish line",
+                "Has categories, upvotes and marked answers",
+                "Questions, ideas, announcements, show and tell"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Discussions are switched on per repository under **Settings**, in the **Features** section. A discussion can become an issue once it turns into concrete work, and an issue that turns out to be a question can be converted to a discussion."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Create an issue and break it into pieces",
+      "browser": [
+        "Open the **Issues** tab and select **New issue**. Pick a template if the repository offers a menu.",
+        "Write a specific title and a body with context and a line that starts *Done when*.",
+        "In the sidebar, set **Assignees**, **Labels** and **Milestone**.",
+        "Create the issue with the green button.",
+        "For a short checklist, add `- [ ]` lines to the body. For pieces that need their own owner, use the sub-issue control under the issue body to create or attach sub-issues."
+      ],
+      "phone": [
+        "In GitHub Mobile, open the repository, go to **Issues** and use the plus button to start a new one.",
+        "Write the title and body. As of this writing the app lets you set assignees, labels and a milestone from the issue's details.",
+        "Task list checkboxes can be ticked from the app.",
+        "If the app does not show a sub-issue option, open the issue in your phone's browser to add them."
+      ],
+      "cli": [
+        "`gh issue create --title \"Reproduce the ResNet-18 baseline\" --body-file issue.md --label experiment --assignee @me` creates it from a prepared body.",
+        "Add `--milestone \"Workshop submission\"` to attach it to a milestone that already exists.",
+        "`gh issue list --label experiment` lists matching issues, and `gh issue view 23` shows one.",
+        "Sub-issue support in the CLI has been changing. Run `gh issue create --help` to see what your version offers, and add sub-issues in the browser if it offers nothing."
+      ],
+      "editor": [
+        "The GitHub Pull Requests extension for VS Code adds an **Issues** view that lists the issues assigned to you.",
+        "Create an issue from that view, or from the Command Palette by searching for the extension's create issue command.",
+        "Typing `#` in a commit message or a pull request description suggests issue numbers.",
+        "A coding agent can turn a written plan into issues with `gh issue create`. Ask it to print the titles and bodies first, and approve them before it creates anything. New issues notify people."
+      ]
+    },
+    {
+      "task": "Link a pull request so that merging closes the issue",
+      "browser": [
+        "Write `Closes #23` in the pull request description when you open it, or edit the description later.",
+        "After saving, check the **Development** section of the sidebar. It should list the issue.",
+        "To link without a keyword, open that **Development** section and choose the issue from the list.",
+        "Confirm the pull request targets the default branch. Otherwise the issue will not close on merge."
+      ],
+      "phone": [
+        "Type `Closes #23` in the description when you create or edit the pull request in GitHub Mobile. Keywords work wherever the text is entered.",
+        "After merging, open the issue and confirm that it shows as closed."
+      ],
+      "cli": [
+        "`gh issue develop 23 --checkout` creates a branch linked to issue 23 and switches to it.",
+        "Commit your work and push the branch.",
+        "`gh pr create --title \"Add ResNet-18 baseline\" --body \"Closes #23\"` opens the linked pull request.",
+        "After the merge, `gh issue view 23` shows the issue as closed."
+      ],
+      "editor": [
+        "In the extension's pull request form, write `Closes #23` in the description. Typing `#` offers a list of issues.",
+        "Some coding agents can be assigned an issue directly and answer with a draft pull request that links back to it. Availability depends on your plan.",
+        "Whoever opens the pull request, check the **Development** section in the browser before you merge."
+      ]
+    },
+    {
+      "task": "Build a Project with three views",
+      "browser": [
+        "Open the **Projects** tab of your repository or your profile and select **New project**.",
+        "Start from a table, give the Project a name, and create it.",
+        "Add items by typing `#` in the bottom row and picking issues, or by pasting issue links.",
+        "Add a field from the plus button at the right edge of the table header. Choose a type such as single select and name it.",
+        "Add a view with the new view tab and switch its layout to **Board**. Add another and switch it to **Roadmap**.",
+        "Open the Project's menu, find **Workflows**, and turn on the ones that set status automatically."
+      ],
+      "phone": [
+        "As of this writing GitHub Mobile can open a Project, show its views and change an item's fields.",
+        "Create and configure the Project in a browser first. Building views on a phone is slow.",
+        "Day to day, use the phone to move items between statuses and to add a quick draft item."
+      ],
+      "cli": [
+        "`gh auth refresh -s project` once, to give the CLI permission to manage Projects.",
+        "`gh project create --owner @me --title \"Research plan\"` creates one.",
+        "`gh project list --owner @me` shows its number.",
+        "`gh project item-add 1 --owner @me --url https://github.com/OWNER/REPO/issues/23` adds an issue to Project number 1.",
+        "Fields and views are quicker to set up in the browser."
+      ],
+      "editor": [
+        "Projects are a browser feature. Editors do not show boards.",
+        "From an editor, run the `gh project` commands in the built-in terminal.",
+        "A coding agent can add a batch of issues to a Project with those commands. Check the board in the browser afterward."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "A vague issue such as `Fix training`. Nobody can tell when it is done, so it stays open forever.",
+      "fix": "Rewrite the title as the specific problem and add one line that starts *Done when*."
+    },
+    {
+      "trap": "Writing `Closes #23` in a pull request that targets a branch other than the default. The merge happens and the issue stays open.",
+      "fix": "Check the base branch. If the work has to land elsewhere first, close the issue by hand with a comment that links the pull request."
+    },
+    {
+      "trap": "Forty labels, most of them used once. Filtering stops working because nobody applies them the same way.",
+      "fix": "Keep a short list that answers one question, such as the kind of work. Delete the rest."
+    },
+    {
+      "trap": "Tracking status in two places, such as an issue and a private notes file. They drift apart within a week.",
+      "fix": "Make the issue the single source of truth. Put updates in comments and let the Project read from it."
+    },
+    {
+      "trap": "Using an issue as a chat room for an open question. It never closes and it buries real work in the list.",
+      "fix": "Move open-ended questions to Discussions, and create an issue when a concrete task appears."
+    },
+    {
+      "trap": "Closing an issue with no comment. A year later nobody knows whether it was fixed or abandoned.",
+      "fix": "Close with a reason and one sentence, or let a linked pull request close it."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "Which line in a pull request description closes issue 23 when the pull request merges into the default branch?",
+      "choices": [
+        "`Related to #23`",
+        "`Issue 23`",
+        "`See #23`",
+        "`Fixes #23`"
+      ],
+      "answer": 3,
+      "why": "Only the closing keywords, forms of close, fix and resolve followed by the issue number, close an issue on merge. `Related to #23` and `See #23` create a cross-reference in the timeline and leave the issue open."
+    },
+    {
+      "q": "Who owns a Project?",
+      "choices": [
+        "One repository",
+        "A user or an organization, and it can include items from several repositories",
+        "A single milestone",
+        "Whoever created the first issue in it"
+      ],
+      "answer": 1,
+      "why": "Projects live at the account or organization level so that one plan can span repositories. A repository has a Projects tab, which tempts people to think the Project sits inside it, but that tab only lists the Projects linked to the repository."
+    },
+    {
+      "q": "A goal has four pieces. Each has a different owner and each needs its own pull request. What fits best?",
+      "choices": [
+        "Four sub-issues under a parent issue",
+        "One issue with a four-line task list",
+        "Four labels",
+        "Four milestones"
+      ],
+      "answer": 0,
+      "why": "Sub-issues are real issues, so each can have its own assignee, discussion and linked pull request while the parent tracks overall progress. Task list items have none of those, which makes them a poor fit for work split across people."
+    },
+    {
+      "q": "A labmate asks, with no specific task in mind, whether anyone has tried mixed precision on this model. Where does that belong?",
+      "choices": [
+        "A new issue labeled `question`",
+        "A comment on the most recent pull request",
+        "A discussion",
+        "A draft item in the Project"
+      ],
+      "answer": 2,
+      "why": "It is an open question with no finish line, which is what Discussions are for. An issue would sit open with nothing to complete. If the answer turns into work, create an issue from the discussion."
+    },
+    {
+      "q": "In a Project, you drag a card from one board column to another. What changed?",
+      "choices": [
+        "Only the layout of the board view",
+        "The item's Status field, which every view of the Project shows",
+        "The issue's labels",
+        "The issue's milestone"
+      ],
+      "answer": 1,
+      "why": "Views are different layouts over the same items. A board column is a value of a field, usually Status, so moving the card edits that field, and the table and roadmap views show the new value too."
+    }
+  ],
+  "mission": {
+    "title": "Plan two weeks of learning as issues and a Project",
+    "where": "Your own repository and your own account.",
+    "steps": [
+      "Create three labels that fit your work, for example `reading`, `experiment` and `tooling`.",
+      "Create a milestone two weeks out and name it for the outcome you want by then.",
+      "Open a parent issue for one goal, such as finishing two chapters of the textbook you are working through. Give it a *Done when* line and three sub-issues or a task list.",
+      "Create a Project named `Research plan`, add your issues, and add one custom field such as `Effort` with small, medium and large.",
+      "Add a board view and a roadmap view. Turn on the workflow that marks closed items as done.",
+      "Finish one item through a branch and a pull request whose description closes the issue. Watch the issue close and the card move.",
+      "Close one issue as not planned, with a sentence that explains why."
+    ]
+  },
+  "terms": [
+    {
+      "term": "milestone",
+      "def": "A named goal with an optional due date. Issues and pull requests attached to it count toward a progress bar."
+    },
+    {
+      "term": "label",
+      "def": "A colored tag on an issue or pull request, used to sort and filter work by kind, area or priority."
+    },
+    {
+      "term": "sub-issue",
+      "def": "An issue attached to a parent issue. It has its own assignee and state, and the parent shows progress as its sub-issues close."
+    },
+    {
+      "term": "task list",
+      "def": "Checkboxes written as `- [ ]` lines in an issue or pull request body. GitHub shows how many are ticked."
+    },
+    {
+      "term": "closing keyword",
+      "def": "A word such as Closes, Fixes or Resolves followed by an issue number. In a pull request that merges into the default branch, it closes that issue."
+    },
+    {
+      "term": "Project view",
+      "def": "A saved layout of a Project's items as a table, a board or a roadmap, with its own filters, grouping and sorting."
+    },
+    {
+      "term": "issue form",
+      "def": "A YAML file in `.github/ISSUE_TEMPLATE/` that turns the new-issue page into a form with required fields."
+    },
+    {
+      "term": "triage",
+      "def": "Going through new issues to label, assign, schedule or close each one."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh issue create --title \"...\" --label experiment --assignee @me",
+      "does": "Creates an issue with a label and assigns it to you.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh issue list --label experiment --assignee @me",
+      "does": "Lists open issues that carry a label and are assigned to you.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh issue close 23 --reason \"not planned\" --comment \"Superseded by #31\"",
+      "does": "Closes an issue with a reason and a comment that explains the decision.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh issue develop 23 --checkout",
+      "does": "Creates a branch linked to issue 23 and switches to it.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh project item-add 1 --owner @me --url <issue-url>",
+      "does": "Adds an issue or pull request to Project number 1 on your account.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "is:issue is:open label:experiment no:assignee",
+      "does": "Search qualifiers for open issues with a label that nobody has picked up.",
+      "kind": "search",
+      "risk": "safe"
+    },
+    {
+      "cmd": "is:open milestone:\"Workshop submission\"",
+      "does": "Search qualifiers for everything still open in one milestone.",
+      "kind": "search",
+      "risk": "safe"
+    },
+    {
+      "cmd": "c",
+      "does": "On a repository's Issues page, starts a new issue.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "l",
+      "does": "On an open issue or pull request, opens the label picker.",
+      "kind": "key",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: Tracking your work with issues",
+      "url": "https://docs.github.com/en/issues/tracking-your-work-with-issues"
+    },
+    {
+      "label": "GitHub Docs: Linking a pull request to an issue",
+      "url": "https://docs.github.com/en/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue"
+    },
+    {
+      "label": "GitHub Docs: About Projects",
+      "url": "https://docs.github.com/en/issues/planning-and-tracking-with-projects/learning-about-projects/about-projects"
+    },
+    {
+      "label": "GitHub Docs: Configuring issue templates for your repository",
+      "url": "https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository"
+    },
+    {
+      "label": "GitHub Docs: About discussions",
+      "url": "https://docs.github.com/en/discussions/collaborating-with-your-community-using-discussions/about-discussions"
+    },
+    {
+      "label": "GitHub CLI manual: gh issue",
+      "url": "https://cli.github.com/manual/gh_issue"
+    }
+  ]
+}

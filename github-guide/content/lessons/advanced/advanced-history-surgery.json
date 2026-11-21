@@ -1,0 +1,619 @@
+{
+  "id": "advanced-history-surgery",
+  "track": "advanced",
+  "title": "History surgery: interactive rebase, cherry-pick, bisect",
+  "minutes": 22,
+  "summary": "Commits are drafts until you share them. Interactive rebase reshapes a branch's commits, cherry-pick copies one commit somewhere else, and bisect finds the commit that broke something. All three are safe once you know which history is yours to change.",
+  "outcomes": [
+    "Squash, reword, reorder and drop commits with an interactive rebase",
+    "Use fixup commits and autosquash to tidy a branch in one command",
+    "Copy a single commit onto another branch with cherry-pick",
+    "Find the commit that introduced a bug with bisect, by hand and automatically",
+    "Push rewritten history with `--force-with-lease` and say why not `--force`",
+    "Undo any of these operations with a backup branch or the reflog"
+  ],
+  "prereqs": [
+    "intermediate-merge-strategies",
+    "intermediate-undo-toolkit"
+  ],
+  "lenses": {
+    "everyday": "Before you hand in a report, you tidy the draft. Three paragraphs written at different times become one. A section moves earlier. A sentence that made sense at midnight goes. Nobody reading the final version needs your false starts. That is interactive rebase. Cherry-pick is photocopying one page from another folder into this one. Bisect is finding which day the milk went off by checking the middle of the week first, then halving again. One rule covers all of it: you only rewrite drafts that are still on your own desk.",
+    "legal": "Working drafts and the executed document are different records. While a brief is still with the drafting attorney, edits are consolidated freely and nobody preserves each keystroke. Once it is filed, it is not altered. A correction is a new filing that refers to the old one. Interactive rebase is consolidating your working drafts before filing. A branch others have pulled is a filed document: amend by adding, never by replacing. Bisect is tracing an error through dated versions to the first one that contains it. Cherry-pick is carrying one approved change into a second matter, with a note of its source.",
+    "ml": "Your experiment branch has eleven commits with messages like `wip`, `fix typo`, `try lr 3e-4` and `actually fix loader`. Before the pull request, an interactive rebase folds them into three commits a reviewer can follow: the loader fix, the scheduler change, the config. Later, validation accuracy on `main` has dropped two points since last month. `git bisect run` with a short evaluation script checks out the midpoint commit, runs the script and repeats, landing on the offending commit in about seven steps out of a hundred. A fix on `main` that an older release branch also needs is cherry-picked across.",
+    "technical": "`git rebase -i` replays a range of commits onto a base according to an instruction list you edit: keep, reword, edit, squash, fixup, drop or reorder. Each replayed commit is a new object with a new hash, so the branch's history is rewritten. `git cherry-pick` applies the change from one existing commit as a new commit on the current branch. `git bisect` runs a binary search over the commits between a known good and a known bad revision. After rewriting a pushed branch, `git push --force-with-lease` updates the remote only if its tip is still the one you last fetched."
+  },
+  "sections": [
+    {
+      "heading": "One rule before you cut",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Every command in this lesson except bisect creates new commits that replace old ones. New commits have new hashes. Anyone who already has the old commits now holds a history that disagrees with yours. So the rule is short: **rewrite only history that nobody else has built on.**"
+        },
+        {
+          "type": "table",
+          "head": [
+            "History",
+            "Safe to rewrite?"
+          ],
+          "rows": [
+            [
+              "Commits you have not pushed",
+              "Yes"
+            ],
+            [
+              "Your own pull request branch, where only you commit",
+              "Yes, with `--force-with-lease`. Tell reviewers you rewrote it"
+            ],
+            [
+              "A branch a teammate also commits to",
+              "Only by agreement, at a moment you both choose"
+            ],
+            [
+              "`main` or any release branch",
+              "No. Use `git revert` to add a correcting commit"
+            ]
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Make a backup pointer first",
+          "text": "Before any surgery run `git branch backup/before-surgery`. It costs nothing, moves nothing, and gives a name to exactly where you were. If the result is wrong, `git reset --hard backup/before-surgery` puts the branch back. Delete the backup when you are satisfied."
+        },
+        {
+          "type": "graph",
+          "caption": "After squashing three commits into one. B, C and D still exist for a while and the reflog can reach them, but no branch points at them.",
+          "commits": [
+            {
+              "id": "A",
+              "msg": "Base on main"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ],
+              "msg": "wip loader",
+              "ghost": true
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ],
+              "msg": "fix typo",
+              "ghost": true
+            },
+            {
+              "id": "D",
+              "parents": [
+                "C"
+              ],
+              "msg": "loader tests",
+              "ghost": true
+            },
+            {
+              "id": "E",
+              "parents": [
+                "A"
+              ],
+              "msg": "Fix data loader, with tests"
+            }
+          ],
+          "branches": {
+            "main": "A",
+            "feature": "E"
+          },
+          "head": "feature",
+          "highlight": [
+            "E"
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Interactive rebase: reshape a branch",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "`git rebase -i` opens your editor with one line per commit, **oldest at the top**. That is the reverse of `git log`. You edit the list, save and close, and Git replays the commits in the order and manner you wrote."
+        },
+        {
+          "type": "code",
+          "lang": "text",
+          "code": "# What Git shows for: git rebase -i HEAD~4   (oldest commit first)\npick 1a2b3c4 wip loader\npick 5d6e7f8 fix typo\npick 9a8b7c6 Add cosine scheduler\npick 3c2d1e0 loader tests\n\n# What you save\nreword 1a2b3c4 wip loader\nfixup 5d6e7f8 fix typo\nfixup 3c2d1e0 loader tests\npick 9a8b7c6 Add cosine scheduler",
+          "caption": "Moving a line reorders commits. Here the test commit moves up to join the loader work."
+        },
+        {
+          "type": "table",
+          "head": [
+            "Verb",
+            "Short form",
+            "What it does"
+          ],
+          "rows": [
+            [
+              "`pick`",
+              "`p`",
+              "Keep the commit as it is"
+            ],
+            [
+              "`reword`",
+              "`r`",
+              "Keep the changes, edit the message"
+            ],
+            [
+              "`edit`",
+              "`e`",
+              "Pause after this commit so you can change its content"
+            ],
+            [
+              "`squash`",
+              "`s`",
+              "Meld into the commit above and combine both messages"
+            ],
+            [
+              "`fixup`",
+              "`f`",
+              "Meld into the commit above and discard this message"
+            ],
+            [
+              "`drop`",
+              "`d`",
+              "Remove the commit entirely"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Deleting a line drops that commit, the same as `drop`. If a replayed commit conflicts with what came before it, the rebase pauses. Resolve the conflict as in [Merge conflicts](#intermediate-merge-conflicts), `git add` the file, and run `git rebase --continue`. At any pause, `git rebase --abort` returns the branch to where it started."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# You notice a mistake that belongs in an earlier commit, 1a2b3c4\ngit add src/loader.py\ngit commit --fixup 1a2b3c4        # creates a commit titled \"fixup! wip loader\"\n\n# Later, one command files every fixup under its target\ngit rebase -i --autosquash main",
+          "caption": "Fixup commits: decide the cleanup while you work, apply it at the end"
+        },
+        {
+          "type": "reveal",
+          "prompt": "The editor lists four commits. You delete the second line by accident, save and close. What happens to that commit?",
+          "answer": "It is dropped from the branch, because a deleted line means the same as `drop`. The commit object still exists and the reflog remembers where the branch was, so you can find the entry from before the rebase and reset to it. This is the mistake the backup branch is for."
+        }
+      ]
+    },
+    {
+      "heading": "Cherry-pick: copy one commit",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "`git cherry-pick <commit>` takes the change that one commit made and applies it as a new commit on the branch you are on. The original stays where it was. The copy has a different hash, because its parent is different."
+        },
+        {
+          "type": "graph",
+          "caption": "The fix C on main is copied onto the release branch as C2. Same change, different commit.",
+          "commits": [
+            {
+              "id": "A",
+              "msg": "Release 1.0"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ],
+              "msg": "New feature"
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ],
+              "msg": "Fix off-by-one in eval"
+            },
+            {
+              "id": "R",
+              "parents": [
+                "A"
+              ],
+              "msg": "Update release notes"
+            },
+            {
+              "id": "C2",
+              "parents": [
+                "R"
+              ],
+              "msg": "Fix off-by-one in eval (picked)"
+            }
+          ],
+          "branches": {
+            "main": "C",
+            "release-1.0": "C2"
+          },
+          "head": "release-1.0",
+          "highlight": [
+            "C",
+            "C2"
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Use it to bring a bug fix to a maintenance branch, or to rescue one good commit from an abandoned branch.",
+            "`git cherry-pick -x <commit>` adds a line to the message recording the original hash. Use it whenever the source commit is public, so the copy can be traced.",
+            "A range works too: `git cherry-pick A..B` picks every commit after A, up to and including B.",
+            "Conflicts pause the pick. Resolve, `git add`, then `git cherry-pick --continue`, or back out with `git cherry-pick --abort`.",
+            "Do not cherry-pick as a substitute for merging a whole branch. Copies of the same change in two places make later merges noisier."
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Bisect: find the commit that broke it",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Something worked last month and fails today. Between then and now there are a hundred commits. Bisect checks out the middle one and asks you one question: good or bad? Each answer halves the range. A hundred commits take about seven answers."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git bisect start\ngit bisect bad                    # the commit you are on is broken\ngit bisect good v1.2.0            # this tag was fine\n\n# Git checks out a commit halfway between. Test it, then answer:\ngit bisect good                   # or: git bisect bad\n\n# Repeat until Git prints a line like:\n#   3f9c2ab is the first bad commit\n\ngit bisect reset                  # go back to where you started"
+        },
+        {
+          "type": "p",
+          "text": "If a command can decide for you, let it. `git bisect run` executes the command at each step and reads its exit code: zero means good, and a code from 1 to 127 means bad, except 125, which means this commit cannot be tested and should be skipped."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git bisect start HEAD v1.2.0      # the bad commit first, then the good one\ngit bisect run python -m pytest tests/test_eval.py -q\ngit bisect reset",
+          "caption": "Fully automatic: the test is the judge"
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Bisect rewards small commits",
+          "text": "Bisect ends on one commit. If that commit changes three lines, you have found the bug. If it changes three thousand, you have found the haystack. Small, focused commits and a tidy history are what make this tool sharp."
+        }
+      ]
+    },
+    {
+      "heading": "Pushing rewritten history, and getting back",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "After a rebase your local branch and the remote branch contain different commits, so a plain `git push` is rejected. You need to replace the remote branch. There are two ways, and one of them is a trap."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "`git push --force-with-lease`",
+              "points": [
+                "Checks that the remote branch is still where you last saw it",
+                "If someone pushed in the meantime, the push is refused",
+                "You fetch, look at their work, and decide",
+                "The right default for your own pull request branches"
+              ]
+            },
+            {
+              "title": "`git push --force`",
+              "points": [
+                "Overwrites the remote branch unconditionally",
+                "A teammate's new commits drop off the branch without warning",
+                "Nothing tells either of you it happened",
+                "Avoid it, and block it on shared branches with a rule"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "The lease is only as fresh as your last fetch",
+          "text": "`--force-with-lease` compares against your remote-tracking branch. If a tool fetches in the background, the lease quietly updates and stops protecting you. Adding `--force-if-includes` asks Git to confirm as well that you have integrated what the remote has. Many people alias the pair."
+        },
+        {
+          "type": "p",
+          "text": "Rewritten commits are not deleted right away. For weeks, the **reflog** keeps a line for every position your branch has been at. Find the line from before the operation and reset to it. Straight after a rebase, the name `ORIG_HEAD` points at the old tip too."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git reflog\n# a1b2c3d HEAD@{0}: rebase (finish): returning to refs/heads/feature\n# ...\n# 7e6d5c4 HEAD@{6}: commit: loader tests      <- the tip before the rebase\n\ngit reset --hard 7e6d5c4          # put the branch back there",
+          "caption": "Undoing a finished rebase"
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Drafts versus the record",
+          "text": "Rewriting your own unshared commits is editing a draft. Rewriting a shared branch alters a record that others rely on. Where retention or audit requirements apply, protected branches are the record and must only grow. Blocking force pushes on them is the control that makes that true, and revert commits are how corrections are made."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Give the rebase editor room",
+          "text": "The instruction list opens in whatever editor Git is configured to use, which may be a terminal editor with small text. Set a comfortable one with `git config --global core.editor \"code --wait\"`. Extensions such as GitLens show the list as rows with a menu on each commit, which avoids typing verbs and is easier to follow at high zoom."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Tidy a branch before opening a pull request",
+      "browser": [
+        "GitHub's website cannot run an interactive rebase.",
+        "The closest web option comes at merge time: choose **Squash and merge** on the pull request to land the branch as one commit, whatever its internal history.",
+        "For real reshaping, open the branch in a codespace from the **Code** button and follow the command line steps there."
+      ],
+      "phone": [
+        "Interactive rebase needs a terminal and an editor, which GitHub Mobile does not provide.",
+        "If the goal is one clean commit, choose a squash merge when the pull request lands. As of this writing the app lets you pick the merge method.",
+        "A codespace in the mobile browser can do it in a pinch. Realistically, leave surgery for a keyboard, or delegate it to a coding agent and review the result."
+      ],
+      "cli": [
+        "`git branch backup/before-surgery` to mark where you are.",
+        "`git fetch origin` and `git rebase -i origin/main` to open the list of your branch's commits.",
+        "Change verbs and move lines, then save and close the editor.",
+        "Resolve any conflict, `git add` the files, and `git rebase --continue`.",
+        "`git log --oneline origin/main..HEAD` to read the result, then run your tests.",
+        "`git push --force-with-lease` if the branch was already pushed.",
+        "`git branch -D backup/before-surgery` once you are satisfied."
+      ],
+      "editor": [
+        "In VS Code, run the rebase from the integrated terminal. With `code --wait` set as Git's editor, the list opens in a tab.",
+        "Extensions such as GitLens show the list as rows with a menu per commit, which is easier than typing verbs.",
+        "When the rebase pauses on a conflict, resolve it in the merge editor, stage, and continue from the Source Control view.",
+        "For a coding agent, state the goal and the limits: squash the fixup commits on this branch into their targets, do not touch `main`, and push with `--force-with-lease`.",
+        "Check the result. If you only combined commits, `git diff backup/before-surgery` prints nothing. If you also moved onto a newer base, compare the two versions with `git range-diff origin/main backup/before-surgery HEAD`."
+      ]
+    },
+    {
+      "task": "Find a breaking commit with bisect",
+      "browser": [
+        "The website has no bisect. A rough substitute: open the **Commits** list and look at the check mark or cross beside each commit to see where passing turned to failing.",
+        "That only works if CI ran on every commit and its tests cover the bug.",
+        "For a real bisect, open a codespace or use a local terminal."
+      ],
+      "phone": [
+        "In GitHub Mobile, open the branch's commit list and look at the check status beside each commit to narrow the range.",
+        "That gives you a suspect window, not an answer. Run the actual bisect from a terminal later."
+      ],
+      "cli": [
+        "`git bisect start`, then `git bisect bad` on the broken commit and `git bisect good <ref>` on a commit you know worked.",
+        "At each stop, run your test. Answer `git bisect good` or `git bisect bad`.",
+        "Or automate it: `git bisect run <command>`, with a command that exits zero when things work.",
+        "Read the line naming the first bad commit, then `git show <commit>` to see what it changed.",
+        "`git bisect reset` to leave bisect mode and return to your branch."
+      ],
+      "editor": [
+        "Run bisect in VS Code's integrated terminal. The files in the editor change as each commit is checked out, so you can read the code at every stop.",
+        "Some extensions add buttons for marking commits good or bad. The terminal commands are short enough without them.",
+        "A coding agent can drive `git bisect run` if you give it a reliable test command. Verify the answer yourself: check out the named commit's parent and confirm the test passes, then check out the commit and confirm it fails."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Rebasing a branch that a teammate has also committed to, then force-pushing. Their commits vanish from the remote branch, and their next pull makes a tangle.",
+      "fix": "Agree first, or do not rewrite shared branches. If it already happened, their commits are still in their clone. Stop pushing and reconcile together."
+    },
+    {
+      "trap": "Using `git push --force` out of habit.",
+      "fix": "Use `--force-with-lease`, and protect shared branches with a rule that blocks force pushes."
+    },
+    {
+      "trap": "Reading the rebase list top to bottom as newest to oldest, like `git log`, and squashing into the wrong commit.",
+      "fix": "The list is oldest first. `squash` and `fixup` meld into the line **above**."
+    },
+    {
+      "trap": "Forgetting `git bisect reset`, then wondering why you are on a detached HEAD in the middle of history.",
+      "fix": "Always end a bisect with `git bisect reset`. `git status` tells you when a bisect is still in progress."
+    },
+    {
+      "trap": "Cherry-picking the same fix into several branches without leaving a trace of where it came from.",
+      "fix": "Use `-x` so each copy names its source, and prefer merging when the whole branch should move."
+    }
+  ],
+  "lab": "lab-history-surgery",
+  "quiz": [
+    {
+      "q": "In the list that `git rebase -i` opens, which commit is on the first line?",
+      "choices": [
+        "The newest commit in the range",
+        "The oldest commit in the range",
+        "The commit with the shortest message",
+        "The merge base"
+      ],
+      "answer": 1,
+      "why": "The list is in replay order, oldest first, the opposite of `git log`. That is why `squash` and `fixup` combine a commit with the line above it, which is the earlier commit."
+    },
+    {
+      "q": "What is the difference between `squash` and `fixup`?",
+      "choices": [
+        "`squash` keeps both commits; `fixup` deletes one",
+        "`fixup` works only on the latest commit",
+        "Both meld into the commit above; `squash` lets you combine the messages, `fixup` discards the melded commit's message",
+        "`squash` is for pushed commits, `fixup` for local ones"
+      ],
+      "answer": 2,
+      "why": "Both fold the changes into the commit above. `squash` opens the editor with both messages so you can write a combined one. `fixup` keeps the earlier message without asking, which suits typo-fix commits."
+    },
+    {
+      "q": "You rebased your pull request branch and need to update the remote. A teammate may have pushed a commit to it an hour ago. Which command protects their work?",
+      "choices": [
+        "`git push --force-with-lease`",
+        "`git push --force`",
+        "`git push --all`",
+        "`git push --no-verify`"
+      ],
+      "answer": 0,
+      "why": "`--force-with-lease` refuses to overwrite if the remote branch has moved since your last fetch, so their commit stops the push. `--force` overwrites unconditionally, and their commit drops off the branch."
+    },
+    {
+      "q": "There are 64 commits between a known good and a known bad revision. About how many tests does bisect need?",
+      "choices": [
+        "64",
+        "32",
+        "16",
+        "6"
+      ],
+      "answer": 3,
+      "why": "Bisect halves the range with each answer, so the count is about the base-2 logarithm of the number of commits. Sixty-four commits take about six steps. Testing every commit in order could take sixty-four."
+    },
+    {
+      "q": "After `git cherry-pick abc1234` succeeds on your branch, which statement is true?",
+      "choices": [
+        "Commit `abc1234` moved to your branch and left the other one",
+        "Your branch has a new commit with the same change and a different hash",
+        "The two branches are now merged",
+        "The original commit was deleted"
+      ],
+      "answer": 1,
+      "why": "Cherry-pick copies the change as a new commit. A commit's hash depends on its parent, so the copy cannot share the original's hash. The original is untouched and the branches remain separate."
+    },
+    {
+      "q": "You finished an interactive rebase and realize you dropped a commit you needed. What recovers it?",
+      "choices": [
+        "Nothing; dropped commits are deleted immediately",
+        "`git pull`, in every case",
+        "`git reflog` to find the branch's earlier position, then a reset or a cherry-pick from it",
+        "`git rebase --abort`"
+      ],
+      "answer": 2,
+      "why": "The old commits remain in the repository and the reflog lists where the branch pointed before the rebase. `git rebase --abort` only works while a rebase is still in progress, and `git pull` helps only if that commit had been pushed."
+    }
+  ],
+  "mission": {
+    "title": "Tidy a messy branch, then find a planted bug",
+    "where": "A scratch repository, or a throwaway branch in your own repository. Nothing here touches `main`.",
+    "steps": [
+      "On a new branch make five small commits to a scratch file, including two with messages such as `wip` and `fix typo`.",
+      "Create `backup/before-surgery`, then run `git rebase -i HEAD~5` and reduce the five commits to two with clear messages.",
+      "Confirm the content is unchanged with `git diff backup/before-surgery`. The output should be empty.",
+      "Push the branch, reword the last commit with `git commit --amend`, and update the remote with `git push --force-with-lease`.",
+      "Add a script that exits with an error when a certain word appears in the file. Make ten more commits, one of which adds that word.",
+      "Use `git bisect run` with the script to find that commit, then run `git bisect reset`.",
+      "Complete the practice lab attached to this lesson to rehearse cherry-pick and force with lease."
+    ]
+  },
+  "terms": [
+    {
+      "term": "interactive rebase",
+      "def": "A rebase where you edit the list of commits before Git replays them, so you can reword, combine, reorder or drop commits."
+    },
+    {
+      "term": "fixup commit",
+      "def": "A commit created with `--fixup` whose message marks an earlier commit as its target, so autosquash can fold it in."
+    },
+    {
+      "term": "autosquash",
+      "def": "A rebase option that moves fixup commits under their targets and marks them to be melded automatically."
+    },
+    {
+      "term": "cherry-pick",
+      "def": "Applying the change from one existing commit as a new commit on the current branch."
+    },
+    {
+      "term": "bisect",
+      "def": "A binary search through history for the first commit where a test goes from passing to failing."
+    },
+    {
+      "term": "force with lease",
+      "def": "A push that replaces a remote branch only if it is still at the commit you last fetched."
+    },
+    {
+      "term": "rewriting history",
+      "def": "Replacing existing commits with new ones that have different hashes, as rebase and amend do."
+    },
+    {
+      "term": "ORIG_HEAD",
+      "def": "A reference Git sets to the previous tip before operations such as rebase, merge and reset, useful for undoing them at once."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git rebase -i <base>",
+      "does": "Opens the list of commits after `<base>` for editing, then replays them as instructed.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git rebase -i --autosquash <base>",
+      "does": "The same, with fixup commits already moved under their targets.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git commit --fixup <commit>",
+      "does": "Creates a commit marked as a correction to an earlier commit, for autosquash to fold in later.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git rebase --abort",
+      "does": "Stops a rebase in progress and restores the branch to where it started.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git cherry-pick -x <commit>",
+      "does": "Copies one commit onto the current branch and records the original hash in the message.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git bisect start <bad> <good>",
+      "does": "Begins a binary search between a broken commit and a working one.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git bisect run <command>",
+      "does": "Runs the command at each bisect step and uses its exit code to mark the commit good or bad.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git bisect reset",
+      "does": "Ends the bisect and checks out the branch you were on.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git push --force-with-lease",
+      "does": "Replaces the remote branch with yours only if nobody else has pushed to it since your last fetch.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git push --force",
+      "does": "Overwrites the remote branch unconditionally. Can remove other people's commits from the branch.",
+      "kind": "git",
+      "risk": "danger"
+    }
+  ],
+  "links": [
+    {
+      "label": "Git reference: git-rebase",
+      "url": "https://git-scm.com/docs/git-rebase"
+    },
+    {
+      "label": "Git reference: git-cherry-pick",
+      "url": "https://git-scm.com/docs/git-cherry-pick"
+    },
+    {
+      "label": "Git reference: git-bisect",
+      "url": "https://git-scm.com/docs/git-bisect"
+    },
+    {
+      "label": "Pro Git: Rewriting History",
+      "url": "https://git-scm.com/book/en/v2/Git-Tools-Rewriting-History"
+    },
+    {
+      "label": "GitHub Docs: About Git rebase",
+      "url": "https://docs.github.com/en/get-started/using-git/about-git-rebase"
+    }
+  ]
+}

@@ -1,0 +1,767 @@
+[
+  {
+    "id": "lab-first-commit",
+    "track": "basics",
+    "title": "Make your first commit",
+    "minutes": 6,
+    "intro": "You have a repository with one commit. You will take a change through the three places it can live: the working tree, the staging area, and the repository.",
+    "setup": [
+      "git init",
+      "echo \"# ML research journey\" > README.md",
+      "git add .",
+      "git commit -m \"Initial commit\""
+    ],
+    "steps": [
+      {
+        "goal": "See where you stand",
+        "say": "`git status` is the command you will run most. It compares all three places and tells you what differs.",
+        "suggest": ["git status"],
+        "check": {"ran": "^git status"},
+        "after": "Nothing to commit, working tree clean. All three places agree."
+      },
+      {
+        "goal": "Create a new file",
+        "say": "Write a notes file. Git will notice it but will not track it yet.",
+        "suggest": ["echo \"Read chapter 2 on linear algebra\" > notes.md"],
+        "check": {"untracked": ["notes.md"]},
+        "hint": "The file must be named notes.md.",
+        "after": "Run `git status` if you like. The file is listed under Untracked files. It exists only in your working tree."
+      },
+      {
+        "goal": "Stage it",
+        "say": "Staging chooses what the next snapshot will contain. Nothing is saved to history yet.",
+        "suggest": ["git add notes.md"],
+        "check": {"staged": ["notes.md"]},
+        "after": "The Files panel now marks notes.md as staged. It is in the staging area, waiting."
+      },
+      {
+        "goal": "Commit the snapshot",
+        "say": "A commit records everything that is staged, with a message that says why.",
+        "suggest": ["git commit -m \"Add reading notes\""],
+        "check": {"minCommits": {"HEAD": 2}, "clean": true},
+        "hint": "Use -m to pass the message. This terminal has no editor to open.",
+        "after": "A second dot appeared in the graph, and `main` moved forward to it."
+      },
+      {
+        "goal": "Change a tracked file and look at the difference",
+        "say": "`git diff` compares your working tree to the staging area, line by line.",
+        "suggest": ["echo \"Next: chapter 3\" >> notes.md", "git diff"],
+        "check": {"unstaged": ["notes.md"], "ran": "^git diff"},
+        "after": "Lines starting with + are additions. The change is in your working tree only."
+      },
+      {
+        "goal": "Stage and commit in one move",
+        "say": "`-a` stages every tracked file that changed, then commits. It does not pick up brand-new files.",
+        "suggest": ["git commit -am \"Plan chapter 3\""],
+        "check": {"minCommits": {"HEAD": 3}, "clean": true}
+      },
+      {
+        "goal": "Read the history",
+        "say": "Each line of `git log --oneline` is one snapshot, newest first.",
+        "suggest": ["git log --oneline"],
+        "check": {"ran": "^git log"}
+      }
+    ],
+    "outro": "Edit, stage, commit. Every later skill in this guide is built on that loop."
+  },
+  {
+    "id": "lab-branching",
+    "track": "basics",
+    "title": "Branch, commit, switch back",
+    "minutes": 8,
+    "intro": "A branch is a label that points at a commit. Watch the labels in the graph as you work: they move, the commits do not.",
+    "setup": [
+      "git init",
+      "echo \"# Project\" > README.md",
+      "git add .",
+      "git commit -m \"Initial commit\"",
+      "echo \"lr: 0.001\" > config.yaml",
+      "git add .",
+      "git commit -m \"Add config\""
+    ],
+    "steps": [
+      {
+        "goal": "List the branches",
+        "say": "The star marks the branch you are on. That is where HEAD points.",
+        "suggest": ["git branch"],
+        "check": {"ran": "^git branch"}
+      },
+      {
+        "goal": "Create a branch and switch to it",
+        "say": "`git switch -c` creates the branch and moves you onto it in one step.",
+        "suggest": ["git switch -c try-warmup"],
+        "check": {"branch": "try-warmup"},
+        "after": "Look at the graph: two labels on one commit. A new branch is a new pointer. No files were copied."
+      },
+      {
+        "goal": "Commit on the branch",
+        "say": "Add a line to the config and commit it here.",
+        "suggest": ["echo \"warmup_steps: 500\" >> config.yaml", "git commit -am \"Add warmup\""],
+        "check": {"minCommits": {"try-warmup": 3}, "clean": true},
+        "after": "`try-warmup` moved forward. `main` stayed where it was."
+      },
+      {
+        "goal": "Switch back to main and read the file",
+        "say": "Switching branches rewrites your working tree to match that branch's snapshot.",
+        "suggest": ["git switch main", "cat config.yaml"],
+        "check": {"branch": "main", "ran": "^cat config.yaml"},
+        "after": "The warmup line is gone from your working tree. It is safe on the other branch."
+      },
+      {
+        "goal": "Make a different commit on main",
+        "say": "Now make main move too, so the two branches diverge.",
+        "suggest": ["echo \"Notes on optimizers\" > notes.md", "git add notes.md", "git commit -m \"Add notes\""],
+        "check": {"minCommits": {"main": 3}, "branch": "main", "clean": true},
+        "after": "The graph forks: two lines of work growing from the same commit."
+      },
+      {
+        "goal": "Merge the branch into main",
+        "say": "You are on main, so this brings `try-warmup` into main. The changes touch different files, so Git combines them without help.",
+        "suggest": ["git merge try-warmup"],
+        "check": {"isAncestor": ["try-warmup", "main"], "parents": {"ref": "main", "count": 2}},
+        "after": "The new commit has two parents. That is what a merge commit is."
+      },
+      {
+        "goal": "Delete the merged branch",
+        "say": "The label has done its job. Deleting it removes the pointer, not the commits.",
+        "suggest": ["git branch -d try-warmup"],
+        "check": {"branchMissing": "try-warmup"}
+      }
+    ],
+    "outro": "Branches are cheap pointers. Create one for every piece of work, and delete it when the work lands."
+  },
+  {
+    "id": "lab-remote-sync",
+    "track": "basics",
+    "title": "Fetch, pull and a rejected push",
+    "minutes": 9,
+    "intro": "Your clone and GitHub each hold their own copy of the history. The lab shows both graphs. A teammate, Sam, has already pushed a commit you do not have.",
+    "setup": [
+      "git init",
+      "echo \"# Project\" > README.md",
+      "git add .",
+      "git commit -m \"Initial commit\"",
+      "!origin",
+      "!teammate msg=\"Add contributing notes\" file=CONTRIBUTING.md text=\"Open an issue first.\""
+    ],
+    "steps": [
+      {
+        "goal": "Check the remote",
+        "say": "`origin` is the conventional name for the repository you cloned from.",
+        "suggest": ["git remote -v"],
+        "check": {"ran": "^git remote"}
+      },
+      {
+        "goal": "Fetch",
+        "say": "Fetch downloads new commits and moves `origin/main`. It never touches your own branch or your files.",
+        "suggest": ["git fetch"],
+        "check": {"differentCommit": ["main", "origin/main"], "isAncestor": ["main", "origin/main"]},
+        "after": "In your graph, `origin/main` is now one commit ahead of `main`. You have Sam's commit but have not used it."
+      },
+      {
+        "goal": "Look before you integrate",
+        "say": "`main..origin/main` means: commits on origin/main that main does not have.",
+        "suggest": ["git status", "git log --oneline main..origin/main"],
+        "check": {"ran": "^git log .*origin/main"}
+      },
+      {
+        "goal": "Pull",
+        "say": "Pull is fetch followed by merge. Your branch has no commits of its own, so the merge is a fast-forward.",
+        "suggest": ["git pull"],
+        "check": {"sameCommit": ["main", "origin/main"], "fileExists": "CONTRIBUTING.md"}
+      },
+      {
+        "goal": "Commit your own change",
+        "say": "Now do some work of your own.",
+        "suggest": ["echo \"Setup: pip install -r requirements.txt\" >> README.md", "git commit -am \"Document setup\""],
+        "check": {"minCommits": {"main": 3}, "clean": true}
+      },
+      {
+        "goal": "Try to push",
+        "say": "While you were working, Sam pushed again. Try to push and read what Git says.",
+        "before": ["!teammate msg=\"Clarify contributing notes\" file=CONTRIBUTING.md text=\"Open an issue before large changes.\""],
+        "suggest": ["git push"],
+        "check": {"ran": "^git push", "differentCommit": ["main", "server/main"]},
+        "after": "Rejected. GitHub has a commit you lack, and Git will not overwrite someone else's work to make room for yours."
+      },
+      {
+        "goal": "Pull, then push",
+        "say": "Bring Sam's commit in, then publish. You and Sam changed different files, so the merge is automatic.",
+        "suggest": ["git pull", "git push"],
+        "check": {"sameCommit": ["main", "server/main"]},
+        "after": "The pull made a merge commit joining the two lines. The push then moved GitHub's main forward."
+      }
+    ],
+    "outro": "Fetch looks. Pull integrates. Push publishes, and only when you already have everything the remote has."
+  },
+  {
+    "id": "lab-pr-flow",
+    "track": "basics",
+    "title": "A pull request from the terminal",
+    "minutes": 8,
+    "intro": "On this practice remote, main is protected, as it is on most shared repositories. Changes reach main through a pull request. You will run the whole loop with git and gh.",
+    "setup": [
+      "git init",
+      "echo \"# Project\" > README.md",
+      "git add .",
+      "git commit -m \"Initial commit\"",
+      "!origin protect=main"
+    ],
+    "steps": [
+      {
+        "goal": "Create a branch for the work",
+        "say": "One branch per piece of work. Name it for what it does.",
+        "suggest": ["git switch -c add-eval"],
+        "check": {"branch": "add-eval"}
+      },
+      {
+        "goal": "Commit your work",
+        "say": "Add an evaluation script and commit it on the branch.",
+        "suggest": ["echo \"print('accuracy')\" > eval.py", "git add eval.py", "git commit -m \"Add eval script\""],
+        "check": {"minCommits": {"add-eval": 2}, "clean": true}
+      },
+      {
+        "goal": "Push the branch",
+        "say": "`-u` links your local branch to the one on GitHub, so later you can type `git push` alone.",
+        "suggest": ["git push -u origin add-eval"],
+        "check": {"sameCommit": ["add-eval", "server/add-eval"]},
+        "after": "The GitHub graph now has your branch. main there is untouched."
+      },
+      {
+        "goal": "Open the pull request",
+        "say": "A pull request proposes merging your branch into main and gives the change a place for review.",
+        "suggest": ["gh pr create --title \"Add eval script\" --body \"First evaluation script. Closes #3.\""],
+        "check": {"prOpen": 1}
+      },
+      {
+        "goal": "Check its state",
+        "say": "`gh pr view` shows what a reviewer would see, including whether it can merge cleanly.",
+        "suggest": ["gh pr view"],
+        "check": {"ran": "^gh pr view"}
+      },
+      {
+        "goal": "Merge and clean up",
+        "say": "Squash combines the branch into one commit on main. `--delete-branch` removes the branch on GitHub and locally, and switches you back to main.",
+        "suggest": ["gh pr merge --squash --delete-branch"],
+        "check": {"prMerged": true, "branch": "main", "branchMissing": "add-eval"}
+      },
+      {
+        "goal": "Confirm main has the work",
+        "say": "Your local main was fast-forwarded to match GitHub.",
+        "suggest": ["git log --oneline", "ls"],
+        "check": {"ran": "^git log", "fileExists": "eval.py"}
+      }
+    ],
+    "outro": "Branch, commit, push, open, merge, delete. The same loop works for one person or a hundred."
+  },
+  {
+    "id": "lab-safe-undo",
+    "track": "basics",
+    "title": "Restore, amend, revert",
+    "minutes": 9,
+    "intro": "Three undos, each for a different moment: before you commit, after you commit but before you push, and after you push.",
+    "setup": [
+      "git init",
+      "printf \"# Notes\\n\\nChapter 1 done\\n\" > notes.md",
+      "git add .",
+      "git commit -m \"Add notes\"",
+      "echo \"lr: 0.001\" > config.yaml",
+      "git add .",
+      "git commit -m \"Add config\"",
+      "!origin"
+    ],
+    "steps": [
+      {
+        "goal": "Make a small mess",
+        "say": "Edit a file and stage it. Then imagine you change your mind.",
+        "suggest": ["echo \"scratch thoughts\" >> notes.md", "git add notes.md"],
+        "check": {"staged": ["notes.md"]}
+      },
+      {
+        "goal": "Unstage it, keeping the edit",
+        "say": "`git restore --staged` takes a file out of the staging area. Your edit stays in the working tree.",
+        "suggest": ["git restore --staged notes.md"],
+        "check": {"unstaged": ["notes.md"], "not": {"staged": ["notes.md"]}}
+      },
+      {
+        "goal": "Discard the edit entirely",
+        "say": "`git restore` without `--staged` overwrites the file with the last staged or committed version. This is the one undo here that cannot be undone, because the edit was never committed.",
+        "suggest": ["git restore notes.md"],
+        "check": {"clean": true, "ran": "^git restore notes.md"}
+      },
+      {
+        "goal": "Commit with a typo in the message",
+        "say": "Make a real change and commit it with a misspelled message.",
+        "suggest": ["echo \"batch_size: 64\" >> config.yaml", "git commit -am \"Add bacth size\""],
+        "check": {"headMessage": "bacth", "minCommits": {"HEAD": 3}}
+      },
+      {
+        "goal": "Fix the last commit with amend",
+        "say": "The commit is not pushed, so replacing it affects nobody. Amend makes a new commit and drops the old one.",
+        "suggest": ["git commit --amend -m \"Add batch size\""],
+        "check": {"headMessage": "^Add batch size$"},
+        "after": "The commit id changed. Amend never edits a commit in place. It writes a replacement."
+      },
+      {
+        "goal": "Publish",
+        "say": "Push the commit. From this moment other people may have it.",
+        "suggest": ["git push"],
+        "check": {"sameCommit": ["main", "server/main"]}
+      },
+      {
+        "goal": "Undo a pushed commit safely",
+        "say": "Suppose batch size 64 was wrong. History is now shared, so do not rewrite it. Revert adds a new commit that applies the opposite change.",
+        "suggest": ["git revert HEAD"],
+        "check": {"headMessage": "^Revert", "fileLacks": {"path": "config.yaml", "text": "batch_size"}}
+      },
+      {
+        "goal": "Push the revert",
+        "say": "A revert is an ordinary commit, so an ordinary push works. Nobody has to repair their clone.",
+        "suggest": ["git push"],
+        "check": {"sameCommit": ["main", "server/main"], "headMessage": "^Revert"}
+      }
+    ],
+    "outro": "Unstage before committing, amend before pushing, revert after pushing."
+  },
+  {
+    "id": "lab-merge-conflict",
+    "track": "intermediate",
+    "title": "Resolve a merge conflict",
+    "minutes": 10,
+    "intro": "Your branch `tune-lr` lowered the learning rate. Meanwhile main raised it and added a warmup line. Both changed the same line of `config.yaml`. You are on `tune-lr`.",
+    "setup": [
+      "git init",
+      "printf \"model: resnet18\\nlr: 0.001\\nbatch_size: 64\\n\" > config.yaml",
+      "git add .",
+      "git commit -m \"Add config\"",
+      "git switch -c tune-lr",
+      "printf \"model: resnet18\\nlr: 0.0003\\nbatch_size: 64\\n\" > config.yaml",
+      "git commit -am \"Lower learning rate\"",
+      "git switch main",
+      "printf \"model: resnet18\\nlr: 0.01\\nwarmup_steps: 500\\nbatch_size: 64\\n\" > config.yaml",
+      "git commit -am \"Raise learning rate with warmup\"",
+      "git switch tune-lr"
+    ],
+    "steps": [
+      {
+        "goal": "Look at both sides first",
+        "say": "Before merging, see how the two branches differ. Lines with - are main's version and lines with + are yours.",
+        "suggest": ["git log --oneline --all", "git diff main tune-lr"],
+        "check": {"ran": "^git diff main"}
+      },
+      {
+        "goal": "Start the merge",
+        "say": "Bring main into your branch. Git will stop when it reaches the line both sides changed.",
+        "suggest": ["git merge main"],
+        "check": {"merging": true, "conflicts": 1},
+        "after": "CONFLICT is a report, not a failure. Git merged what it could and is waiting for your decision on the rest."
+      },
+      {
+        "goal": "Read the damage report",
+        "say": "`git status` lists the unmerged file. `cat` shows the markers Git wrote into it.",
+        "suggest": ["git status", "cat config.yaml"],
+        "check": {"ran": "^cat config.yaml", "merging": true},
+        "after": "Above the `=======` line is your side (HEAD). Below it is main's side. The first and last lines of the file merged cleanly."
+      },
+      {
+        "goal": "Back out, to prove you can",
+        "say": "The exit is always open. Abort returns everything to the moment before the merge.",
+        "suggest": ["git merge --abort"],
+        "check": {"merging": false, "clean": true, "ran": "merge --abort"}
+      },
+      {
+        "goal": "Start the merge again",
+        "say": "Same merge, same conflict. This time you will finish it.",
+        "suggest": ["git merge main"],
+        "check": {"merging": true, "conflicts": 1}
+      },
+      {
+        "goal": "Write the resolution",
+        "say": "Keep your lower learning rate and main's warmup line. Tap config.yaml in the Files panel and edit it by hand, or overwrite it with the command below. All three marker lines must go.",
+        "suggest": ["printf \"model: resnet18\\nlr: 0.0003\\nwarmup_steps: 500\\nbatch_size: 64\\n\" > config.yaml"],
+        "check": {"fileLacks": {"path": "config.yaml", "text": ["<<<<<<<", "=======", ">>>>>>>"]}, "fileContains": {"path": "config.yaml", "text": "lr:"}, "merging": true},
+        "hint": "The file still contains a marker line, or no longer has an lr line.",
+        "after": "The right answer was neither side. It was a third version that respects both changes."
+      },
+      {
+        "goal": "Mark it resolved",
+        "say": "Staging is how you tell Git a conflicted file is settled.",
+        "suggest": ["git add config.yaml"],
+        "check": {"conflicts": 0, "merging": true}
+      },
+      {
+        "goal": "Complete the merge",
+        "say": "Git prepared the merge message for you, so a bare `git commit` is enough.",
+        "suggest": ["git commit"],
+        "check": {"merging": false, "parents": {"ref": "HEAD", "count": 2}, "clean": true}
+      },
+      {
+        "goal": "Inspect the result",
+        "say": "The merge commit has two parents and records your resolution.",
+        "suggest": ["git log --oneline --graph"],
+        "check": {"ran": "^git log"}
+      }
+    ],
+    "outro": "Stop, read both sides, write the text you want, stage, commit. The procedure never changes."
+  },
+  {
+    "id": "lab-merge-strategies",
+    "track": "intermediate",
+    "title": "Merge commit, squash and rebase side by side",
+    "minutes": 12,
+    "intro": "One branch, three ways to land it. You will try each, rewind, and compare the shape of the history each leaves behind. Rewinding is safe here because nothing has been pushed.",
+    "setup": [
+      "git init",
+      "echo \"# Project\" > README.md",
+      "git add .",
+      "git commit -m \"Start project\"",
+      "git switch -c add-metrics",
+      "echo \"def accuracy(): pass\" > metrics.py",
+      "git add .",
+      "git commit -m \"Add accuracy metric\"",
+      "echo \"def f1(): pass\" >> metrics.py",
+      "git commit -am \"Add F1 metric\"",
+      "git switch main",
+      "echo \"numpy\" > requirements.txt",
+      "git add .",
+      "git commit -m \"Add requirements\""
+    ],
+    "steps": [
+      {
+        "goal": "Option 1: a merge commit",
+        "say": "This is what **Create a merge commit** does on a pull request. Every commit on the branch is kept, joined to main by one new commit.",
+        "suggest": ["git merge add-metrics"],
+        "check": {"parents": {"ref": "main", "count": 2}, "isAncestor": ["add-metrics", "main"]},
+        "after": "The graph shows a loop: the branch leaves main and comes back."
+      },
+      {
+        "goal": "Rewind main",
+        "say": "Move main back one commit, before the merge. The first parent of a merge commit is where main was.",
+        "suggest": ["git reset --hard HEAD~1"],
+        "check": {"parents": {"ref": "main", "count": 1}, "not": {"isAncestor": ["add-metrics", "main"]}, "ran": "reset --hard"}
+      },
+      {
+        "goal": "Option 2: squash",
+        "say": "This is **Squash and merge**. The whole branch becomes one staged change, which you commit as a single commit on main.",
+        "suggest": ["git merge --squash add-metrics", "git commit -m \"Add metrics module\""],
+        "check": {"headMessage": "^Add metrics module", "parents": {"ref": "main", "count": 1}, "fileExists": "metrics.py", "branch": "main", "clean": true},
+        "after": "One tidy commit on main. The branch's own commits are not in main's history, so Git does not see the branch as merged."
+      },
+      {
+        "goal": "Rewind again",
+        "say": "Drop the squash commit.",
+        "suggest": ["git reset --hard HEAD~1"],
+        "check": {"fileMissing": "metrics.py", "ran": "reset --hard", "branch": "main"}
+      },
+      {
+        "goal": "Option 3: rebase the branch",
+        "say": "Rebase replays the branch's commits on top of main's latest commit. They get new ids, because their parent changed.",
+        "suggest": ["git switch add-metrics", "git rebase main"],
+        "check": {"branch": "add-metrics", "isAncestor": ["main", "add-metrics"], "linear": "add-metrics"},
+        "after": "The branch now starts from the tip of main. The original two commits are dashed in the graph: unreachable, but still in the reflog."
+      },
+      {
+        "goal": "Fast-forward main",
+        "say": "main has nothing the branch lacks, so merging only slides the label forward. This is the result of **Rebase and merge**.",
+        "suggest": ["git switch main", "git merge add-metrics"],
+        "check": {"sameCommit": ["main", "add-metrics"], "branch": "main", "linear": "main"}
+      },
+      {
+        "goal": "Compare the three shapes",
+        "say": "The log is a straight line. The reflog remembers every place HEAD has been, including the merge commit and the squash commit you discarded.",
+        "suggest": ["git log --oneline --graph", "git reflog"],
+        "check": {"ran": "^git reflog"}
+      }
+    ],
+    "outro": "A merge commit keeps the true shape. Squash keeps main readable. Rebase keeps every commit in a straight line. Teams pick one and stay consistent."
+  },
+  {
+    "id": "lab-undo-toolkit",
+    "track": "intermediate",
+    "title": "Reset three ways, stash, recover",
+    "minutes": 11,
+    "intro": "Reset moves the branch pointer. The three modes differ only in what they do to the staging area and your files. You will try each, then lose a commit on purpose and get it back.",
+    "setup": [
+      "git init",
+      "echo \"v1\" > model.py",
+      "git add .",
+      "git commit -m \"Add model\"",
+      "echo \"v2\" > model.py",
+      "git commit -am \"Refactor model\"",
+      "echo \"v3\" > model.py",
+      "git commit -am \"Experiment with dropout\""
+    ],
+    "steps": [
+      {
+        "goal": "Soft reset: uncommit, keep it staged",
+        "say": "`--soft` moves the branch back one commit and leaves the staging area and your files alone.",
+        "suggest": ["git reset --soft HEAD~1"],
+        "check": {"staged": ["model.py"], "headMessage": "^Refactor model"},
+        "after": "The change from the dropped commit is staged, ready to commit again."
+      },
+      {
+        "goal": "Recommit with a better message",
+        "say": "This is the classic use of a soft reset: redo the last commit.",
+        "suggest": ["git commit -m \"Add dropout experiment\""],
+        "check": {"headMessage": "^Add dropout experiment", "clean": true}
+      },
+      {
+        "goal": "Mixed reset: uncommit and unstage",
+        "say": "With no flag, reset is `--mixed`. The branch moves back and the staging area is reset. Your files keep the change.",
+        "suggest": ["git reset HEAD~1"],
+        "check": {"unstaged": ["model.py"], "headMessage": "^Refactor model"}
+      },
+      {
+        "goal": "Shelve the work",
+        "say": "Stash saves your uncommitted changes and gives you a clean working tree, for when you must switch tasks.",
+        "suggest": ["git stash"],
+        "check": {"stash": 1, "clean": true}
+      },
+      {
+        "goal": "Bring it back",
+        "say": "`pop` reapplies the newest stash and removes it from the stash list.",
+        "suggest": ["git stash pop"],
+        "check": {"stash": 0, "unstaged": ["model.py"]}
+      },
+      {
+        "goal": "Commit, then destroy it with a hard reset",
+        "say": "`--hard` moves the branch back and overwrites the staging area and your files. The commit disappears from the log.",
+        "suggest": ["git commit -am \"Add dropout experiment\"", "git reset --hard HEAD~1"],
+        "check": {"headMessage": "^Refactor model", "clean": true, "ran": "reset --hard", "fileContains": {"path": "model.py", "text": "v2"}},
+        "after": "The file is back to v2 and the log shows two commits. The third is dashed in the graph: nothing points at it."
+      },
+      {
+        "goal": "Find the lost commit",
+        "say": "The reflog records every position HEAD has held, including the commit no branch points at.",
+        "suggest": ["git reflog"],
+        "check": {"ran": "^git reflog"},
+        "after": "`HEAD@{1}` is where HEAD was one move ago: the commit you just dropped."
+      },
+      {
+        "goal": "Recover it",
+        "say": "Reset can move a branch forward as well as back. Point it at the reflog entry.",
+        "suggest": ["git reset --hard HEAD@{1}"],
+        "check": {"headMessage": "^Add dropout experiment", "fileContains": {"path": "model.py", "text": "v3"}}
+      }
+    ],
+    "outro": "Committed work is hard to lose. Uncommitted work is easy to lose, which is why a hard reset or a restore deserves a second look."
+  },
+  {
+    "id": "lab-history-surgery",
+    "track": "advanced",
+    "title": "Cherry-pick, amend, force with lease",
+    "minutes": 12,
+    "intro": "Your branch `feature/augment` has three pushed commits. One is a bug fix main needs today. Another has a lazy message. You will move the fix, tidy the branch, and update the remote without endangering anyone else's work.",
+    "setup": [
+      "git init",
+      "echo \"train\" > train.py",
+      "git add .",
+      "git commit -m \"Add training loop\"",
+      "!origin",
+      "git switch -c feature/augment",
+      "echo \"augment\" > augment.py",
+      "git add .",
+      "git commit -m \"Add augmentation\"",
+      "printf \"train\\nfix: seed everything\\n\" > train.py",
+      "git commit -am \"Fix unseeded shuffle\"",
+      "echo \"more augment\" >> augment.py",
+      "git commit -am \"WIP augmentation tweaks\"",
+      "git push -u origin feature/augment"
+    ],
+    "steps": [
+      {
+        "goal": "Find the fix",
+        "say": "Read the branch's history. The middle commit is the one main needs.",
+        "suggest": ["git log --oneline"],
+        "check": {"ran": "^git log"}
+      },
+      {
+        "goal": "Cherry-pick the fix onto main",
+        "say": "Cherry-pick copies one commit's change onto the branch you are on. `feature/augment~1` means one commit before the tip.",
+        "suggest": ["git switch main", "git cherry-pick feature/augment~1"],
+        "check": {"branch": "main", "headMessage": "^Fix unseeded shuffle", "fileContains": {"path": "train.py", "text": "seed everything"}, "fileMissing": "augment.py"},
+        "after": "main has the fix and none of the unfinished augmentation work. The copy has a new id: same change, different parent."
+      },
+      {
+        "goal": "Reword the last commit on the feature branch",
+        "say": "Back on your branch, replace the lazy message.",
+        "suggest": ["git switch feature/augment", "git commit --amend -m \"Tune augmentation strength\""],
+        "check": {"branch": "feature/augment", "headMessage": "^Tune augmentation strength"}
+      },
+      {
+        "goal": "Try a normal push",
+        "say": "You rewrote a commit that GitHub already has. See what a plain push does.",
+        "suggest": ["git push"],
+        "check": {"ran": "^git push", "differentCommit": ["feature/augment", "server/feature/augment"]},
+        "after": "Rejected. Your branch no longer contains the commit GitHub has, so this is not a fast-forward."
+      },
+      {
+        "goal": "Push with a lease",
+        "say": "`--force-with-lease` overwrites the remote branch only if it is still where you last saw it. If a teammate pushed in the meantime, it refuses.",
+        "suggest": ["git push --force-with-lease"],
+        "check": {"sameCommit": ["feature/augment", "server/feature/augment"]}
+      },
+      {
+        "goal": "Rebase onto the updated main",
+        "say": "main moved when you cherry-picked. Replay your branch on top of it. Watch what happens to the fix commit.",
+        "suggest": ["git rebase main"],
+        "check": {"isAncestor": ["main", "feature/augment"], "linear": "feature/augment", "branch": "feature/augment"},
+        "after": "The branch now has two commits of its own, not three. The fix was already on main, so replaying it changed nothing and Git dropped it."
+      },
+      {
+        "goal": "Update the remote branch",
+        "say": "A rebase rewrites every replayed commit, so the remote needs a forced update again. Use the lease.",
+        "suggest": ["git push --force-with-lease"],
+        "check": {"sameCommit": ["feature/augment", "server/feature/augment"], "isAncestor": ["main", "feature/augment"]}
+      }
+    ],
+    "outro": "Rewrite your own unshared branches freely. The moment someone else builds on a branch, treat its history as fixed."
+  },
+  {
+    "id": "lab-detached-head",
+    "track": "expert",
+    "title": "Detached HEAD and the commit nobody points at",
+    "minutes": 8,
+    "intro": "HEAD normally names a branch. It can also name a commit directly. Work done there belongs to no branch, and only a ref keeps a commit alive.",
+    "setup": [
+      "git init",
+      "echo \"v1\" > model.py",
+      "git add .",
+      "git commit -m \"Baseline model\"",
+      "echo \"v2\" > model.py",
+      "git commit -am \"Wider layers\"",
+      "echo \"v3\" > model.py",
+      "git commit -am \"Add dropout\""
+    ],
+    "steps": [
+      {
+        "goal": "Read a commit object",
+        "say": "A commit is a small text object: the id of a tree, the ids of its parents, an author, a message.",
+        "suggest": ["git cat-file -p HEAD"],
+        "check": {"ran": "^git cat-file"},
+        "after": "The `parent` line is the whole link to history. Change anything in a parent and its id changes, which changes this commit's id too."
+      },
+      {
+        "goal": "Check out an old commit directly",
+        "say": "Give checkout a commit instead of a branch name.",
+        "suggest": ["git checkout HEAD~2"],
+        "check": {"headDetached": true},
+        "after": "HEAD now holds a commit id. In the graph, the HEAD marker sits on the commit with no branch label beside it."
+      },
+      {
+        "goal": "Commit while detached",
+        "say": "You can commit here. The new commit has a parent but no branch.",
+        "suggest": ["echo \"baseline + label smoothing\" > model.py", "git commit -am \"Try label smoothing on baseline\""],
+        "check": {"headDetached": true, "headMessage": "label smoothing"}
+      },
+      {
+        "goal": "Walk away and read the warning",
+        "say": "Switch back to main and read every line Git prints.",
+        "suggest": ["git switch main"],
+        "check": {"branch": "main", "ran": "^git switch main"},
+        "after": "One commit left behind. Nothing points at it, so it is unreachable. Garbage collection will eventually delete unreachable objects."
+      },
+      {
+        "goal": "Find it again",
+        "say": "The reflog still knows where HEAD has been.",
+        "suggest": ["git reflog"],
+        "check": {"ran": "^git reflog"}
+      },
+      {
+        "goal": "Give it a name",
+        "say": "Create a branch at the reflog entry. `HEAD@{1}` is where HEAD was before your last move.",
+        "suggest": ["git branch label-smoothing HEAD@{1}"],
+        "check": {"branchExists": "label-smoothing", "reachable": {"ref": "label-smoothing", "message": "label smoothing"}},
+        "after": "The commit is solid in the graph again. A forty-character pointer was the only difference between kept and lost."
+      }
+    ],
+    "outro": "Refs make commits reachable. Reachable commits are kept. Everything else in Git follows from that."
+  },
+  {
+    "id": "lab-reflog-rescue",
+    "track": "expert",
+    "title": "Rescue commits after a bad reset",
+    "minutes": 9,
+    "intro": "It is late. You mean to drop one commit from `experiment` and type the wrong number. Three commits vanish, including your best result. Nothing was pushed. Recover using only what Git keeps locally.",
+    "setup": [
+      "git init",
+      "echo \"data loader\" > data.py",
+      "git add .",
+      "git commit -m \"Add data loader\"",
+      "git switch -c experiment",
+      "echo \"model v1\" > model.py",
+      "git add .",
+      "git commit -m \"Add model\"",
+      "echo \"model v2 (best so far)\" > model.py",
+      "git commit -am \"Best result: 91.2 percent\"",
+      "echo \"run 14: 91.2\" > results.md",
+      "git add .",
+      "git commit -m \"Record results\""
+    ],
+    "steps": [
+      {
+        "goal": "Make the mistake",
+        "say": "Run the command as you would have typed it.",
+        "suggest": ["git reset --hard HEAD~3"],
+        "check": {"ran": "reset --hard", "fileMissing": "model.py"}
+      },
+      {
+        "goal": "Stop and look",
+        "say": "Do not commit, and do not run cleanup commands. First find out what state you are in.",
+        "suggest": ["git status", "git log --oneline"],
+        "check": {"ran": "^git log"},
+        "after": "The log shows one commit. The reset moved a pointer. The three commits still exist as unreachable objects, dashed in the graph."
+      },
+      {
+        "goal": "Read the reflog",
+        "say": "Every move of HEAD is recorded with the commit it pointed at.",
+        "suggest": ["git reflog"],
+        "check": {"ran": "^git reflog"}
+      },
+      {
+        "goal": "Put the branch back",
+        "say": "`HEAD@{1}` is the position before the reset.",
+        "suggest": ["git reset --hard HEAD@{1}"],
+        "check": {"fileContains": {"path": "model.py", "text": "best so far"}, "headMessage": "^Record results", "branch": "experiment"}
+      },
+      {
+        "goal": "Pin the result that matters",
+        "say": "A tag is a permanent name for one commit. Tag the commit behind any number you report.",
+        "suggest": ["git tag best-result HEAD~1"],
+        "check": {"tagExists": "best-result"}
+      },
+      {
+        "goal": "Put a copy somewhere else",
+        "say": "The reflog is local and its entries expire. A pushed branch is the durable backup.",
+        "suggest": ["git remote add origin github.com:you/project.git", "git push -u origin experiment"],
+        "check": {"sameCommit": ["experiment", "server/experiment"]}
+      }
+    ],
+    "outro": "Recovery worked because the work was committed. Commit early, push often, and tag what you cite."
+  },
+  {
+    "id": "lab-playground",
+    "track": "basics",
+    "title": "Free play",
+    "minutes": 5,
+    "free": true,
+    "intro": "No goals here. A small repository with a remote and a second branch, ready for experiments. Type `help` to see what the terminal supports. Reset the lab whenever you want a clean start.",
+    "setup": [
+      "git init",
+      "echo \"# Sandbox\" > README.md",
+      "git add .",
+      "git commit -m \"Initial commit\"",
+      "printf \"lr: 0.001\\nbatch_size: 32\\n\" > config.yaml",
+      "git add .",
+      "git commit -m \"Add config\"",
+      "!origin",
+      "git switch -c idea",
+      "echo \"try cosine schedule\" > notes.md",
+      "git add .",
+      "git commit -m \"Sketch an idea\"",
+      "git switch main"
+    ],
+    "steps": [],
+    "outro": "Break things. That is what a sandbox is for."
+  }
+]

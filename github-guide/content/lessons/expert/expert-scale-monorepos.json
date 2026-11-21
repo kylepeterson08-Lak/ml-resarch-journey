@@ -1,0 +1,551 @@
+{
+  "id": "expert-scale-monorepos",
+  "track": "expert",
+  "title": "Big repositories: partial clone, sparse checkout, worktrees",
+  "minutes": 22,
+  "summary": "A repository gets slow in specific ways: too much history to download, too many files to check out, too many commits to walk. Git has a separate tool for each. Find out which problem you have before choosing, and keep large binaries out of history from the start.",
+  "outcomes": [
+    "Diagnose whether a slow repository suffers from history size, working-tree size or commit count",
+    "Choose between a shallow, a blobless and a treeless clone for a given job",
+    "Check out part of a repository with sparse checkout in cone mode",
+    "Work on two branches at once with worktrees",
+    "Weigh submodules against subtrees, and one repository against many",
+    "Plan the removal of a large file from history, including what it breaks"
+  ],
+  "prereqs": ["intermediate-ignore-lfs", "expert-git-internals"],
+  "lenses": {
+    "everyday": "A public library holds a century of newspapers. Nobody takes the whole archive home. Taking only this week's papers is a shallow clone: fast, and you cannot look up anything older. Taking the complete index and borrowing an issue only when you open it is a partial clone: you can search all of history and you carry very little. Pulling only the sports section onto your desk is a sparse checkout. A second desk in the same reading room, sharing the same shelves, is a worktree. And if someone once filed a piano in the newspaper archive, every visitor walks around it until the archive is rebuilt without it.",
+    "legal": "A firm's document system holds millions of files across thousands of matters. To work on one matter you check out that matter's folder, not the firm's entire history. Older versions stay in the archive and are retrieved on request. Two associates can work on two matters at separate desks that share one file room. When your agreement relies on another firm's standard form, you can cite a specific edition of it, which is a submodule, or copy its text into your own file, which is a subtree. Purging one document from every historical version is an extraordinary, logged procedure with consequences for everyone holding copies. Rewriting Git history is that procedure.",
+    "ml": "A lab monorepo holds `data-pipelines/`, `models/`, `evaluation/` and `papers/`. A new student who only needs `models/vit/` should not wait twenty minutes for a full clone. A blobless, sparse clone takes seconds. A long training run reads code from the working tree, so switching branches underneath it corrupts the experiment. Give the run its own worktree and keep fixing bugs in another. Two years ago someone committed a 2 GB checkpoint and deleted it the next day. It is still in history, and every clone and every CI job has paid for it since. Removing it means rewriting history. Preventing it means checkpoints never enter Git at all.",
+    "technical": "Clone cost has three independent drivers: the number and size of blobs in history, the number of files in the working tree, and the number of commits and trees to traverse. `--depth` truncates history at a boundary. `--filter=blob:none` and `--filter=tree:0` create partial clones that omit blobs or trees and fetch them on demand from a promisor remote. Sparse checkout limits which paths are materialized in the working tree. Worktrees attach several working directories to one object store. Submodules record a commit of another repository as a gitlink entry, while subtrees merge the other project's files into your own tree. The commit-graph file and background maintenance speed up history traversal."
+  },
+  "sections": [
+    {
+      "heading": "What makes a repository slow",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Slow is not one condition. Before reaching for a tool, find out which cost you are paying, because each tool addresses exactly one of them."
+        },
+        {
+          "type": "table",
+          "head": ["Symptom", "Underlying cost", "Tool"],
+          "rows": [
+            ["Cloning takes many minutes and gigabytes", "Large or numerous blobs in history", "Partial clone, and keeping binaries out of Git"],
+            ["`git status` and checkout are sluggish", "Too many files in the working tree", "Sparse checkout and the file system monitor"],
+            ["`git log --graph` and `git merge-base` crawl", "Hundreds of thousands of commits to walk", "The commit-graph file and background maintenance"],
+            ["CI spends longer checking out than testing", "A full clone for a job that needs one snapshot", "A shallow or partial clone in the workflow"],
+            ["You need two branches checked out at once", "One working tree per clone", "Worktrees"]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git count-objects -vH          # size of the object store on disk\n\n# The ten largest blobs anywhere in history, with their paths\ngit rev-list --objects --all \\\n  | git cat-file --batch-check='%(objecttype) %(objectname) %(objectsize) %(rest)' \\\n  | awk '$1 == \"blob\"' | sort -k3 -n | tail -10",
+          "caption": "Measure before you optimize"
+        }
+      ]
+    },
+    {
+      "heading": "Download less: shallow and partial clones",
+      "blocks": [
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Shallow: `--depth 1`",
+              "points": [
+                "Downloads only the newest commit and its files",
+                "History stops at a boundary, so log, blame and bisect cannot look past it",
+                "Best for throwaway CI jobs and one-off builds"
+              ]
+            },
+            {
+              "title": "Blobless: `--filter=blob:none`",
+              "points": [
+                "Downloads every commit and tree, and no file contents until they are needed",
+                "Log and history searches work in full. Blame fetches blobs as it goes",
+                "Best for everyday development in a large repository"
+              ]
+            },
+            {
+              "title": "Treeless: `--filter=tree:0`",
+              "points": [
+                "Downloads commits only. Trees and blobs arrive on demand",
+                "The smallest download that still has every commit",
+                "Best for CI that needs commit metadata. History queries by path become slow"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git clone --depth 1 https://github.com/OWNER/REPO.git           # shallow\ngit clone --filter=blob:none https://github.com/OWNER/REPO.git  # blobless\ngit clone --filter=tree:0 https://github.com/OWNER/REPO.git     # treeless\n\ngit fetch --unshallow          # later, turn a shallow clone into a full one",
+          "caption": "Three ways to download less"
+        },
+        {
+          "type": "reveal",
+          "prompt": "In a clone made with `--depth 1`, `git blame train.py` says every line was written in one commit by one person. The file is three years old. What happened?",
+          "answer": "The clone holds a single commit, so Git has nothing older to attribute lines to, and the boundary commit appears to introduce the whole file. Nothing is wrong with the repository. Run `git fetch --unshallow`, or clone with `--filter=blob:none` next time, which keeps the full history and still downloads little."
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Your CI is already shallow",
+          "text": "`actions/checkout` fetches a single commit by default. That is why a step that runs `git describe`, compares against `main` or computes changed files can fail in CI and pass on your machine. Set `fetch-depth: 0` for full history, and add a filter to keep the download small."
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "- uses: actions/checkout@v7\n  with:\n    fetch-depth: 0          # all commits, so git describe and diffs against main work\n    filter: blob:none       # fetch file contents only when a step needs them\n    sparse-checkout: |\n      models/vit\n      evaluation",
+          "caption": "Full history, small download, two directories"
+        }
+      ]
+    },
+    {
+      "heading": "Check out less: sparse checkout",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A partial clone reduces what you download. Sparse checkout reduces what is written into your working directory. They combine well: clone without blobs, then materialize only the directories you work in."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git clone --filter=blob:none --sparse https://github.com/my-lab/research.git\ncd research\ngit sparse-checkout set models/vit evaluation    # cone mode: whole directories\ngit sparse-checkout list\ngit sparse-checkout add papers/2026-neurips      # widen it later\ngit sparse-checkout disable                      # back to a full checkout",
+          "caption": "A blobless, sparse clone of two directories"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Cone mode** selects whole directories and always includes the files at the repository root. It is the default and the fast path.",
+            "The rest of the repository still exists in your clone's history. Sparse checkout is a view. `git log` and `git grep` against commits still see everything.",
+            "Commits you make include only the paths you changed. Other directories are untouched, not deleted."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "One command that sets all of this up",
+          "text": "`scalar clone` ships with Git. It creates a blobless clone with sparse checkout in cone mode, turns on background maintenance and applies the settings Git recommends for large repositories. Start there, and learn the individual commands when you need to adjust something."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Sparse checkout is not an access control",
+          "text": "A person who can read a repository can read all of it, whatever their checkout shows. GitHub grants read access per repository, not per directory, and CODEOWNERS governs review, not visibility. If a subproject is confidential, sits behind an ethical wall, or holds data under a restricted-use agreement, it needs its own repository with its own access list."
+        }
+      ]
+    },
+    {
+      "heading": "Work in parallel: worktrees",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A worktree is an additional working directory attached to the same repository. Each one has its own checked-out branch, its own index and its own files. They share one object store, so creating one is fast and costs no second clone."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# A second working directory on a new branch, starting from main\ngit worktree add ../research-hotfix -b hotfix/eval-crash origin/main\n\ncd ../research-hotfix        # fix, commit and push here\ngit worktree list            # every worktree and its branch\n\ncd ../research\ngit worktree remove ../research-hotfix",
+          "caption": "One repository, two desks"
+        },
+        {
+          "type": "list",
+          "items": [
+            "A branch can be checked out in only one worktree at a time. Git refuses a second checkout of the same branch.",
+            "Refs, stashes and configuration are shared. Untracked files, build output and virtual environments belong to each directory.",
+            "Coding agents that work in parallel commonly give each task its own worktree and branch, for the same reason you would."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Never switch branches under a running job",
+          "text": "A training run or a long test reads source files as it goes. If you switch branches in that directory, later imports and config reads come from different code than the run started with, and the result matches no commit. Start long runs from a dedicated worktree at a recorded commit ID."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Worktrees lower the cost of switching context",
+          "text": "Stash, switch, fix, switch back, restore the stash is a sequence in which it is common to lose your place, especially when interruptions are costly for you. A worktree keeps each task in its own folder and its own editor window, with nothing to remember and nothing to restore."
+        }
+      ]
+    },
+    {
+      "heading": "Compose repositories: submodules and subtrees",
+      "blocks": [
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Submodule",
+              "points": [
+                "Your repository stores a pointer to one exact commit of another repository",
+                "History stays separate and small, and access to the other repository is controlled separately",
+                "Every clone needs an extra step, and moving the pointer is a deliberate commit",
+                "Fits a dependency you track at specific versions and rarely edit"
+              ]
+            },
+            {
+              "title": "Subtree",
+              "points": [
+                "The other project's files are merged into your repository under a directory",
+                "Cloning needs nothing special. The files are there",
+                "Your history grows, and sending changes back upstream is awkward",
+                "Fits vendored code you intend to modify alongside your own"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git submodule add https://github.com/my-lab/eval-harness.git third_party/eval-harness\ngit commit -m \"Add eval-harness as a submodule\"\n\n# What every collaborator needs after cloning or pulling\ngit submodule update --init --recursive\n\n# Refuse to push if a submodule commit you point at was never pushed\ngit push --recurse-submodules=check",
+          "caption": "Adding and using a submodule"
+        },
+        {
+          "type": "p",
+          "text": "For most Python research code a third option beats both: publish the shared code as an installable package and pin its version in the lock file. Reach for a submodule when you need the source at an exact commit and a package is not practical."
+        }
+      ]
+    },
+    {
+      "heading": "One repository or many",
+      "blocks": [
+        {
+          "type": "table",
+          "head": ["Question", "One repository", "Many repositories"],
+          "rows": [
+            ["A change spans three projects", "One commit, one review, one history", "Three coordinated pull requests and a release order"],
+            ["Who can read what", "Everyone with access reads everything", "Access is set per repository"],
+            ["Dependency versions", "One version for everyone, upgraded together", "Each project chooses, and versions drift"],
+            ["CI cost", "Needs path filters, or everything is tested on every push", "Each repository tests only itself"],
+            ["Tooling demands", "Partial clone, sparse checkout, CODEOWNERS and maintenance become necessary", "Standard Git works unmodified"]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Neither is correct in general. Choose one repository when projects change together and share reviewers. Choose many when they have different audiences, different confidentiality or different release rhythms. In a monorepo, a CODEOWNERS file maps directories to teams, and workflow path filters keep CI proportional to the change. Path filters interact badly with required checks. See [Actions at scale](#expert-actions-architecture)."
+        }
+      ]
+    },
+    {
+      "heading": "Removing a large file from history",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Deleting a file in a new commit removes it from the current snapshot. Every earlier commit still contains it, so every clone still downloads it. The only way to shrink the repository is to rewrite history without the file, which gives every later commit a new ID."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# Work in a fresh clone. git-filter-repo is a separate tool to install.\ngit clone https://github.com/my-lab/research.git research-clean\ncd research-clean\n\ngit filter-repo --analyze                       # report in .git/filter-repo/analysis/\ngit filter-repo --invert-paths --path checkpoints/vit-large.pt\n# or: git filter-repo --strip-blobs-bigger-than 50M\n\n# filter-repo removes the origin remote on purpose. Add it back, then:\ngit remote add origin https://github.com/my-lab/research.git\ngit push --force --all\ngit push --force --tags",
+          "caption": "Analyze, rewrite, force-push"
+        },
+        {
+          "type": "callout",
+          "kind": "danger",
+          "title": "A rewrite breaks every existing clone and pull request",
+          "text": "After the force push, old clones still hold the old history. One `git pull` and a push from any of them brings the large file straight back. Announce a freeze, rewrite, and have everyone clone again. Open pull requests need to be recreated, signatures on rewritten commits are lost, and GitHub may keep the old objects until its own cleanup runs. If the file was sensitive, treat it as an incident. See [Incident response](#expert-incident-response)."
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Record a pointer, not the payload",
+          "text": "Keep checkpoints and datasets in object storage, a data versioning tool or Git LFS, and commit a small file that records the location and a checksum. The repository stays fast, and the checksum still ties each result to the exact artifact that produced it."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Clone only what you need from a large repository",
+      "browser": [
+        "The browser never clones, so there is nothing to slim down. Use it to avoid a clone altogether.",
+        "Press {{.}} on any repository page to open github.dev, a browser editor that loads files on demand.",
+        "To get a snapshot without history, select **Code**, then **Download ZIP**.",
+        "To read one large file, open it and select **Raw**."
+      ],
+      "phone": [
+        "GitHub Mobile browses any directory of any size without cloning, which makes it a good way to read a monorepo.",
+        "There is no clone on a phone. For real work, open a Codespace from the mobile browser and run the command-line steps there."
+      ],
+      "cli": [
+        "`git clone --filter=blob:none --sparse https://github.com/OWNER/REPO.git` downloads history without file contents and checks out only the root files.",
+        "`cd REPO`, then `git sparse-checkout set path/one path/two` to materialize the directories you need.",
+        "`git sparse-checkout list` confirms the selection. `git sparse-checkout add another/path` widens it.",
+        "`git count-objects -vH` shows how little was downloaded.",
+        "Or run `scalar clone https://github.com/OWNER/REPO.git`, which applies the same ideas with recommended settings."
+      ],
+      "editor": [
+        "Clone from the integrated terminal with the commands above, then open the folder. VS Code shows only the directories in your sparse checkout.",
+        "In Codespaces, a large repository benefits from prebuilds, which prepare the environment ahead of time. Availability depends on your plan.",
+        "With a coding agent, say which directories the task concerns and ask for a blobless, sparse clone. Verify with `git sparse-checkout list`."
+      ]
+    },
+    {
+      "task": "Work on two branches at once with a worktree",
+      "browser": [
+        "Not applicable. The browser has no working directory. Two tabs on two branches give the same effect for reading and small edits."
+      ],
+      "phone": [
+        "Not applicable on a phone. Worktrees are a feature of a local clone."
+      ],
+      "cli": [
+        "`git worktree add ../REPO-hotfix -b hotfix/eval-crash origin/main` creates a new directory on a new branch.",
+        "`cd ../REPO-hotfix`, make the fix, then commit and push as usual.",
+        "`git worktree list` shows every worktree with its path, commit and branch.",
+        "`git worktree remove ../REPO-hotfix` deletes the directory once the branch has landed. Git refuses if it holds uncommitted changes.",
+        "`git worktree prune` clears the records of worktree folders you deleted by hand."
+      ],
+      "editor": [
+        "Open the worktree's folder in a new VS Code window. Each window has its own branch, terminal and Source Control view.",
+        "Recent versions of VS Code also list worktrees in the Source Control view. Use the terminal if yours does not.",
+        "If several coding agents work at once, give each its own worktree and branch, and review each branch as a separate pull request."
+      ]
+    },
+    {
+      "task": "Find and remove a large file from history",
+      "browser": [
+        "History cannot be rewritten in the browser. Use it for the steps around the rewrite.",
+        "Before: tell collaborators, and list the open pull requests, which will need to be recreated.",
+        "If the default branch blocks force pushes, an administrator must allow the rewrite temporarily in the branch rules and restore the rule afterward.",
+        "After: contact GitHub Support if the old objects must be purged from GitHub's side sooner than routine cleanup."
+      ],
+      "phone": [
+        "Not possible on a phone. Use the phone to coordinate: post the freeze notice in the issue or discussion, and confirm when it is safe to clone again."
+      ],
+      "cli": [
+        "Install the tool, for example with `pip install git-filter-repo`, and make a fresh clone to work in.",
+        "`git filter-repo --analyze`, then read `.git/filter-repo/analysis/path-all-sizes.txt` to pick targets.",
+        "`git filter-repo --invert-paths --path <file>` removes one path from all history. `--strip-blobs-bigger-than 50M` removes by size.",
+        "`git remote add origin <url>`, then `git push --force --all` and `git push --force --tags`.",
+        "Ask every collaborator to delete their old clone and clone again. Rebasing old branches onto the new history is possible and error-prone.",
+        "`gh api repos/OWNER/REPO --jq .size` reports the repository size in kilobytes. The figure can lag behind the push."
+      ],
+      "editor": [
+        "Run the analysis in the integrated terminal and open the report files in the editor to sort and read them.",
+        "A coding agent can run the analysis and draft the plan. The force push is a decision for a person with authority over the repository, made after the freeze is announced."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Developing in a `--depth 1` clone, then wondering why blame, bisect and merge-base behave strangely.",
+      "fix": "Use a blobless partial clone for development. Keep shallow clones for jobs you throw away."
+    },
+    {
+      "trap": "Switching branches in a directory where a long training job is running.",
+      "fix": "Launch long jobs from their own worktree, and record the commit ID with the results."
+    },
+    {
+      "trap": "Committing a new submodule pointer without pushing the submodule commit it points at.",
+      "fix": "Push with `git push --recurse-submodules=check`, or set `push.recurseSubmodules` to `check`, so Git refuses when the target is missing."
+    },
+    {
+      "trap": "Relying on sparse checkout or CODEOWNERS to keep a directory confidential.",
+      "fix": "Read access is per repository. Put confidential work in a separate repository."
+    },
+    {
+      "trap": "Deleting a large file in a new commit and expecting the repository to shrink.",
+      "fix": "The blob remains in history. Either accept it, or plan a coordinated rewrite with `git filter-repo`."
+    },
+    {
+      "trap": "Rewriting history and force-pushing without a freeze, so a teammate's stale clone pushes the old history back.",
+      "fix": "Announce, freeze, rewrite, and have everyone clone again. Delete stale branches and recreate open pull requests."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "A new contributor wants a fast clone of a repository bloated by old binaries, and still needs complete history for `git log` and `git blame`. Which clone fits?",
+      "choices": [
+        "`git clone --depth 1`",
+        "`git clone --filter=blob:none`",
+        "`git clone --mirror`",
+        "`git clone --recurse-submodules`"
+      ],
+      "answer": 1,
+      "why": "A blobless clone downloads every commit and tree, so history commands work, and it fetches file contents only when a command needs them. A shallow clone is smaller still, but it cuts history off at a boundary."
+    },
+    {
+      "q": "What does sparse checkout change?",
+      "choices": [
+        "Which files are written into your working directory",
+        "Which files you are permitted to read",
+        "Which commits are downloaded",
+        "Which branches exist in your clone"
+      ],
+      "answer": 0,
+      "why": "Sparse checkout is a view of the working tree. The full history is still in the clone, and anyone with read access can widen their own checkout. It is a performance tool, not a permission."
+    },
+    {
+      "q": "What does your repository store for a submodule?",
+      "choices": [
+        "A full copy of the other project's files",
+        "A compressed archive of the other repository",
+        "A pointer to one exact commit, plus the other repository's address in `.gitmodules`",
+        "A branch name that always follows the other project's latest commit"
+      ],
+      "answer": 2,
+      "why": "A submodule is recorded as a special tree entry holding a commit ID, with the address kept in `.gitmodules`. It does not follow a branch on its own. Moving to a newer version is a deliberate commit in your repository."
+    },
+    {
+      "q": "A workflow runs `git describe --tags` and fails in CI because it finds no tags, though it works on your machine. What is the likely cause?",
+      "choices": [
+        "The runner has an old version of Git",
+        "Tags are not supported in Actions",
+        "The workflow lacks `contents: write`",
+        "The checkout step fetched a single commit, so tags and history are missing"
+      ],
+      "answer": 3,
+      "why": "`actions/checkout` is shallow by default. `git describe` needs history and tags to walk back through. Setting `fetch-depth: 0` on the checkout step fetches both."
+    },
+    {
+      "q": "After removing a 2 GB file with `git filter-repo` and force-pushing, why should collaborators clone again and not run `git pull`?",
+      "choices": [
+        "Pull is disabled after a force push",
+        "Their clones have become shallow",
+        "Their clones hold the old history, and merging it back would reintroduce the file",
+        "The remote address changed"
+      ],
+      "answer": 2,
+      "why": "Every commit after the removed file has a new ID. An old clone's history shares nothing with the rewritten one, so a pull merges the two and a push sends the large blob back. A fresh clone is the reliable reset."
+    }
+  ],
+  "mission": {
+    "title": "Measure a clone, then slim it",
+    "where": "A terminal, a public repository with a long history, and your own repository. Nothing here rewrites history.",
+    "steps": [
+      "Clone a mid-sized public repository you use, the ordinary way. Note the time it takes and the output of `git count-objects -vH`.",
+      "Clone it again into a second directory with `--filter=blob:none`. Compare the time and the size.",
+      "In the blobless clone, run `git log --oneline -5`, then `git blame` on one file. Watch Git fetch the blobs it needs.",
+      "Add a worktree on a new branch, confirm `git worktree list` shows two entries, then remove it.",
+      "In your own repository, list the ten largest blobs in history with the pipeline from this lesson.",
+      "For each large blob, write down where it should live. Do not rewrite history unless the cost is real and your collaborators agree."
+    ]
+  },
+  "terms": [
+    {
+      "term": "shallow clone",
+      "def": "A clone whose history is cut off at a chosen depth. It is small and fast, and commands that need older history cannot see past the boundary."
+    },
+    {
+      "term": "partial clone",
+      "def": "A clone that leaves out some objects, such as file contents, and downloads each one from the server the first time a command needs it."
+    },
+    {
+      "term": "sparse checkout",
+      "def": "A setting that writes only chosen directories into the working tree. The rest of the repository stays in history, unmaterialized."
+    },
+    {
+      "term": "cone mode",
+      "def": "The default, faster form of sparse checkout, which selects whole directories and always includes files at the repository root."
+    },
+    {
+      "term": "worktree",
+      "def": "An extra working directory attached to an existing repository, with its own checked-out branch and index and a shared object store."
+    },
+    {
+      "term": "submodule",
+      "def": "A reference inside one repository to an exact commit of another repository, checked out as a subdirectory."
+    },
+    {
+      "term": "subtree",
+      "def": "Another project's files merged into a subdirectory of your repository, so they become part of your own history."
+    },
+    {
+      "term": "monorepo",
+      "def": "A single repository that holds several projects which could have been separate repositories."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git clone --depth 1 <url>",
+      "does": "Clones only the newest commit. Fast, with no usable history.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git clone --filter=blob:none <url>",
+      "does": "Clones all commits and trees, and fetches file contents on demand.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git clone --filter=blob:none --sparse <url>",
+      "does": "A blobless clone that checks out only the root files, ready for `git sparse-checkout set`.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git sparse-checkout set <dir> <dir>",
+      "does": "Limits the working tree to the named directories. Other tracked files leave the disk, not the repository.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git fetch --unshallow",
+      "does": "Downloads the missing history of a shallow clone, turning it into a full one.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git worktree add <path> -b <branch>",
+      "does": "Creates a second working directory on a new branch, sharing the same repository.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git worktree remove <path>",
+      "does": "Deletes a worktree's directory. Git refuses if it holds uncommitted changes.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git submodule update --init --recursive",
+      "does": "Checks out every submodule at the commit the parent repository records.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "scalar clone <url>",
+      "does": "Clones with partial clone, sparse checkout and background maintenance already configured.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git filter-repo --strip-blobs-bigger-than 50M",
+      "does": "Rewrites all history without blobs above the given size. Every later commit ID changes.",
+      "kind": "git",
+      "risk": "danger"
+    }
+  ],
+  "links": [
+    {
+      "label": "Git reference: git-sparse-checkout",
+      "url": "https://git-scm.com/docs/git-sparse-checkout"
+    },
+    {
+      "label": "Git reference: git-worktree",
+      "url": "https://git-scm.com/docs/git-worktree"
+    },
+    {
+      "label": "Git reference: partial clone",
+      "url": "https://git-scm.com/docs/partial-clone"
+    },
+    {
+      "label": "Git reference: scalar",
+      "url": "https://git-scm.com/docs/scalar"
+    },
+    {
+      "label": "GitHub Blog: Get up to speed with partial clone and shallow clone",
+      "url": "https://github.blog/2020-12-21-get-up-to-speed-with-partial-clone-and-shallow-clone/"
+    },
+    {
+      "label": "GitHub Docs: About large files on GitHub",
+      "url": "https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github"
+    }
+  ]
+}

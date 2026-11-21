@@ -1,0 +1,516 @@
+{
+  "id": "advanced-codespaces-ai",
+  "track": "advanced",
+  "title": "Codespaces, dev containers and AI coding agents",
+  "minutes": 21,
+  "summary": "A dev container describes a working environment in a file, a codespace runs it in the cloud, and a coding agent can work inside one on a branch of its own. The environment becomes reproducible, and the agent becomes a contributor whose pull requests you review.",
+  "outcomes": [
+    "Write a `devcontainer.json` that gives every contributor the same Python environment",
+    "Choose between github.dev, a codespace and a local dev container for a task",
+    "Stop, resume and delete codespaces without losing work",
+    "Delegate a scoped task to a coding agent and review what comes back",
+    "Apply least privilege and confidentiality rules when AI tools touch your code"
+  ],
+  "prereqs": [
+    "basics-pull-requests",
+    "intermediate-code-review"
+  ],
+  "lenses": {
+    "everyday": "A rented vacation kitchen comes fully stocked: the same pans, the same knives, the same oven the listing promised. You cook, you leave, and the next guest gets an identical kitchen. That is a codespace built from a dev container file. A coding agent is a capable temp to whom you hand a clearly written task and a spare kitchen. They cook the dish and put it on the counter for you to taste. You decide whether it goes to the table. The temp never serves guests directly.",
+    "legal": "A firm issues each new associate a standard laptop image, so nobody loses a week to setup and every machine meets policy. A dev container is that standard image, defined in a file under version control. A coding agent is closer to a contract attorney on a discrete assignment: a written scope, access limited to the matter, work product delivered as a draft, and a supervising attorney who reviews and signs. The duty of supervision does not transfer. Neither do confidentiality obligations: before client or employer material goes to an outside service, the engagement terms and firm policy have to allow it.",
+    "ml": "A new collaborator joins on Monday. Without a dev container they spend the day matching your Python version, system libraries and Jupyter extensions, and still end up with a different NumPy. With one, they press a button and get the environment the tests ran in. Then you hand a coding agent a task: add a `--seed` flag to `train.py`, thread it through the data loader, and add a test. It works in its own environment on a branch and opens a pull request. CI runs. You read the diff like any other, because your name is on the merge.",
+    "technical": "A dev container is a container-based environment described by `.devcontainer/devcontainer.json`: a base image, optional features, forwarded ports, editor extensions and commands to run after creation. GitHub Codespaces builds that container on a cloud virtual machine and connects an editor to it. github.dev is a browser editor with no compute and no terminal. A coding agent is an AI system that takes a task, runs tools in an isolated environment, commits to a branch and opens a pull request. Rulesets, required checks and review apply to its pull requests exactly as they do to a person's."
+  },
+  "sections": [
+    {
+      "heading": "Three places to edit, and when to use each",
+      "blocks": [
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "github.dev",
+              "points": [
+                "Press {{.}} on any repository page",
+                "An editor in the browser, open in a second",
+                "No terminal, and no running code",
+                "Good for edits across several files and for reading code with search"
+              ]
+            },
+            {
+              "title": "Codespace",
+              "points": [
+                "A full machine in the cloud, with a terminal",
+                "Built from the repository's dev container",
+                "Runs tests, notebooks and servers",
+                "Metered, and stops when idle"
+              ]
+            },
+            {
+              "title": "Local dev container",
+              "points": [
+                "The same container, on your own computer",
+                "Needs Docker and VS Code's Dev Containers extension",
+                "Works offline and uses your hardware",
+                "No cloud usage to pay for"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "text": "All three give you the VS Code interface. The difference is what sits behind it: nothing, a cloud machine, or your own machine."
+        },
+        {
+          "type": "reveal",
+          "prompt": "You open a repository in github.dev, edit `train.py`, and want to run the tests before committing. Can you?",
+          "answer": "No. github.dev has no terminal and no compute, so nothing can run. You can commit and let CI test the change, or continue in a codespace, which has both. github.dev is for editing. A codespace is for editing and running."
+        }
+      ]
+    },
+    {
+      "heading": "The dev container file",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The file lives at `.devcontainer/devcontainer.json`. Commit it, and every codespace and every local dev container starts from the same definition."
+        },
+        {
+          "type": "code",
+          "lang": "json",
+          "code": "{\n  \"name\": \"ml-research\",\n  \"image\": \"mcr.microsoft.com/devcontainers/python:3.12\",\n  \"features\": {\n    \"ghcr.io/devcontainers/features/github-cli:1\": {}\n  },\n  \"postCreateCommand\": \"pip install -r requirements.txt\",\n  \"forwardPorts\": [8888],\n  \"customizations\": {\n    \"vscode\": {\n      \"extensions\": [\n        \"ms-python.python\",\n        \"ms-toolsai.jupyter\"\n      ]\n    }\n  }\n}",
+          "file": ".devcontainer/devcontainer.json"
+        },
+        {
+          "type": "table",
+          "head": [
+            "Key",
+            "What it does"
+          ],
+          "rows": [
+            [
+              "`image`",
+              "The base container image. This one has Python 3.12 and common tools"
+            ],
+            [
+              "`features`",
+              "Prebuilt add-ons, each installing one tool. Here, the `gh` command"
+            ],
+            [
+              "`postCreateCommand`",
+              "Runs once after the container is created. Install your dependencies here"
+            ],
+            [
+              "`forwardPorts`",
+              "Ports to make reachable from your browser, such as 8888 for Jupyter"
+            ],
+            [
+              "`customizations`",
+              "Editor extensions and settings to preinstall"
+            ]
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Pin what matters",
+          "text": "A tag such as `python:3.12` moves as patch versions are released. That is usually what you want for development. For an environment that must reproduce a published result, pin the image by digest and install from a lock file. [Reproducible research repositories](#advanced-research-repro) covers this."
+        }
+      ]
+    },
+    {
+      "heading": "Living with codespaces",
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "**Work is not on GitHub until you push.** A codespace has its own disk. Commit and push before you stop for the day.",
+            "**Idle codespaces stop on their own** after a timeout, and stopped ones are deleted after a longer period without use. Both periods are adjustable in your settings.",
+            "**Stopped is not free.** A stopped codespace uses no compute but still occupies storage.",
+            "**One codespace per task works well.** Create it from the branch or pull request, do the work, push, delete it.",
+            "**Codespaces secrets are their own store.** Add them in your personal settings or the repository's Codespaces secrets, and they appear as environment variables.",
+            "**It is a development machine.** Use it to write, test and run small experiments. Long training jobs belong on infrastructure built for them."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Usage is metered",
+          "text": "Codespaces usage is measured in compute time and storage, with an included amount that depends on your account. Your billing settings show current usage, and you can set a budget there if you want a hard stop."
+        }
+      ]
+    },
+    {
+      "heading": "AI in the loop: assistants and agents",
+      "blocks": [
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "In-editor assistant",
+              "points": [
+                "Suggests code as you type and answers questions about open files",
+                "You accept or reject each suggestion",
+                "Works at the speed of your attention",
+                "You are the author of every change"
+              ]
+            },
+            {
+              "title": "Coding agent",
+              "points": [
+                "Takes a whole task and works on its own",
+                "Runs commands, edits files and reacts to test failures",
+                "Delivers a branch and a pull request",
+                "You are the reviewer, and the person who merges"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "text": "GitHub Copilot coding agent and Claude Code are two examples of the second kind, and there are others. They differ in where they run and how you start them: from an issue, a chat, a terminal or a phone. What they share matters more. The work arrives as commits on a branch, and the pull request is the checkpoint where a person decides."
+        },
+        {
+          "type": "flow",
+          "steps": [
+            {
+              "label": "Scoped task",
+              "note": "One outcome, stated precisely"
+            },
+            {
+              "label": "Agent works on a branch",
+              "via": "delegate",
+              "note": "Never directly on main"
+            },
+            {
+              "label": "Pull request",
+              "via": "pushes",
+              "note": "The diff and its reasoning"
+            },
+            {
+              "label": "CI runs",
+              "via": "triggers",
+              "note": "The same required checks as anyone"
+            },
+            {
+              "label": "You review",
+              "via": "reports",
+              "note": "Read every changed line"
+            },
+            {
+              "label": "You merge",
+              "via": "approve",
+              "note": "Your name, your accountability"
+            }
+          ],
+          "caption": "An agent's work passes through the same gates as a person's"
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "## Outcome\n`scripts/train.py` accepts `--seed` and produces identical metrics for two runs with the same seed.\n\n## In scope\n- `scripts/train.py`\n- `src/project/data.py` (shuffling only)\n- a new test in `tests/test_seed.py`\n\n## Out of scope\n- Model code, configs, and anything under `.github/`\n- New dependencies\n\n## How I will check it\n- `python -m pytest tests/test_seed.py` passes\n- The diff touches only the files listed above",
+          "caption": "A task written so that an agent, or a person, cannot misread its edges"
+        }
+      ]
+    },
+    {
+      "heading": "Supervising an agent",
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "**Write the task like a good issue.** State the outcome, the files in scope, what must not change, and how you will check it.",
+            "**Keep it small.** A task you could review in fifteen minutes is the right size. Large tasks produce large diffs that nobody reads properly.",
+            "**Branch and pull request, always.** Your rulesets already require this. The agent should meet the same guardrails as a person.",
+            "**Read the diff, not the summary.** The agent's description says what it intended. The diff says what it did.",
+            "**Look for the quiet shortcuts**: a deleted or skipped test, a loosened assertion, a broad exception handler, a new dependency, a changed workflow file.",
+            "**Let CI vote.** Required checks apply. If the agent's workflow runs wait for your approval to start, read any workflow changes before approving.",
+            "**Give it the least access that works.** A token for one repository, no deployment secrets, and no ability to approve or merge its own work."
+          ],
+          "ordered": true
+        },
+        {
+          "type": "p",
+          "text": "Most tools read a repository instruction file where you record conventions once: how to run the tests, the style rules, what never to touch. The file name differs by tool. Examples are `.github/copilot-instructions.md`, `CLAUDE.md` and `AGENTS.md`. Check your tool's documentation for the name it reads, and review that file like code, because it steers every future task."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Confidentiality comes first",
+          "text": "Before you send code to any AI service, check what your employer's or client's policy allows and what the service does with what it receives. Source code can be a trade secret, can include personal data, and can be covered by a confidentiality agreement you signed. Ownership and licensing of generated code are separate questions with unsettled edges. This is general information, not legal advice. For the wider picture see [The non-code layer](#expert-law-tax-access)."
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Accountability does not delegate",
+          "text": "A merged pull request is yours, whoever or whatever wrote it. If you would not approve the change from a new colleague without reading it, do not approve it from an agent."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Agents as an accommodation",
+          "text": "Delegating typing-heavy or sequencing-heavy work can be a real accommodation for people with repetitive strain injuries, limited energy or a heavy executive-function load. The review step is what keeps it safe. Tools that let you start a task by voice or from a phone, and review later on your own schedule, widen who can contribute."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Create a codespace and work in it",
+      "browser": [
+        "On the repository page select **Code**, open the **Codespaces** tab, and select **Create codespace on main**.",
+        "Wait for the editor to load. The terminal at the bottom is a shell inside the container.",
+        "Create a branch, edit, and run your tests in the terminal.",
+        "Commit and push from the Source Control view.",
+        "When you are done, stop the codespace from the same **Codespaces** tab or at github.com/codespaces, and delete it once your work is pushed."
+      ],
+      "phone": [
+        "GitHub Mobile does not run codespaces as of this writing.",
+        "A codespace opens in a mobile browser from github.com/codespaces. The editor works, though a small screen and an on-screen keyboard make it slow.",
+        "That is good enough for a small fix, running one command, or checking a result. For longer work a tablet with a keyboard is the practical minimum.",
+        "From the same page you can stop or delete codespaces, a useful phone task when you remember one is still running."
+      ],
+      "cli": [
+        "`gh codespace create` and choose the repository, branch and machine size.",
+        "`gh codespace list` to see what you have and whether each is running.",
+        "`gh codespace ssh` to open a shell in one, or `gh codespace code` to open it in VS Code.",
+        "`gh codespace stop` when you pause, and `gh codespace delete` after your work is pushed."
+      ],
+      "editor": [
+        "Install the GitHub Codespaces extension in VS Code and sign in.",
+        "Open the Command Palette and run **Codespaces: Create New Codespace**, or connect to an existing one.",
+        "You now have your desktop editor in front and the cloud machine behind it.",
+        "To use the same definition locally, install the Dev Containers extension and run **Dev Containers: Reopen in Container**. Docker must be running.",
+        "A coding agent started in the codespace's terminal inherits that environment, including its repository-scoped token."
+      ]
+    },
+    {
+      "task": "Delegate a task to a coding agent and review the result",
+      "browser": [
+        "Write the task as an issue: outcome, files in scope, what not to change, how to verify.",
+        "Start the agent the way your tool provides, for example by assigning the issue to it or starting a session from its web interface.",
+        "When the pull request appears, open **Files changed** and read every file. Tick **Viewed** on each file to track your progress.",
+        "Check the workflow results. If runs are waiting for approval, read any workflow changes before you approve them.",
+        "Request changes in review comments as you would for a person. Merge only when you would sign your name to it."
+      ],
+      "phone": [
+        "Some agents can be started from their own mobile app or a web page, which makes a phone a reasonable place to hand off a well-written task.",
+        "Review in GitHub Mobile: open the pull request, read the changed files, and check the status of the checks.",
+        "Small, clearly scoped diffs can be reviewed and merged from the app. Leave large or security-sensitive diffs for a bigger screen. Reviewing carefully matters more than reviewing now."
+      ],
+      "cli": [
+        "Create a branch for the agent's work, or let the agent create one. Confirm with `git branch --show-current` that it is not `main`.",
+        "Run the agent in the repository folder and give it the scoped task.",
+        "`git diff main...HEAD` to read everything it changed, and `git log --oneline main..HEAD` to see its commits.",
+        "Run the tests yourself. Do not rely on the agent's report that they pass.",
+        "`gh pr create --fill`, then `gh pr checks --watch`.",
+        "`gh pr diff` and `gh pr view --comments` for a final read before merging."
+      ],
+      "editor": [
+        "Start the task from the assistant or agent panel in your editor, with the relevant files open for context.",
+        "Review the changes in the Source Control view's diff, one file at a time, before staging anything.",
+        "Stage only what you have read. Discard what you do not want.",
+        "Commit with a message that describes the change in your own words, push, and open a pull request with the GitHub Pull Requests extension.",
+        "Record standing conventions in the repository's instruction file, so you do not repeat them in every prompt."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Leaving work uncommitted in a codespace that is later deleted for inactivity.",
+      "fix": "Push before you stop. Treat the codespace as disposable and the remote branch as the only safe place."
+    },
+    {
+      "trap": "Forgetting running or stopped codespaces and being surprised by the usage.",
+      "fix": "Look at github.com/codespaces weekly, delete what is finished, and shorten the idle timeout in settings."
+    },
+    {
+      "trap": "Approving an agent's pull request because the description sounds right and the checks pass.",
+      "fix": "Read the diff. Look specifically for removed or weakened tests and for changes outside the stated scope."
+    },
+    {
+      "trap": "Pasting a secret or a confidential document into an AI chat to give it context.",
+      "fix": "Never paste credentials. For confidential material, confirm policy first, and prefer describing the shape of the data over sharing the data."
+    },
+    {
+      "trap": "Letting an agent run with your full personal token and write access to everything.",
+      "fix": "Use a fine-grained token for one repository, and keep deployment secrets in environments the agent cannot reach."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "What is the practical difference between github.dev and a codespace?",
+      "choices": [
+        "github.dev is paid and codespaces are free",
+        "A codespace has a terminal and compute; github.dev is an editor only",
+        "github.dev works only on public repositories",
+        "They are two names for the same thing"
+      ],
+      "answer": 1,
+      "why": "github.dev runs entirely in your browser with nothing behind it, so it can edit and commit but not execute. A codespace is a cloud machine, so it can run tests, notebooks and servers."
+    },
+    {
+      "q": "Where does the definition of a repository's development environment live?",
+      "choices": [
+        "In each developer's personal settings",
+        "In `.github/workflows/`",
+        "In `.devcontainer/devcontainer.json`, committed to the repository",
+        "In the repository's About section"
+      ],
+      "answer": 2,
+      "why": "The dev container file is version-controlled with the code. The environment changes through reviewed pull requests, and everyone, in a codespace or a local container, builds from the same definition."
+    },
+    {
+      "q": "You stop a codespace with uncommitted changes and return three days later. What is the state of your work?",
+      "choices": [
+        "Still there, as long as the codespace has not been deleted",
+        "Lost, because stopping discards the disk",
+        "Automatically pushed to a backup branch",
+        "Committed to `main`"
+      ],
+      "answer": 0,
+      "why": "Stopping keeps the disk. The risk is deletion, either after a long period without use or by your own hand. Nothing is pushed automatically, which is why you push before you stop."
+    },
+    {
+      "q": "An agent's pull request has passing checks and a clear description. Which review step is still essential?",
+      "choices": [
+        "None; passing checks are sufficient",
+        "Re-running CI twice to be sure",
+        "Asking the agent whether it is confident",
+        "Reading the diff for changes outside the scope and for tests that were removed or weakened"
+      ],
+      "answer": 3,
+      "why": "Checks only prove that the tests which exist still pass. An agent can reach a passing result by changing the tests. The diff is the only complete record of what changed, and the person who merges is accountable for it."
+    },
+    {
+      "q": "Which access setup best fits a coding agent working on one repository?",
+      "choices": [
+        "Your classic token with every scope",
+        "A fine-grained token for that repository, with no deployment secrets and no ability to merge",
+        "Organization owner rights, so it never gets blocked",
+        "No authentication at all"
+      ],
+      "answer": 1,
+      "why": "Least privilege limits the damage from a mistake or a manipulated instruction. The agent needs to push a branch and open a pull request. It does not need production secrets or the power to approve its own work."
+    }
+  ],
+  "mission": {
+    "title": "Give your repository a dev container and delegate one task",
+    "where": "Your own repository. The agent step is optional and works with whichever tool you already use.",
+    "steps": [
+      "Add `.devcontainer/devcontainer.json` from this lesson on a branch, adjusted to your Python version and requirements file. Merge it by pull request.",
+      "Create a codespace from `main`. In its terminal run `python --version` and your tests, and confirm the environment matches the file.",
+      "Make a small change on a branch inside the codespace, push it, then stop and delete the codespace.",
+      "Press {{.}} on the repository page to open github.dev. Note what is missing compared with the codespace.",
+      "Write a fifteen-minute task as an issue with an outcome, a scope, exclusions and a verification step.",
+      "If you use a coding agent, hand it the issue. Review its pull request against the supervision list in this lesson, and write one review comment before deciding.",
+      "Open github.com/codespaces and confirm nothing is left running."
+    ]
+  },
+  "terms": [
+    {
+      "term": "dev container",
+      "def": "A development environment defined by a file in the repository and run as a container, so every contributor gets the same tools."
+    },
+    {
+      "term": "devcontainer.json",
+      "def": "The configuration file, usually in `.devcontainer/`, that names the image, features, extensions and setup commands for a dev container."
+    },
+    {
+      "term": "codespace",
+      "def": "A cloud-hosted development machine built from a repository's dev container, with an editor and a terminal."
+    },
+    {
+      "term": "github.dev",
+      "def": "A browser-based editor for any repository, opened by pressing the period key. It has no terminal and runs no code."
+    },
+    {
+      "term": "dev container feature",
+      "def": "A prepackaged add-on that installs one tool or runtime into a dev container image."
+    },
+    {
+      "term": "coding agent",
+      "def": "An AI system that carries out a development task on its own: editing files, running commands and opening a pull request for review."
+    },
+    {
+      "term": "instruction file",
+      "def": "A file in the repository that tells AI tools the project's conventions. Its name depends on the tool."
+    },
+    {
+      "term": "human in the loop",
+      "def": "A design where a person reviews and approves automated work before it takes effect. The pull request is that checkpoint."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh codespace create",
+      "does": "Creates a codespace for a repository and branch you choose.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh codespace list",
+      "does": "Lists your codespaces and whether each is running or stopped.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh codespace ssh",
+      "does": "Opens a terminal session inside a codespace.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh codespace stop",
+      "does": "Stops a running codespace. Its disk is kept.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh codespace delete",
+      "does": "Deletes a codespace and its disk. Unpushed work in it is lost.",
+      "kind": "gh",
+      "risk": "danger"
+    },
+    {
+      "cmd": ".",
+      "does": "On a repository or pull request page, opens it in the github.dev editor.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git diff main...HEAD",
+      "does": "Shows everything the current branch changed since it left `main`. The first thing to read after an agent finishes.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr diff",
+      "does": "Prints the full diff of the current branch's pull request in the terminal.",
+      "kind": "gh",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: Codespaces",
+      "url": "https://docs.github.com/en/codespaces"
+    },
+    {
+      "label": "Development Containers specification",
+      "url": "https://containers.dev/"
+    },
+    {
+      "label": "VS Code Docs: Developing inside a Container",
+      "url": "https://code.visualstudio.com/docs/devcontainers/containers"
+    },
+    {
+      "label": "GitHub Docs: GitHub Copilot",
+      "url": "https://docs.github.com/en/copilot"
+    },
+    {
+      "label": "GitHub Docs: The github.dev web-based editor",
+      "url": "https://docs.github.com/en/codespaces/the-githubdev-web-based-editor"
+    }
+  ]
+}

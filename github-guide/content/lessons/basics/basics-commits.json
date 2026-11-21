@@ -1,0 +1,504 @@
+{
+  "id": "basics-commits",
+  "track": "basics",
+  "title": "Commits: snapshots with a signature",
+  "minutes": 14,
+  "summary": "A commit is a saved snapshot of your project with a name, a date, a reason and a link to the snapshot before it. The staging area lets you decide exactly what goes into each one. Small, well-described commits are what make history useful later.",
+  "outcomes": [
+    "Describe the four things every commit contains",
+    "Use the staging area to build a commit from some changes and leave others out",
+    "Write a commit message with a clear subject line and a body that says why",
+    "Read history with log, show and diff",
+    "Set your author identity and keep your email address private"
+  ],
+  "prereqs": [
+    "basics-mental-model"
+  ],
+  "lenses": {
+    "everyday": "Think of a photo album where every page is a photograph of your whole desk. Before each picture you tidy the items you want in the shot. That tidying is staging. You write a caption under the photo saying what changed and why, and the page is numbered and glued in after the previous one. Later you can flip back to any page and see the desk exactly as it was. A good album has many pages with specific captions. One blurry photo a month, captioned only with the word stuff, tells you nothing when you are trying to find when the lamp moved.",
+    "legal": "A commit is a filed version with a cover sheet. The cover sheet records the author, the date and time, a description of the change, and the identifier of the prior version it supersedes. The staging area is the step where you decide which pages go into this filing and which stay on your desk as work in progress. Because each version references its predecessor, the set forms a chain: an unbroken version history, much like sequential Bates numbers on a production. A message that says only `updates` is a tick mark with no legend. A reviewer, or you during an audit two years on, needs the reason.",
+    "ml": "A commit pins the exact code behind a result. You change the augmentation pipeline and, separately, fix a typo in the logging. Staging lets you commit them as two snapshots: one that changes the experiment and one that does not. When a run finishes, you log the commit ID next to the metrics. Six weeks later a reviewer asks which code produced Table 2, and the ID answers precisely. A history of small commits also makes regressions findable. If validation accuracy dropped between two IDs, the cause is somewhere in the diff between them, and a small diff is quick to read.",
+    "technical": "A commit object contains a pointer to a tree, which is the snapshot of all tracked files, plus zero or more parent commit IDs, an author and committer with timestamps, and a message. Its ID is a hash of that content, so identical content always yields the same ID and any change yields a different one. `git add` writes file contents into the object database and records them in the index. `git commit` builds a tree from the index, creates the commit object with the current tip as its parent, and moves the current branch to the new commit."
+  },
+  "sections": [
+    {
+      "heading": "What is inside a commit",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Every commit holds four things."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**A snapshot.** The state of every tracked file at that moment.",
+            "**Metadata.** Who wrote it and when.",
+            "**A message.** What changed and why, in your words.",
+            "**A parent pointer.** The ID of the commit that came before, which is what links commits into a history."
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "text",
+          "code": "commit 3f2a9c1e8b7d4a6f0c5e2d1b9a8f7e6d5c4b3a21\nAuthor: Dana Lee <12345678+danalee@users.noreply.github.com>\nDate:   Tue Nov 10 14:02:11 2026 -0600\n\n    Add early stopping to training loop\n\n    Validation loss plateaus after epoch 12 on the small config.\n    Stop after 3 epochs without improvement to save GPU hours.",
+          "caption": "One commit as `git log -1` prints it"
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "The ID is a fingerprint",
+          "text": "The long hexadecimal ID is computed from the commit's contents. You will usually see it shortened to its first seven characters, such as `3f2a9c1`. Any unique prefix works in commands."
+        }
+      ]
+    },
+    {
+      "heading": "Staging: choosing what goes in",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The staging area exists so that each commit is a deliberate selection. You may have edited five files this afternoon for two unrelated reasons. Staging lets you record them as two commits that each make sense alone."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git status                      # train.py, eval.py and README.md are modified\ngit add train.py eval.py        # stage the two files that belong together\ngit diff --staged               # review exactly what the commit will contain\ngit commit -m \"Add early stopping to training loop\"\n\ngit add README.md               # now the unrelated change\ngit commit -m \"Fix install command in README\"",
+          "caption": "Two unrelated changes, two commits"
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Stage part of a file",
+          "text": "`git add -p` walks through your edits one block at a time and asks whether to stage each. Editors do the same with a click: in VS Code you can select lines in the diff view and stage only those. Use it when one file holds two unrelated changes."
+        },
+        {
+          "type": "reveal",
+          "prompt": "You stage `train.py`, then edit `train.py` again before committing. What does the commit contain?",
+          "answer": "The version you staged. `git add` copies the file's content at that moment into the staging area. Your later edit stays in the working tree as an unstaged change, and `git status` lists the file twice: once under staged, once under not staged. Run `git add` again if you want the newer version included."
+        }
+      ]
+    },
+    {
+      "heading": "Messages people can use",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A commit message has a subject line, a blank line, and an optional body. The subject is what appears in logs, in the GitHub file list and in blame, so it carries most of the weight."
+        },
+        {
+          "type": "table",
+          "head": [
+            "Weak subject",
+            "Stronger subject",
+            "Why it is better"
+          ],
+          "rows": [
+            [
+              "`updates`",
+              "`Add early stopping to training loop`",
+              "Says what changed"
+            ],
+            [
+              "`fixed bug`",
+              "`Fix off-by-one in batch indexing`",
+              "Names the bug"
+            ],
+            [
+              "`WIP`",
+              "`Draft data loader for CIFAR-10 subset`",
+              "Can be found by search later"
+            ],
+            [
+              "`changes from review`",
+              "`Rename lr to learning_rate`",
+              "Makes sense without the review"
+            ]
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Keep the subject near 50 characters and write it as an instruction: *Add*, *Fix*, *Remove*.",
+            "Leave the second line blank.",
+            "Use the body for the reason, the trade-off, or the thing a future reader could not guess from the diff.",
+            "Mention the issue number if there is one, such as `Refs #12`."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Messages are part of the record",
+          "text": "Commit messages are permanent, attributable and, in a public repository, public. Write them as you would a note to the file: factual, specific, and free of anything confidential or personal. Rewriting a message after it is shared is disruptive, so get it right before you push."
+        }
+      ]
+    },
+    {
+      "heading": "One idea per commit",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "An **atomic commit** contains one logical change, complete enough that the project still works. Atomic commits are quicker to review, safer to undo and far better for searching. If you need the word *and* to describe a commit, consider splitting it."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "One large commit",
+              "points": [
+                "The reviewer must untangle unrelated edits",
+                "Undoing the bug fix also undoes the feature",
+                "No single message can describe everything in it"
+              ]
+            },
+            {
+              "title": "Several atomic commits",
+              "points": [
+                "Each diff tells one story",
+                "Any single change can be reversed alone",
+                "Finding when a problem began is faster"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "graph",
+          "caption": "Three small commits. If C causes a problem, it can be examined or reversed without touching A or B.",
+          "commits": [
+            {
+              "id": "A",
+              "msg": "Add data loader"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ],
+              "msg": "Add training loop"
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ],
+              "msg": "Add early stopping"
+            }
+          ],
+          "branches": {
+            "main": "C"
+          },
+          "head": "main",
+          "highlight": [
+            "C"
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Reading history",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "History is only useful if you can read it. Six commands cover nearly every question."
+        },
+        {
+          "type": "table",
+          "head": [
+            "Command",
+            "Shows"
+          ],
+          "rows": [
+            [
+              "`git log --oneline`",
+              "One line per commit, newest first"
+            ],
+            [
+              "`git log -p -- train.py`",
+              "Every commit that touched one file, with its diff"
+            ],
+            [
+              "`git show 3f2a9c1`",
+              "One commit's message and full diff"
+            ],
+            [
+              "`git diff`",
+              "Unstaged edits in the working tree"
+            ],
+            [
+              "`git diff --staged`",
+              "What the next commit will contain"
+            ],
+            [
+              "`git diff main feature/add-eval`",
+              "The difference between two branches"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "On GitHub, the commit list for a branch is linked from the bar above the file list. Every commit has its own page with the diff, and you can comment on any line of it."
+        }
+      ]
+    },
+    {
+      "heading": "Your identity on a commit",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Git stamps each commit with the name and email address in your configuration. GitHub uses the email to link the commit to your account and show your avatar. That address is stored in the commit permanently and is visible to anyone who can read the repository."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git config --global user.name \"Dana Lee\"\ngit config --global user.email \"12345678+danalee@users.noreply.github.com\"\ngit config --global --list      # confirm what Git will use",
+          "caption": "Set once per machine. Use your own noreply address from your GitHub email settings."
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Keep your real email out of public history",
+          "text": "GitHub gives every account a noreply address. Open **Settings**, then **Emails**, and turn on **Keep my email addresses private** to see yours. Set it as `user.email` and your commits still link to your profile without exposing your inbox. A second option on the same page blocks command line pushes that would reveal your private address."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Make a commit that contains only what you intend",
+      "browser": [
+        "Open the file on github.com and select the pencil icon.",
+        "Make your edit, then select **Commit changes**.",
+        "Replace the default message with a specific subject. Add a description if the reason is not obvious.",
+        "Choose whether to commit directly to the current branch or to create a new branch and start a pull request, then confirm.",
+        "The web editor commits one file at a time. To commit several files together, press {{.}} to open github.dev and use its Source Control view."
+      ],
+      "phone": [
+        "In GitHub Mobile, open the file and look for the edit option in the file's menu. As of this writing the app can edit a file and commit it.",
+        "Write a specific commit message in place of the default.",
+        "If the app does not offer editing for that file, open it in your phone's browser and use the pencil icon.",
+        "Phone commits go straight to the remote, one file at a time. Save multi-file changes for a computer or a codespace."
+      ],
+      "cli": [
+        "`git status` to see what changed.",
+        "`git add train.py eval.py` to stage the files that belong together, or `git add -p` to choose block by block.",
+        "`git diff --staged` to review exactly what will be committed.",
+        "`git commit` to open your editor for a subject and body, or `git commit -m \"Add early stopping to training loop\"` for a subject only.",
+        "`git log --oneline -3` to confirm the new commit is at the top."
+      ],
+      "editor": [
+        "In VS Code, open the **Source Control** view. Changed files are listed under **Changes**.",
+        "Select a file to read its diff. Select the plus icon to stage the whole file, or select lines in the diff and choose **Stage Selected Ranges** from the context menu.",
+        "Type the message in the box above the file list. The first line is the subject.",
+        "Select **Commit**. If any files are staged, only those are committed.",
+        "When a coding agent writes the commit, read the staged diff and the proposed message first. You are the author of record."
+      ]
+    },
+    {
+      "task": "Set your name and a private email for commits",
+      "browser": [
+        "On github.com, open your profile menu and select **Settings**, then **Emails**.",
+        "Turn on **Keep my email addresses private**. The page shows your noreply address.",
+        "Optionally turn on the setting that blocks command line pushes which expose your email.",
+        "Commits you make in the browser now use the noreply address."
+      ],
+      "phone": [
+        "Email privacy settings are not in GitHub Mobile as of this writing.",
+        "Open github.com in your phone's browser, go to **Settings**, then **Emails**, and turn on **Keep my email addresses private**.",
+        "Commits made in the app are created on GitHub's side, like web commits, so they should follow the same setting."
+      ],
+      "cli": [
+        "`git config --global user.name \"Dana Lee\"` sets the name on future commits.",
+        "`git config --global user.email \"ID+USERNAME@users.noreply.github.com\"` sets your noreply address. Copy the exact address from your email settings.",
+        "`git config --global --list` shows what is set.",
+        "After your next commit, `git log -1 --format=\"%an %ae\"` confirms the name and email it recorded."
+      ],
+      "editor": [
+        "VS Code uses your Git configuration. Open the built-in terminal and run the two `git config` commands from the command line steps.",
+        "In a codespace, GitHub configures your name and email for you. Check them with `git config --list`.",
+        "If a coding agent commits on your behalf, check the author line on its commits. Some agents commit under their own name or add a co-author line."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Running `git add .` and committing without looking. Stray files, debug output and sometimes credentials go in.",
+      "fix": "Run `git status` and `git diff --staged` before every commit. Add patterns for junk files to `.gitignore`."
+    },
+    {
+      "trap": "Messages such as `update` or `fix`. They are useless in a log and in blame.",
+      "fix": "Name the change in the subject. If you cannot, the commit probably mixes several changes."
+    },
+    {
+      "trap": "Saving a whole day of work as one commit.",
+      "fix": "Commit each time one small thing works. Stage in parts when a file holds unrelated edits."
+    },
+    {
+      "trap": "Committing with the wrong email, so the commit shows no avatar or exposes a private address.",
+      "fix": "Check `git config user.email`. Set your GitHub noreply address globally."
+    },
+    {
+      "trap": "Editing a file after staging it and assuming the commit includes the newer edit.",
+      "fix": "Read `git status`. A file listed under both staged and not staged needs another `git add`."
+    }
+  ],
+  "lab": "lab-first-commit",
+  "quiz": [
+    {
+      "q": "You modified `train.py` and `README.md`. You run `git add train.py` and then `git commit -m \"Add scheduler\"`. What happens to the README change?",
+      "choices": [
+        "It is committed too",
+        "It is discarded",
+        "It stays in your working tree, uncommitted",
+        "Git refuses to commit until you stage it"
+      ],
+      "answer": 2,
+      "why": "A commit records only what is staged. The README edit was never staged, so it stays in the working tree, untouched, ready for a later commit. Nothing is discarded, and Git does not require you to stage everything."
+    },
+    {
+      "q": "Which subject line best follows convention?",
+      "choices": [
+        "`Fixed the thing from yesterday`",
+        "`Fix learning-rate warmup for small batch sizes`",
+        "`train.py`",
+        "`Changes.`"
+      ],
+      "answer": 1,
+      "why": "It is short, written as an instruction, and names the specific change. The first option depends on context that will be gone in a week. A file name says where and leaves out what. `Changes.` describes every commit ever made."
+    },
+    {
+      "q": "Why does a commit record the ID of its parent?",
+      "choices": [
+        "So Git can link commits into an ordered history",
+        "So GitHub knows who to notify",
+        "To save disk space",
+        "To stop two people committing at the same time"
+      ],
+      "answer": 0,
+      "why": "The parent pointer turns separate snapshots into a history you can walk backward. It also feeds the commit's own ID, which makes the chain tamper-evident. Disk savings come from Git reusing unchanged files, which is a separate mechanism."
+    },
+    {
+      "q": "Your commits on GitHub show a generic avatar and do not link to your profile. What is the most likely cause?",
+      "choices": [
+        "You forgot to push",
+        "The repository is private",
+        "You did not write a commit body",
+        "The email in your Git configuration is not associated with your GitHub account"
+      ],
+      "answer": 3,
+      "why": "GitHub links commits to accounts by the author email. If `user.email` is an address GitHub does not know, the commit appears without your profile. Set it to an address on your account, such as your noreply address. Unpushed commits would not appear on GitHub at all."
+    },
+    {
+      "q": "What does `git diff --staged` show?",
+      "choices": [
+        "Edits you have not staged yet",
+        "The difference between your branch and the remote",
+        "What the next commit will contain, compared with the last commit",
+        "Every change since the repository was created"
+      ],
+      "answer": 2,
+      "why": "`--staged` compares the staging area with the last commit, which is exactly the content of the commit you are about to make. Plain `git diff` shows the opposite set: edits that are not staged yet."
+    }
+  ],
+  "mission": {
+    "title": "Split one messy session into two clean commits",
+    "where": "Your own repository, on a branch if you prefer.",
+    "steps": [
+      "Make two unrelated edits: fix or add one sentence in `README.md`, and add a new file `notes/commits.md` with a line or two.",
+      "Run `git status`. Confirm both changes are listed and nothing is staged.",
+      "Stage only the README change. Run `git diff --staged` and check that it shows that edit alone.",
+      "Commit it with an instruction-style subject of about 50 characters or fewer.",
+      "Stage and commit the new file as a second commit, with a body line explaining why you added it.",
+      "Push, then open the commit list on GitHub and read both messages as a stranger would."
+    ]
+  },
+  "terms": [
+    {
+      "term": "atomic commit",
+      "def": "A commit that contains one logical change, complete enough that the project still works."
+    },
+    {
+      "term": "commit ID",
+      "def": "The 40-character hexadecimal fingerprint of a commit, computed from its contents. Also called a hash or SHA. The first seven characters are usually enough to name it."
+    },
+    {
+      "term": "parent commit",
+      "def": "The commit that came immediately before another. A commit stores its parent's ID, which links history together."
+    },
+    {
+      "term": "subject line",
+      "def": "The first line of a commit message. Logs, blame and GitHub's file list show it, so it should name the change."
+    },
+    {
+      "term": "diff",
+      "def": "A line-by-line comparison between two versions, with added lines marked plus and removed lines marked minus."
+    },
+    {
+      "term": "noreply email",
+      "def": "An address GitHub provides for each account so commits can link to a profile without revealing a personal email address."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git add -p",
+      "does": "Steps through your edits block by block and asks which ones to stage.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git diff --staged",
+      "does": "Shows what the next commit will contain, compared with the last commit.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git commit",
+      "does": "Opens your editor for a full message, then records the staged snapshot.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git log --oneline -10",
+      "does": "Lists the ten most recent commits on the current branch, one line each.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git show <commit>",
+      "does": "Displays one commit's author, date, message and full diff.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git log -p -- <file>",
+      "does": "Shows every commit that changed one file, with the diff for each.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git config --global user.email \"<address>\"",
+      "does": "Sets the email recorded on your future commits in every repository on this machine.",
+      "kind": "git",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About commits",
+      "url": "https://docs.github.com/en/pull-requests/committing-changes-to-your-project/creating-and-editing-commits/about-commits"
+    },
+    {
+      "label": "GitHub Docs: Setting your commit email address",
+      "url": "https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-email-preferences/setting-your-commit-email-address"
+    },
+    {
+      "label": "Pro Git: Recording Changes to the Repository",
+      "url": "https://git-scm.com/book/en/v2/Git-Basics-Recording-Changes-to-the-Repository"
+    },
+    {
+      "label": "Git reference: git-commit",
+      "url": "https://git-scm.com/docs/git-commit"
+    },
+    {
+      "label": "Git reference: git-add",
+      "url": "https://git-scm.com/docs/git-add"
+    }
+  ]
+}

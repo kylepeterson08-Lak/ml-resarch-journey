@@ -1,0 +1,546 @@
+{
+  "id": "basics-branches",
+  "track": "basics",
+  "title": "Branches: parallel lines of work",
+  "minutes": 13,
+  "summary": "A branch is a name that points at one commit and moves forward each time you commit. Creating one costs nothing and copies nothing. Branches let you try an idea, fix a bug or run an experiment without disturbing the version everyone relies on.",
+  "outcomes": [
+    "Explain a branch as a movable pointer, and HEAD as the marker for where you are",
+    "Create, switch, rename and delete branches in four tools",
+    "Predict what the commit graph looks like after committing on two branches",
+    "Tell a local branch from the same-named branch on GitHub",
+    "Name branches so their purpose is clear to other people"
+  ],
+  "prereqs": [
+    "basics-commits"
+  ],
+  "lenses": {
+    "everyday": "You are writing a long report and want to try reorganizing chapter three without risking the good draft. In a word processor you would save a copy with a name like final-v2-really. A branch does the same job without the copy. It is a bookmark in the document's history that says this line of edits starts here. You write on the bookmarked line as long as you like. The good draft stays untouched under its own bookmark. If the reorganization works, you fold it in. If it does not, you remove the bookmark and nothing was harmed.",
+    "legal": "A partner asks for an alternative version of an agreement with a different indemnity structure, while the main draft continues through negotiation. You do not mark up the controlling draft. You open a parallel draft from the current version, give it a clear name, and develop it separately. Both lines keep their own version history, and both trace back to the same starting document. If the client picks the alternative, it is reconciled into the main draft with a record of who approved it. In Git, the controlling draft is the default branch, and each alternative is a branch that started from it.",
+    "ml": "Your baseline trains on `main`. You want to test a cosine schedule, and a collaborator wants to try mixup. Each of you creates a branch: `exp/cosine-lr` and `exp/mixup`. Each branch holds commits that change only what that experiment needs. `main` keeps producing the baseline numbers the whole time, so every comparison stays honest. When the cosine schedule wins, its branch is merged into `main` and becomes the new baseline. The mixup branch can be deleted, or kept as a record of a negative result. One branch per experiment is the habit that keeps ablations separable.",
+    "technical": "A branch is a reference: a file under `.git/refs/heads/` containing one commit ID. Committing creates a new commit whose parent is the current tip, then updates the branch to point at it. `HEAD` is a reference to the current branch, or directly to a commit when detached. Creating a branch writes one small file, so it is instant regardless of repository size. Switching branches updates `HEAD` and rewrites the working tree and index to match the target commit. Local branches and the branches on a remote are separate references, synchronized only by fetch and push."
+  },
+  "sections": [
+    {
+      "heading": "A branch is a pointer",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Set aside the picture of a tree limb for a moment. A branch is a label stuck on one commit. When you commit, Git creates the new commit and slides the label forward onto it. A branch is nothing more than that."
+        },
+        {
+          "type": "graph",
+          "caption": "One branch. The name main points at C, the newest commit.",
+          "commits": [
+            {
+              "id": "A"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ]
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ]
+            }
+          ],
+          "branches": {
+            "main": "C"
+          },
+          "head": "main"
+        },
+        {
+          "type": "p",
+          "text": "Create a branch and you add a second label on the same commit. No files are copied."
+        },
+        {
+          "type": "graph",
+          "caption": "After `git branch feature/add-eval`. Two names, one commit. HEAD still marks main as the current branch.",
+          "commits": [
+            {
+              "id": "A"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ]
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ]
+            }
+          ],
+          "branches": {
+            "main": "C",
+            "feature/add-eval": "C"
+          },
+          "head": "main"
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "HEAD means you are here",
+          "text": "`HEAD` is Git's marker for the branch you currently have checked out. New commits go onto whichever branch `HEAD` names. Creating a branch does not move you onto it. Switching does."
+        }
+      ]
+    },
+    {
+      "heading": "Committing on a branch",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Switch to the new branch and commit twice. Only that branch's label moves."
+        },
+        {
+          "type": "graph",
+          "caption": "Two commits later. feature/add-eval moved to E. main still points at C and knows nothing about D and E.",
+          "commits": [
+            {
+              "id": "A"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ]
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ]
+            },
+            {
+              "id": "D",
+              "parents": [
+                "C"
+              ],
+              "msg": "Add eval script"
+            },
+            {
+              "id": "E",
+              "parents": [
+                "D"
+              ],
+              "msg": "Add eval config"
+            }
+          ],
+          "branches": {
+            "main": "C",
+            "feature/add-eval": "E"
+          },
+          "head": "feature/add-eval"
+        },
+        {
+          "type": "p",
+          "text": "Now switch back to `main` and commit there. The history forks into two lines of work that share everything up to C."
+        },
+        {
+          "type": "graph",
+          "caption": "main and feature/add-eval have diverged. C is the last commit they share.",
+          "commits": [
+            {
+              "id": "A"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ]
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ]
+            },
+            {
+              "id": "D",
+              "parents": [
+                "C"
+              ],
+              "msg": "Add eval script"
+            },
+            {
+              "id": "E",
+              "parents": [
+                "D"
+              ],
+              "msg": "Add eval config"
+            },
+            {
+              "id": "F",
+              "parents": [
+                "C"
+              ],
+              "msg": "Fix README typo"
+            }
+          ],
+          "branches": {
+            "main": "F",
+            "feature/add-eval": "E"
+          },
+          "head": "main",
+          "highlight": [
+            "C"
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "You are on `feature/add-eval` with files open in your editor. You run `git switch main`. What happens to the files on disk?",
+          "answer": "Git rewrites your working tree to match the commit `main` points at. Files that differ between the branches change on disk, and files that exist only on the other branch disappear until you switch back. Nothing is lost, because every version is stored in its commit. If you have uncommitted edits that the switch would overwrite, Git stops and tells you, so commit or stash first."
+        }
+      ]
+    },
+    {
+      "heading": "The default branch",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Every repository has one **default branch**, usually named `main`. It is the branch GitHub shows first, the branch a fresh clone checks out, and the usual target for pull requests. Older repositories often call it `master`. The name is a convention, and an owner can change it in the repository settings."
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Treat main as the reviewed version",
+          "text": "One discipline pays off even when you work alone: do new work on a branch, and let `main` change only by merging. `main` then always holds a version that worked, and every merge is a visible decision point."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Segregation of duties, in miniature",
+          "text": "Keeping `main` for approved work and drafting elsewhere is the same control as separating preparation from review. On GitHub you can later enforce it, so that `main` changes only through a reviewed pull request. See [Guardrails](#advanced-branch-protection)."
+        }
+      ]
+    },
+    {
+      "heading": "Create, switch, rename, delete",
+      "blocks": [
+        {
+          "type": "table",
+          "head": [
+            "To",
+            "Command",
+            "Notes"
+          ],
+          "rows": [
+            [
+              "List branches",
+              "`git branch`",
+              "The current one is marked with an asterisk"
+            ],
+            [
+              "Create and switch",
+              "`git switch -c feature/add-eval`",
+              "Starts from the commit you are on"
+            ],
+            [
+              "Switch",
+              "`git switch main`",
+              "Commit or stash uncommitted work first"
+            ],
+            [
+              "Rename the current branch",
+              "`git branch -m new-name`",
+              "Local only, until you push the new name"
+            ],
+            [
+              "Delete a merged branch",
+              "`git branch -d feature/add-eval`",
+              "Refuses if the branch has unmerged commits"
+            ],
+            [
+              "Delete regardless",
+              "`git branch -D feature/add-eval`",
+              "Abandons unmerged commits. Be sure"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "`git switch` is the current command for changing branches. You will also see `git checkout`, which does the same job and several others. Both work."
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Local and remote branches are separate",
+          "text": "Creating a branch on your laptop does not create it on GitHub, and deleting it locally does not delete it there. A branch reaches GitHub when you push it. The next lesson, [Remotes](#basics-remotes), covers that link."
+        }
+      ]
+    },
+    {
+      "heading": "Naming branches",
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "Say what the work is: `fix/login-timeout`, `feature/add-eval`, `exp/cosine-lr`, `docs/install-guide`.",
+            "Use lowercase letters, digits, hyphens and slashes. Avoid spaces.",
+            "A prefix such as `fix/` or `exp/` groups related branches in lists.",
+            "Include an issue number when one exists: `fix/42-nan-loss`.",
+            "Keep the name short enough to type and specific enough that a stranger could guess the purpose."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Names are read aloud",
+          "text": "Screen readers pronounce branch names as words where they can. `fix/login-timeout` is clear when spoken. `flt2-tmp_x` comes out as noise. Descriptive names help everyone who meets the branch in a list, a notification or a pull request title."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Create a branch and switch to it",
+      "browser": [
+        "On the **Code** tab, select the branch selector button at the top left of the file list.",
+        "Type a new branch name in the search box.",
+        "Select the **Create branch** option that appears below the box. GitHub creates the branch on the remote and switches the page to it.",
+        "To see every branch, select the **Branches** link next to the selector."
+      ],
+      "phone": [
+        "In GitHub Mobile, open the repository and find the branch control near the code browser. It switches between existing branches.",
+        "Creating a branch from the app is limited as of this writing. The reliable route is your phone's browser.",
+        "At github.com, open the branch selector on the **Code** tab, type the new name, and select the **Create branch** option.",
+        "The branch now exists on the remote. Your laptop sees it after the next `git fetch`."
+      ],
+      "cli": [
+        "`git switch main` and then `git pull`, so the new branch starts from current work.",
+        "`git switch -c feature/add-eval` creates the branch and moves you onto it.",
+        "`git branch` confirms that the asterisk is on the new branch.",
+        "`git push -u origin feature/add-eval` publishes it to GitHub when you are ready."
+      ],
+      "editor": [
+        "In VS Code, select the branch name in the status bar at the bottom left.",
+        "Choose **Create new branch**, type a name, and press {{Enter}}. VS Code switches to it.",
+        "The status bar now shows the new branch. Select **Publish Branch** in the Source Control view to push it.",
+        "When you delegate to a coding agent, tell it which branch to work on, or ask it to create one. Confirm with `git branch` before it commits."
+      ]
+    },
+    {
+      "task": "Delete a branch you no longer need",
+      "browser": [
+        "Select the **Branches** link next to the branch selector on the **Code** tab.",
+        "Find the branch in the list and select the trash icon on its row.",
+        "After a pull request merges, you can also select **Delete branch** at the bottom of the pull request.",
+        "If you delete one by mistake, the closed or merged pull request for that branch offers **Restore branch**."
+      ],
+      "phone": [
+        "After a pull request merges in GitHub Mobile, the app offers to delete the branch on the pull request screen, as of this writing.",
+        "For a branch with no pull request, open github.com in your phone's browser, select **Branches**, and use the trash icon.",
+        "Deleting on the remote does not remove the copy on your laptop. Clean that up locally the next time you are at a computer."
+      ],
+      "cli": [
+        "`git switch main`, because you cannot delete the branch you are on.",
+        "`git branch -d feature/add-eval` deletes the local branch if its commits are merged.",
+        "`git push origin --delete feature/add-eval` deletes the branch on GitHub.",
+        "`git fetch --prune` removes stale references to remote branches that no longer exist."
+      ],
+      "editor": [
+        "In VS Code, open the Command Palette and run **Git: Delete Branch**.",
+        "Pick the branch from the list. VS Code warns you if it has unmerged commits.",
+        "This deletes the local branch only. Delete the remote one from the pull request page or with `git push origin --delete`.",
+        "Ask a coding agent to list the branches already merged into `main` before deleting anything, and review the list yourself."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Committing to `main` because you forgot to switch. The work is fine. It is on the wrong line.",
+      "fix": "Check the branch in `git status` or the editor's status bar before you commit. If it already happened, work through the [wrong branch drill](#drill-wrong-branch)."
+    },
+    {
+      "trap": "Creating a branch from a stale `main`. The new branch starts behind and meets conflicts sooner.",
+      "fix": "Switch to `main` and pull before you create a branch."
+    },
+    {
+      "trap": "Believing a branch is a copy of the files, and avoiding branches because they sound heavy.",
+      "fix": "A branch is one small pointer. Create branches freely and delete them once merged."
+    },
+    {
+      "trap": "Force-deleting with `-D` to silence the warning about unmerged commits.",
+      "fix": "Read the warning. If the commits matter, merge or push the branch first. Use `-D` only for work you mean to abandon."
+    },
+    {
+      "trap": "Switching branches with uncommitted edits and carrying them onto the wrong branch.",
+      "fix": "Commit or stash before switching. Run `git status` right after a switch to see what came along."
+    }
+  ],
+  "lab": "lab-branching",
+  "quiz": [
+    {
+      "q": "You are on `main` at commit C. You run `git branch feature/add-eval` and then make a commit. Which branch moves?",
+      "choices": [
+        "`feature/add-eval`, because it is the newest branch",
+        "`main`, because `git branch` creates a branch without switching to it",
+        "Both branches",
+        "Neither, until you push"
+      ],
+      "answer": 1,
+      "why": "`git branch <name>` creates the pointer and leaves `HEAD` on `main`, so the commit lands on `main`. Use `git switch -c` to create and switch in one step. This is the most common way work ends up on the wrong branch."
+    },
+    {
+      "q": "What does creating a branch copy?",
+      "choices": [
+        "Every file in the project",
+        "Only the files changed recently",
+        "Nothing. It writes a pointer to one commit",
+        "The whole history, compressed"
+      ],
+      "answer": 2,
+      "why": "A branch is a reference to a commit that already exists. No files and no history are duplicated, which is why creating a branch is instant even in a very large repository."
+    },
+    {
+      "q": "What is `HEAD`?",
+      "choices": [
+        "Git's marker for the branch or commit you currently have checked out",
+        "The newest commit in the whole repository",
+        "Another name for `main`",
+        "The first commit ever made"
+      ],
+      "answer": 0,
+      "why": "`HEAD` records where you are. It usually names a branch, and new commits extend that branch. It is not tied to `main`, and it has nothing to do with which commit is newest across the repository."
+    },
+    {
+      "q": "`git branch -d exp/mixup` refuses and says the branch is not fully merged. What is Git protecting you from?",
+      "choices": [
+        "Deleting the default branch",
+        "Deleting a branch that exists on GitHub",
+        "A merge conflict",
+        "Losing the named route to commits that exist only on that branch"
+      ],
+      "answer": 3,
+      "why": "The safe delete checks whether the branch's commits are reachable from where you are. If they are not, removing the pointer would leave those commits with no name. `-D` overrides the check. The commits can still be recovered for a while, but make that choice deliberately."
+    },
+    {
+      "q": "You create a branch and commit on it on your laptop. A collaborator looks at GitHub. Do they see the branch?",
+      "choices": [
+        "Yes, branches sync automatically",
+        "No, it exists only locally until you push it",
+        "Yes, but it appears empty",
+        "Only after they clone again"
+      ],
+      "answer": 1,
+      "why": "Local branches and remote branches are separate references. The branch and its commits reach GitHub when you run `git push -u origin <branch>`. Until then they exist on one disk."
+    }
+  ],
+  "mission": {
+    "title": "Grow a second line of history and look at it",
+    "where": "Your own repository, in a terminal or an editor.",
+    "steps": [
+      "Switch to `main` and pull so you start from current work.",
+      "Create and switch to a branch named `practice/branching`.",
+      "Add a file `practice/branch-notes.md` and commit it. Make a second small commit on the same branch.",
+      "Run `git log --oneline --graph --all` and find both branch names in the output.",
+      "Switch back to `main`. Confirm in your file browser that `practice/branch-notes.md` is gone from disk, then switch to the branch again and watch it return.",
+      "Push the branch with `git push -u origin practice/branching` and find it in the branch selector on GitHub.",
+      "Delete the branch on GitHub and locally. It holds unmerged practice work, so the local delete needs `-D`. Nothing on `main` changed."
+    ]
+  },
+  "terms": [
+    {
+      "term": "branch",
+      "def": "A named pointer to one commit. It moves forward automatically when you commit while it is checked out."
+    },
+    {
+      "term": "HEAD",
+      "def": "Git's marker for what you currently have checked out, normally a branch."
+    },
+    {
+      "term": "default branch",
+      "def": "The branch a repository shows first and a fresh clone checks out, usually `main`."
+    },
+    {
+      "term": "tip",
+      "def": "The newest commit on a branch, the one the branch name points at."
+    },
+    {
+      "term": "diverge",
+      "def": "Two branches have diverged when each has commits the other lacks."
+    },
+    {
+      "term": "switch",
+      "def": "To make another branch current, which updates `HEAD` and rewrites the working tree to match."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git branch",
+      "does": "Lists local branches and marks the current one with an asterisk.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git switch -c <name>",
+      "does": "Creates a branch at the current commit and switches to it.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git switch <name>",
+      "does": "Makes another branch current and updates your files to match it.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git branch -m <new-name>",
+      "does": "Renames the current branch locally.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git branch -d <name>",
+      "does": "Deletes a local branch, but only if its commits are already merged.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git branch -D <name>",
+      "does": "Deletes a local branch even if it holds unmerged commits.",
+      "kind": "git",
+      "risk": "danger"
+    },
+    {
+      "cmd": "git log --oneline --graph --all",
+      "does": "Draws the history of every branch as a text graph.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git push origin --delete <name>",
+      "does": "Deletes a branch on GitHub. The local branch is unaffected.",
+      "kind": "git",
+      "risk": "caution"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About branches",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-branches"
+    },
+    {
+      "label": "GitHub Docs: Creating and deleting branches within your repository",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-and-deleting-branches-within-your-repository"
+    },
+    {
+      "label": "Pro Git: Branches in a Nutshell",
+      "url": "https://git-scm.com/book/en/v2/Git-Branching-Branches-in-a-Nutshell"
+    },
+    {
+      "label": "Git reference: git-switch",
+      "url": "https://git-scm.com/docs/git-switch"
+    },
+    {
+      "label": "Git reference: git-branch",
+      "url": "https://git-scm.com/docs/git-branch"
+    }
+  ]
+}

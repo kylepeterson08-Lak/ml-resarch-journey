@@ -1,0 +1,490 @@
+{
+  "id": "basics-markdown",
+  "track": "basics",
+  "title": "Markdown and READMEs that render well",
+  "minutes": 13,
+  "summary": "Markdown is plain text with a few symbols that GitHub turns into headings, lists, links, tables and code blocks. It is the writing format for READMEs, issues, pull requests and comments, so a small set of syntax covers almost everything you write on GitHub.",
+  "outcomes": [
+    "Write headings, lists, links, images, code blocks and tables in GitHub Flavored Markdown",
+    "Use GitHub's additions: task lists, alerts, issue and user references, collapsed sections",
+    "Link between files with relative links that survive forks, branches and renames",
+    "Structure a README so a stranger can use the project",
+    "Write Markdown that works for screen reader users"
+  ],
+  "prereqs": [
+    "basics-repo-tour"
+  ],
+  "lenses": {
+    "everyday": "Markdown is the habit of marking up a plain note so its structure is obvious: a pound sign in front of a title, a dash in front of each list item, asterisks around a word you want stressed. You could read the raw note comfortably. GitHub reads the same marks and typesets the page for you, the way a word processor would if it took dictation. Because the source is plain text, it opens anywhere, pastes anywhere, and still makes sense in thirty years. The README is the note taped to the front of the box that says what is inside and how to open it.",
+    "legal": "Think of Markdown as a style sheet you apply by typing. A brief has headings, numbered paragraphs, block quotes, defined terms and exhibits, and a firm's template enforces them. Markdown gives a repository the same structure with plain characters, and GitHub renders it consistently for every reader. Plain text also matters for the record. A Markdown file can be compared line by line between versions, so a change to one sentence of a policy shows up as exactly that in the history. A word-processor file shows only that something changed. The README is the cover memo: what this file is, who maintains it, and how to use it.",
+    "ml": "The README is the abstract and the reproduction instructions for your code. A reader arriving from your paper wants four things fast: what the model does, how to install the environment, the exact command that reproduces the headline number, and where the data comes from. Markdown gives you fenced code blocks for commands, tables for results, math for the loss function, and relative links to configs and notebooks. Task lists in an issue track which ablations are done. Results written as a Markdown table are diffable, so a changed number in the history is visible as a changed number.",
+    "technical": "GitHub Flavored Markdown is a superset of CommonMark. GitHub renders it in files ending in `.md` and in issues, pull requests, discussions and comments. Additions over CommonMark include tables, task list items, strikethrough and autolinks. GitHub layers further features on top when rendering on the site: references to issues, pull requests, commits and users, alerts written as tagged block quotes, footnotes, math in dollar-sign delimiters, and diagrams from fenced blocks labeled `mermaid`. Relative links and image paths in a file resolve against the file's location on the current branch. A subset of HTML is allowed and sanitized."
+  },
+  "sections": [
+    {
+      "heading": "The core syntax",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Most of what you write needs only these eight forms."
+        },
+        {
+          "type": "table",
+          "head": [
+            "You type",
+            "You get"
+          ],
+          "rows": [
+            [
+              "`# Title` and `## Section`",
+              "Headings at level 1 and level 2"
+            ],
+            [
+              "`**bold**` and `*italic*`",
+              "Bold and italic text"
+            ],
+            [
+              "`- item`",
+              "A bulleted list item"
+            ],
+            [
+              "`1. item`",
+              "A numbered list item"
+            ],
+            [
+              "`[text](https://example.com)`",
+              "A link"
+            ],
+            [
+              "`![alt text](images/plot.png)`",
+              "An image"
+            ],
+            [
+              "`> quoted`",
+              "A block quote"
+            ],
+            [
+              "A backtick before and after the text",
+              "Inline code, such as `train.py`"
+            ]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "## Quick start\n\n1. Install the environment:\n\n   ```bash\n   pip install -r requirements.txt\n   ```\n\n2. Train the small config:\n\n   ```bash\n   python train.py --config configs/small.yaml\n   ```\n\nResults are in [docs/results.md](docs/results.md).",
+          "caption": "Fenced code blocks inside a numbered list. Name the language after the opening fence to get syntax highlighting."
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Preview before you commit",
+          "text": "Every Markdown editor on GitHub has a **Preview** tab. In VS Code, open the Command Palette and run **Markdown: Open Preview to the Side**. Rendering mistakes, such as a list that did not start because a blank line is missing, show up immediately."
+        }
+      ]
+    },
+    {
+      "heading": "GitHub's additions",
+      "blocks": [
+        {
+          "type": "table",
+          "head": [
+            "Feature",
+            "Syntax",
+            "Where it helps"
+          ],
+          "rows": [
+            [
+              "Task list",
+              "`- [ ] open item` and `- [x] finished item`",
+              "Checklists in issues and pull requests"
+            ],
+            [
+              "Table",
+              "Cells separated by `|`, with a `---` row under the header",
+              "Results and comparisons"
+            ],
+            [
+              "Issue or pull request reference",
+              "`#12`",
+              "Links to it and adds a backlink there"
+            ],
+            [
+              "Mention",
+              "`@username`",
+              "Notifies that person"
+            ],
+            [
+              "Commit reference",
+              "A commit ID such as `3f2a9c1`",
+              "Links to the commit"
+            ],
+            [
+              "Footnote",
+              "`[^1]` in the text and `[^1]: note` below",
+              "Citations without clutter"
+            ],
+            [
+              "Strikethrough",
+              "`~~text~~`",
+              "Showing a retracted statement"
+            ]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "> [!NOTE]\n> Training needs about 6 GB of GPU memory.\n\n> [!WARNING]\n> The `--reset` flag deletes all checkpoints in `runs/`.",
+          "caption": "Alerts are block quotes with a tag. GitHub supports NOTE, TIP, IMPORTANT, WARNING and CAUTION."
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "<details>\n<summary>Full training log</summary>\n\n...long output here...\n\n</details>",
+          "caption": "A collapsed section. Leave a blank line after the summary line so that Markdown inside it renders."
+        },
+        {
+          "type": "p",
+          "text": "GitHub also renders math written between dollar signs, and diagrams from a fenced code block labeled `mermaid`. Both are useful in research READMEs. Check the preview, because other Markdown viewers may show them as plain text."
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "The loss is $L = -\\sum_i y_i \\log p_i$.\n\n```mermaid\ngraph LR\n  data[Dataset] --> train[train.py] --> ckpt[Checkpoint] --> eval[eval.py]\n```",
+          "caption": "Inline math and a Mermaid diagram"
+        },
+        {
+          "type": "reveal",
+          "prompt": "You write `Fixes the bug described in #12` in a pull request comment. Besides making a link, what else does GitHub do?",
+          "answer": "It adds a cross-reference on issue 12's timeline saying the issue was mentioned in your pull request, so anyone reading the issue can follow it back. It does not close the issue. Closing keywords work only in the pull request description or in a commit message."
+        }
+      ]
+    },
+    {
+      "heading": "Links and images that keep working",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Inside a repository, link to other files with **relative links**: paths written from the current file's location. GitHub resolves them on whatever branch the reader is viewing, and they keep working in a clone, in a fork, and after the repository is renamed."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Relative link",
+              "points": [
+                "`[setup guide](docs/setup.md)`",
+                "Follows the reader's current branch",
+                "Works in clones, forks and offline viewers",
+                "Use for anything inside the repository"
+              ]
+            },
+            {
+              "title": "Absolute link",
+              "points": [
+                "`[setup guide](https://github.com/OWNER/REPO/blob/main/docs/setup.md)`",
+                "Always points at one branch of one repository",
+                "Breaks if the repository or the branch is renamed",
+                "Use for pages outside the repository"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Images work the same way: commit the file, then reference its path. In an issue or pull request you can also paste or drag an image into the comment box. GitHub uploads it and writes the Markdown for you."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Write for readers who cannot see the page",
+          "text": "Give every meaningful image alt text that says what it shows: `![Validation accuracy rises to 71 percent by epoch 12](plots/val.png)`. A bare `![plot](plots/val.png)` tells a screen reader user nothing. Use headings in order, without skipping from level 1 to level 3, because screen reader users navigate by heading. Make link text describe the destination. A page of links that all say *here* is unusable by ear. Never use color alone, or an image of text, to carry information."
+        }
+      ]
+    },
+    {
+      "heading": "What a good README contains",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A README answers a stranger's questions in the order they ask them."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**What is this?** One or two sentences, at the top.",
+            "**Why would I use it?** The problem it solves, or the paper it implements.",
+            "**How do I install and run it?** Exact commands in code blocks.",
+            "**What does success look like?** Expected output, a screenshot, or a results table.",
+            "**What state is it in?** Maintained, experimental or archived.",
+            "**How do I get help or contribute?** A pointer to issues or a contributing file.",
+            "**What are the terms?** The license, and how to cite the work if it is research."
+          ],
+          "ordered": true
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "The README is a representation",
+          "text": "People rely on what a README says. State the project's status and limits plainly: experimental, unsuitable for production, results reproduced on one machine only. Keep confidential material, client names and personal data out of it, and remember that older versions stay in the history. General information, not legal advice."
+        },
+        {
+          "type": "p",
+          "text": "A **profile README** is a special case. Create a public repository with exactly the same name as your username, add a `README.md`, and GitHub shows it at the top of your profile page."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Edit a README and preview the result",
+      "browser": [
+        "Open `README.md` on github.com and select the pencil icon.",
+        "Write or change the Markdown in the **Edit** tab.",
+        "Select the **Preview** tab to see the rendered result.",
+        "Select **Commit changes**, write a message, and confirm."
+      ],
+      "phone": [
+        "In GitHub Mobile, open `README.md` from the code browser and use the edit option in its menu, if your app version offers it.",
+        "For longer edits, open the file in your phone's browser, select the pencil icon, and switch to **Preview** before committing.",
+        "Use your phone's dictation for prose, then add the Markdown symbols by hand.",
+        "Read the rendered README on the phone afterward. A narrow screen exposes tables that are too wide and code lines that are too long."
+      ],
+      "cli": [
+        "Edit `README.md` in any text editor.",
+        "`git diff README.md` to review your change as plain text.",
+        "`git add README.md` and then `git commit -m \"Add quick start to README\"`.",
+        "`git push`, then `gh repo view --web` to check the rendered page on GitHub."
+      ],
+      "editor": [
+        "Open `README.md` in VS Code.",
+        "Run **Markdown: Open Preview to the Side** from the Command Palette. The preview updates as you type.",
+        "Use the Outline view to check that your headings are in order.",
+        "Commit and sync from the Source Control view.",
+        "Ask a coding agent to draft a README from the code, then verify every command it wrote by running it. Agents often invent install steps."
+      ]
+    },
+    {
+      "task": "Add a task list and references to an issue",
+      "browser": [
+        "Open the **Issues** tab and select **New issue**.",
+        "In the description, start each task on its own line with `- [ ]`.",
+        "Reference related work by typing `#` followed by a number. GitHub suggests matches as you type.",
+        "Submit the issue. Tick the boxes on the rendered page as you finish each task."
+      ],
+      "phone": [
+        "In GitHub Mobile, open the repository, go to **Issues**, and create a new issue.",
+        "Type `- [ ]` at the start of each task line.",
+        "Type `#` or `@` to get suggestions for issues and people.",
+        "Save the issue. In recent versions of the app you can tap a checkbox to tick it."
+      ],
+      "cli": [
+        "Write the task lines in a file, for example `tasks.md`, one `- [ ]` line per task.",
+        "`gh issue create --title \"Run ablations\" --body-file tasks.md` creates the issue with that file as its body.",
+        "`gh issue view 12` shows the issue, including which boxes are ticked.",
+        "`gh issue comment 12 --body \"Done in #15\"` adds a comment that cross-references a pull request."
+      ],
+      "editor": [
+        "With the GitHub Pull Requests extension in VS Code, open the GitHub view and choose the option to create an issue.",
+        "Write the title on the first line and the Markdown body below it, including the `- [ ]` task lines.",
+        "Save and submit as the editor prompts.",
+        "A coding agent can turn a plan into a task-list issue. Check that each task is something a person could verify as done."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "No blank line before a list or a code fence, so it renders as one run-on paragraph.",
+      "fix": "Put an empty line before and after lists, fences and tables. Check the preview."
+    },
+    {
+      "trap": "Absolute links to files in your own repository. They break on forks, branches and renames.",
+      "fix": "Use relative paths such as `docs/setup.md`."
+    },
+    {
+      "trap": "Images with empty or filler alt text.",
+      "fix": "Describe what the image shows and the point it makes. If it is purely decorative, consider leaving it out."
+    },
+    {
+      "trap": "A README that explains the code's history and never says how to run it.",
+      "fix": "Lead with what it is and the exact commands. Move history to a changelog."
+    },
+    {
+      "trap": "Skipping heading levels, or using bold text where a heading belongs.",
+      "fix": "Use real headings in order. GitHub builds the outline and the anchor links from them."
+    },
+    {
+      "trap": "Pasting a screenshot of code or of a terminal.",
+      "fix": "Paste the text in a fenced code block. Text can be searched, copied, resized and read aloud."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "Which Markdown links to `docs/setup.md` in a way that still works in a fork and on another branch?",
+      "choices": [
+        "`[Setup](https://github.com/OWNER/REPO/blob/main/docs/setup.md)`",
+        "`[Setup](docs/setup.md)`",
+        "`[Setup](C:/projects/repo/docs/setup.md)`",
+        "`[Setup](main:docs/setup.md)`"
+      ],
+      "answer": 1,
+      "why": "A relative path resolves against the file's location on whatever branch and repository the reader is viewing. The absolute URL always sends readers to one branch of the original repository, and a path on your own disk works for nobody else."
+    },
+    {
+      "q": "What is the best alt text for a plot of validation accuracy?",
+      "choices": [
+        "`plot`",
+        "`image.png`",
+        "`Validation accuracy rises from 40 to 71 percent over 12 epochs`",
+        "Leave it empty so screen readers skip it"
+      ],
+      "answer": 2,
+      "why": "Alt text should carry the information a sighted reader gets from the image. A file name, or the word plot, says nothing. Empty alt text suits decoration, and a results plot is content."
+    },
+    {
+      "q": "You want a checklist in an issue that you can tick off on the page. What do you type?",
+      "choices": [
+        "`- [ ] Run baseline`",
+        "`[] Run baseline`",
+        "`* ( ) Run baseline`",
+        "`1) Run baseline`"
+      ],
+      "answer": 0,
+      "why": "A task list item is a list marker, a space, then square brackets with a space inside. GitHub renders it as a checkbox and counts completed tasks on the issue. The other forms render as ordinary text or as a plain list."
+    },
+    {
+      "q": "How do you get a highlighted warning box in a README?",
+      "choices": [
+        "Wrap the text in `**WARNING**`",
+        "Use a level 1 heading",
+        "Start a fenced code block labeled `warning`",
+        "Write a block quote whose first line is `[!WARNING]`"
+      ],
+      "answer": 3,
+      "why": "Alerts are block quotes that begin with a tag in square brackets, such as `[!WARNING]`. Bold text is only bold, a heading distorts the document outline, and a fence labeled `warning` renders as a code block."
+    },
+    {
+      "q": "Your numbered list renders as one paragraph. What is the most likely cause?",
+      "choices": [
+        "GitHub does not support numbered lists",
+        "There is no blank line between the preceding paragraph and the list",
+        "Every number must be 1",
+        "The file extension is wrong"
+      ],
+      "answer": 1,
+      "why": "Block elements such as lists, tables and fences need a blank line before them. Without one, the list lines are treated as a continuation of the paragraph above. The actual numbers you type do not matter to the renderer."
+    }
+  ],
+  "mission": {
+    "title": "Make your README pass the stranger test",
+    "where": "The `README.md` of your own repository.",
+    "steps": [
+      "Read your README as someone who has never seen the project. Write down the first question it fails to answer.",
+      "Add a one-sentence description at the top, and a **Quick start** section with real commands in fenced code blocks.",
+      "Add one relative link to another file in the repository and confirm that it works on the rendered page.",
+      "Add an alert block for the single most important caveat.",
+      "If the README has images, write alt text that states what each one shows.",
+      "Preview, commit through a pull request, and read the rendered page on your phone."
+    ]
+  },
+  "terms": [
+    {
+      "term": "Markdown",
+      "def": "A plain-text format in which a few symbols mark headings, lists, links and emphasis, so the same file reads well raw and rendered."
+    },
+    {
+      "term": "GitHub Flavored Markdown",
+      "def": "GitHub's version of Markdown, which adds tables, task lists, strikethrough, autolinks and site features such as references and alerts."
+    },
+    {
+      "term": "relative link",
+      "def": "A link written as a path from the current file, such as `docs/setup.md`, so it works on any branch, clone or fork."
+    },
+    {
+      "term": "alt text",
+      "def": "The text description of an image, read aloud by screen readers and shown when the image cannot load."
+    },
+    {
+      "term": "fenced code block",
+      "def": "Code set between two lines of three backticks, optionally with a language name for syntax highlighting."
+    },
+    {
+      "term": "task list",
+      "def": "A list whose items start with `[ ]` or `[x]`, rendered as checkboxes you can tick on the page."
+    },
+    {
+      "term": "alert",
+      "def": "A highlighted callout made from a block quote that begins with a tag such as `[!NOTE]` or `[!WARNING]`."
+    },
+    {
+      "term": "profile README",
+      "def": "A README in a public repository named after your username, displayed at the top of your GitHub profile."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "Ctrl+B or Cmd+B",
+      "does": "In a GitHub comment box, wraps the selected text in bold markers.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "Ctrl+K or Cmd+K",
+      "does": "In a GitHub comment box, turns the selected text into a Markdown link.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "Ctrl+E or Cmd+E",
+      "does": "In a GitHub comment box, formats the selected text as inline code.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "Ctrl+Shift+P or Cmd+Shift+P",
+      "does": "Switches a GitHub comment box between writing and preview.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "https://github.com/OWNER/REPO/blob/main/README.md?plain=1",
+      "does": "Adding `?plain=1` shows a Markdown file's source with line numbers, so you can link to a specific line.",
+      "kind": "web",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh repo view",
+      "does": "Prints the current repository's description and README in the terminal.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh issue create --title \"Run ablations\" --body-file tasks.md",
+      "does": "Creates an issue that uses a Markdown file as its body.",
+      "kind": "gh",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: Basic writing and formatting syntax",
+      "url": "https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax"
+    },
+    {
+      "label": "GitHub Docs: Working with advanced formatting",
+      "url": "https://docs.github.com/en/get-started/writing-on-github/working-with-advanced-formatting"
+    },
+    {
+      "label": "GitHub Docs: About READMEs",
+      "url": "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes"
+    },
+    {
+      "label": "GitHub Docs: Managing your profile README",
+      "url": "https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-github-profile/customizing-your-profile/managing-your-profile-readme"
+    },
+    {
+      "label": "W3C: An alt text decision tree",
+      "url": "https://www.w3.org/WAI/tutorials/images/decision-tree/"
+    }
+  ]
+}

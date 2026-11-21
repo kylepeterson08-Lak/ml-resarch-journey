@@ -1,0 +1,476 @@
+{
+  "id": "expert-git-internals",
+  "track": "expert",
+  "title": "Git internals: objects, refs and packfiles",
+  "minutes": 20,
+  "summary": "Underneath every command, Git is a store of four kinds of immutable objects named by the hash of their contents, plus a handful of small pointers. Once you can read both, branches, resets and recovery stop being magic.",
+  "outcomes": [
+    "Name the four object types and say what each one stores and points to",
+    "Read a commit, its tree and a blob with `git cat-file`",
+    "Explain a branch, a tag and HEAD as pointers you can open in a text editor",
+    "Say when unreachable commits are kept and when garbage collection removes them",
+    "Explain why changing one old file changes every later commit ID",
+    "Rescue commits made on a detached HEAD"
+  ],
+  "prereqs": ["basics-commits", "intermediate-undo-toolkit"],
+  "lenses": {
+    "everyday": "Picture a photo archive run by a strict librarian. Every item goes into an envelope labeled with a fingerprint of what is inside, so two identical photos always land in the same envelope and nothing can be swapped without the label giving it away. A contact sheet lists which photos belong on an album page. A dated index card says which contact sheet was current that day and which index card came before it. Branches are sticky notes on index cards. Moving a sticky note is all a branch change ever does. Cards with no sticky note stay in the drawer until the librarian's periodic clear-out.",
+    "legal": "A forensic examiner images a hard drive and records its hash. Anyone can rehash the image later and show that not one bit has changed. Git treats every file, folder listing and commit the same way: each is sealed under a hash of its own contents. A commit works like an exhibit list that cites each exhibit by hash and also cites the hash of the previous exhibit list, so the latest seal vouches for the whole file back to day one. Branch names are docket entries pointing at the current list. The chain shows that records were not altered after sealing. It does not show who sealed them. That takes a signature.",
+    "ml": "Think of an experiment tracker that stores artifacts by checksum. A checkpoint with the same bytes is stored once, however many runs reference it. A run record lists the checksum of its config, the checksum of its data manifest and the id of the run it was forked from. Git is that design applied to source code: blobs are file contents, trees are manifests, commits are run records with a parent pointer. A branch such as `ablation/no-warmup` is a label on the latest record. Deleting the label deletes nothing. The records stay until cleanup, which is why a commit you lost in a hurried reset before a deadline is usually still on disk.",
+    "technical": "Git is a content-addressed object database plus a reference namespace. Each object is stored under the hash of a short header and its content. A blob holds file bytes. A tree maps names and modes to blobs and subtrees. A commit names one root tree, zero or more parent commits, an author, a committer and a message. An annotated tag names another object. Objects are immutable. Refs under `refs/` hold one object ID each, and `HEAD` normally holds a symbolic reference to a branch. New objects are written loose and later consolidated into delta-compressed packfiles. Objects unreachable from any ref or reflog entry become eligible for pruning by `git gc` after a grace period."
+  },
+  "sections": [
+    {
+      "heading": "Four objects, one store",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Everything you have ever committed lives in `.git/objects` as one of four object types. Each object is named by a hash of its own content, which is why the same content always gets the same name and why no object can be edited in place. Commands such as `git commit` are a convenience layer, called **porcelain**, over lower-level **plumbing** commands that read and write these objects directly."
+        },
+        {
+          "type": "table",
+          "caption": "The four object types",
+          "head": ["Object", "Stores", "Points to"],
+          "rows": [
+            ["**blob**", "The bytes of one file. No file name, no permissions.", "Nothing"],
+            ["**tree**", "One directory listing: a name, a mode and an object ID for each entry.", "Blobs and other trees"],
+            ["**commit**", "Author, committer, timestamps and the message.", "One root tree and its parent commits"],
+            ["**annotated tag**", "A tag name, a tagger, a message and an optional signature.", "Usually a commit"]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "text",
+          "code": "$ git cat-file -t HEAD\ncommit\n\n$ git cat-file -p HEAD\ntree 9c3f1e2a7b5d4c6e8f0a1b2c3d4e5f6a7b8c9d0e\nparent 5a1d0c7e3b9f2a4c6e8d0b1f3a5c7e9d1b3f5a70\nauthor Ada Park <ada@example.com> 1763712000 -0600\ncommitter Ada Park <ada@example.com> 1763712000 -0600\n\nAdd evaluation script\n\n$ git cat-file -p 'HEAD^{tree}'\n100644 blob 3b18e512dba79e4c8300dd08aeb37f8e728b8dad    README.md\n100644 blob 7f8a2c1d9e0b3a4c5d6e7f8091a2b3c4d5e6f708    config.yaml\n040000 tree 2d4e6f8a0c1b3d5f7a9c0e2b4d6f8a1c3e5b7d9f    src",
+          "caption": "A commit is a small text record and its tree is a directory listing. The IDs shown are illustrative."
+        },
+        {
+          "type": "reveal",
+          "prompt": "Your repository has `LICENSE` at the top level and an identical copy at `docs/LICENSE`. How many blob objects store them?",
+          "answer": "One. A blob is named by its content alone, and a file's name lives in the tree that lists it, so two trees point at the same blob. The same rule means an unchanged file costs nothing in a new commit: the new tree points at the blob that already exists."
+        },
+        {
+          "type": "p",
+          "text": "A commit therefore records a complete snapshot of the project, not a list of changes. Git computes a diff when you ask for one, by comparing two trees. This is also why renames are never recorded. When a diff reports a rename, Git has noticed that one path disappeared and another appeared with the same or similar content, and it is drawing the inference for you."
+        }
+      ]
+    },
+    {
+      "heading": "Names are pointers: refs and HEAD",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Hashes are precise and unmemorable, so Git keeps a small directory of names. Each name, called a **ref**, holds exactly one object ID. A branch is a ref under `refs/heads/`. A tag is a ref under `refs/tags/`. What your clone last saw on the server sits under `refs/remotes/`. Committing writes a new commit object and then overwrites one line in one of these files."
+        },
+        {
+          "type": "code",
+          "lang": "text",
+          "code": "$ cat .git/HEAD\nref: refs/heads/main\n\n$ cat .git/refs/heads/main\n8e2f4a6c0d1b3e5f7a9c1d3e5f7b9a0c2e4d6f81\n\n$ git rev-parse HEAD main 'main~1'\n8e2f4a6c0d1b3e5f7a9c1d3e5f7b9a0c2e4d6f81\n8e2f4a6c0d1b3e5f7a9c1d3e5f7b9a0c2e4d6f81\n5a1d0c7e3b9f2a4c6e8d0b1f3a5c7e9d1b3f5a70",
+          "caption": "HEAD names a branch. The branch names a commit."
+        },
+        {
+          "type": "list",
+          "items": [
+            "`HEAD` answers one question: where does the next commit go. Normally it holds the name of a branch, and committing moves that branch.",
+            "A **lightweight tag** is only a ref. An **annotated tag** is a ref pointing at a tag object that carries its own message, date and optional signature.",
+            "After housekeeping, many refs move out of individual files into the single file `.git/packed-refs`. If `cat .git/refs/heads/main` finds nothing, the ref is packed. Ask `git rev-parse main` or `git show-ref` instead of reading files.",
+            "The **index**, the file `.git/index`, is the staging area. It lists every tracked path with the blob it will have in the next commit. `git ls-files --stage` prints it."
+          ]
+        },
+        {
+          "type": "graph",
+          "caption": "A detached HEAD. HEAD points straight at commit E and no branch does. Switch away, and only the reflog remembers D and E.",
+          "commits": [
+            {"id": "A", "msg": "Start project"},
+            {"id": "B", "parents": ["A"], "msg": "Tag v1.2.0 here"},
+            {"id": "C", "parents": ["B"], "msg": "Latest on main"},
+            {"id": "D", "parents": ["B"], "msg": "Try a fix"},
+            {"id": "E", "parents": ["D"], "msg": "Fix works"}
+          ],
+          "branches": {"main": "C"},
+          "tags": {"v1.2.0": "B"},
+          "head": "E",
+          "highlight": ["D", "E"]
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Detached HEAD is a state, not an error",
+          "text": "Checking out a tag, a hash or a remote-tracking branch puts a commit ID directly into `HEAD`. You can look around and even commit. Those commits belong to no branch, so create one with `git switch -c <name>` before you leave, or copy the ID from `git reflog` afterward."
+        }
+      ]
+    },
+    {
+      "heading": "Loose objects, packfiles and garbage collection",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A new object is written as its own compressed file, a **loose object**, in a directory named after the first two characters of its hash. Thousands of small files are slow to read and wasteful to transfer, so Git periodically gathers them into a **packfile** with an index beside it."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Loose objects",
+              "points": [
+                "One compressed file per object under `.git/objects/`",
+                "Written by everyday commands such as `git add` and `git commit`",
+                "Fast to create, inefficient in bulk"
+              ]
+            },
+            {
+              "title": "Packfiles",
+              "points": [
+                "Many objects in one `.pack` file with an `.idx` lookup table",
+                "Similar objects are stored as deltas against each other",
+                "Built by `git gc`, by background maintenance, and for every fetch and push"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Delta compression is a storage detail. The model above it still deals in whole snapshots, and any object can be rebuilt in full on demand. The distinction matters for large binary files such as checkpoints. They compress and delta poorly, so every changed version costs close to its full size, in every clone, for as long as the history exists."
+        },
+        {
+          "type": "p",
+          "text": "An object is **reachable** if you can walk to it from a ref, from `HEAD` or from a reflog entry. Reachable objects are never removed. An unreachable object, for example a commit left behind by `git commit --amend` or `git reset --hard`, stays on disk until housekeeping prunes it."
+        },
+        {
+          "type": "table",
+          "caption": "How long discarded work survives with Git's default settings",
+          "head": ["What you did", "What still points at it", "Default lifetime"],
+          "rows": [
+            ["Amended, rebased or reset a branch", "The reflog for `HEAD` and for the branch", "At least about 30 days, then eligible for pruning"],
+            ["Deleted a branch", "The `HEAD` reflog, if you ever had the branch checked out", "The same window, counted from when each entry was written"],
+            ["Dropped a stash, or staged a file and never committed it", "Nothing. The objects are dangling", "Eligible for pruning once about two weeks old"]
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "danger",
+          "title": "Do not clean while you are still searching",
+          "text": "`git gc --prune=now` and `git reflog expire --expire=now --all` delete exactly the objects a recovery depends on. So does deleting the clone and cloning again. Recover first. Tidy later."
+        }
+      ]
+    },
+    {
+      "heading": "Why the hash chain matters",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A blob's ID is a hash of its bytes. A tree's ID is a hash of its entries, including the IDs of its blobs. A commit's ID is a hash of its tree ID, its parents' IDs and its metadata. Follow that through and a single commit ID fixes the content of every file in that snapshot and in every snapshot before it."
+        },
+        {
+          "type": "flow",
+          "caption": "Each hash covers the hashes beneath it",
+          "steps": [
+            {"label": "File bytes", "note": "Hashed into a blob ID"},
+            {"label": "Tree", "via": "blob IDs", "note": "Hashed with every entry's name and ID"},
+            {"label": "Commit", "via": "tree ID", "note": "Hashed with parent IDs, author and message"},
+            {"label": "Next commit", "via": "parent ID", "note": "Commits to all the history before it"}
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "Someone quietly changes one line of a file inside a commit made two years ago. What happens to the ID of the commit made yesterday?",
+          "answer": "It changes. The edited file is a new blob with a new ID, so its tree changes, so the old commit gets a new ID, so its child must name a different parent and gets a new ID, and so on up to yesterday. History cannot be altered without every later hash changing, and anyone holding the old hash sees the mismatch at the next fetch."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Integrity is not identity",
+          "text": "The hash chain is tamper evidence, comparable to rehashing a forensic image to show it has not changed since collection. It says nothing reliable about *who* created a commit, because the author field is plain text that anyone can set. Proof of origin needs a signature. See [Supply-chain integrity](#expert-supply-chain)."
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "SHA-1 and SHA-256",
+          "text": "Most repositories, and the hosting services around them, still use 40-character SHA-1 object IDs. Git ships a hardened SHA-1 that detects known collision attacks, and it can create SHA-256 repositories with 64-character IDs. The two formats do not interoperate freely and hosting support varies, so check before you choose SHA-256 for a shared project."
+        }
+      ]
+    },
+    {
+      "heading": "What the model buys you",
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "**Branches cost nothing.** Creating one writes a file of about 41 bytes. Create them freely.",
+            "**Commits are immutable.** Amend, rebase and cherry-pick never edit a commit. They write new commits and move a ref. The originals stay until pruned.",
+            "**Identical content is stored once**, across files, directories, branches and time.",
+            "**Abbreviated hashes are a convenience.** Seven characters are enough today and can become ambiguous in a few years. Put full IDs in scripts, papers and audit records.",
+            "**Recovery is a search for a hash.** If you can find the commit ID in a reflog, a terminal scrollback, a CI log or a teammate's clone, you can attach a branch to it."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Reading hashes without strain",
+          "text": "Forty hexadecimal characters are hard to compare by eye and tedious to hear from a screen reader. Let tools compare for you. `git rev-parse` accepts any name and prints the full ID, and `git merge-base --is-ancestor A B` answers with an exit code. When you must quote a hash in a note, give the first eight characters and paste the full value beside it."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Inspect the objects behind a commit",
+      "browser": [
+        "Open the repository, select the **Commits** link above the file list, then select a commit.",
+        "The commit page shows the full commit ID and each parent's ID. You are reading the commit object, rendered.",
+        "Select **Browse files** to see the root tree as it was at that commit. Each folder you open is another tree.",
+        "Open a file and select **Raw** to see the blob's bytes.",
+        "Add `.patch` to the end of the commit page's address to see the commit as plain text with its diff."
+      ],
+      "phone": [
+        "In GitHub Mobile, open the repository, open its commit history, and select a commit to see the message, the changed files and the short ID.",
+        "The app does not expose trees or raw objects as of this writing. For the commands in this lesson, open a Codespace in your phone's browser or wait for a computer."
+      ],
+      "cli": [
+        "`git rev-parse HEAD` prints the full ID of the current commit.",
+        "`git cat-file -t HEAD` prints its type. `git cat-file -p HEAD` prints its content: tree, parents, author, committer, message.",
+        "`git cat-file -p 'HEAD^{tree}'` lists the root tree. Copy the ID of one blob.",
+        "`git cat-file -p <blob-id>` prints that file's bytes exactly as stored.",
+        "`git ls-files --stage` shows the index: the blob each path will have in the next commit.",
+        "`git count-objects -vH` reports how many objects are loose and how many are packed."
+      ],
+      "editor": [
+        "Open the integrated terminal in VS Code or a Codespace and run the same commands.",
+        "To browse `.git` in the Explorer, remove the `**/.git` pattern from the **Files: Exclude** setting. Look, and do not edit.",
+        "With a coding agent, ask it to walk from `HEAD` to one file's blob and explain each object. Then run `git cat-file -p` on one of the IDs yourself and confirm the output matches what it told you."
+      ]
+    },
+    {
+      "task": "Rescue commits made on a detached HEAD",
+      "browser": [
+        "This state exists only in a local clone. github.com always commits to a named branch, so there is nothing to rescue there.",
+        "If the commits were pushed and you know one full ID, open `https://github.com/OWNER/REPO/tree/` followed by that ID, open the branch selector, type a new branch name and choose the option to create the branch from the commit you are viewing."
+      ],
+      "phone": [
+        "Not applicable in GitHub Mobile. Detached HEAD is a local state, and the fix is one command at a terminal."
+      ],
+      "cli": [
+        "`git status` reports **HEAD detached at** followed by a short ID. You are not on a branch.",
+        "Still there? Run `git switch -c rescue/experiment` to create a branch at the current commit and move onto it.",
+        "Already switched away? Run `git reflog` and find the line for your last commit in the detached state.",
+        "`git branch rescue/experiment <id>` attaches a branch to that commit without moving you.",
+        "`git log --oneline --graph --all -10` confirms the commits now sit under a branch name."
+      ],
+      "editor": [
+        "VS Code shows a commit ID in the status bar where the branch name normally is. That is a detached HEAD.",
+        "Select it and choose **Create new branch** to keep the commits you are standing on.",
+        "If you ask a coding agent to check out a tag or a hash, tell it to create a branch before it commits anything, and verify with `git status`."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Editing files inside `.git` by hand to repoint a branch or repair a mistake.",
+      "fix": "Use the commands built for it: `git branch -f`, or the plumbing commands `git update-ref` and `git symbolic-ref`. Copy the repository folder first if you are unsure."
+    },
+    {
+      "trap": "Believing Git stores changes, so deleting a branch must delete the changes made on it.",
+      "fix": "Commits are snapshots that exist independently of any name. Deleting a branch removes one pointer. Attach a new branch to the commit ID while the reflog still holds it."
+    },
+    {
+      "trap": "Committing on a detached HEAD, then switching branches and losing track of the work.",
+      "fix": "Create a branch before you leave. If you already left, `git reflog` lists every position `HEAD` has held."
+    },
+    {
+      "trap": "Treating a matching hash as proof of who wrote the commit.",
+      "fix": "A hash proves the content is unaltered. Authorship needs a signed commit checked against a key you trust."
+    },
+    {
+      "trap": "Quoting seven-character hashes in a paper, a contract exhibit or an automation script.",
+      "fix": "Record the full object ID. A short form is resolved against whatever objects exist at the time and can become ambiguous as the repository grows."
+    }
+  ],
+  "lab": "lab-detached-head",
+  "quiz": [
+    {
+      "q": "A repository has `LICENSE` and an identical `docs/LICENSE`. A new commit renames `docs/LICENSE` to `docs/LICENSE.txt` without changing its content. How many new blob objects does that commit create?",
+      "choices": [
+        "Two, one for each path",
+        "One, for the renamed file",
+        "None",
+        "It depends on the rename similarity threshold"
+      ],
+      "answer": 2,
+      "why": "The content did not change, so the existing blob is reused. The commit writes a new tree for `docs` and a new root tree, because names live in trees. Renames are not recorded at all. The similarity threshold only affects how a later diff describes the change."
+    },
+    {
+      "q": "On disk, what is the branch `feature/add-eval`?",
+      "choices": [
+        "A copy of the project files as of the branch point",
+        "A ref holding one commit ID, as a small file or a line in `packed-refs`",
+        "A list of the commits made on that branch",
+        "A packfile containing that branch's objects"
+      ],
+      "answer": 1,
+      "why": "A branch is a movable pointer to one commit. The commits on it are found by walking parent links from there. Nothing is copied when you create a branch, which is why creating one is instant."
+    },
+    {
+      "q": "You run `git commit --amend` to fix a typo in the last commit message. What happens to the original commit object?",
+      "choices": [
+        "It stays in the object store, unreachable from the branch, until housekeeping prunes it",
+        "Its message is edited in place and its ID stays the same",
+        "It is deleted immediately",
+        "It becomes the parent of the amended commit"
+      ],
+      "answer": 0,
+      "why": "Objects are immutable, so the amend writes a new commit with a new ID and moves the branch to it. The original stays reachable from the reflog for weeks, which is how you undo an amend. It is a sibling of the new commit, sharing the same parent."
+    },
+    {
+      "q": "Why does rewriting one old commit change the ID of every commit after it?",
+      "choices": [
+        "Git re-timestamps later commits during a rewrite",
+        "Later commits store diffs against the old one",
+        "The packfile has to be rebuilt",
+        "Each commit's hash covers its parent's ID, so a new parent ID forces a new child ID"
+      ],
+      "answer": 3,
+      "why": "A commit names its parents by ID, and that text is part of what gets hashed. Change the parent and the child is a different object. Timestamps and packfiles are not the cause. Packing never changes an object's ID."
+    },
+    {
+      "q": "You check out the tag `v1.2.0`, make two commits, then run `git switch main`. Where are the two commits now?",
+      "choices": [
+        "On `main`, because the switch carried them over",
+        "Added to the tag `v1.2.0`",
+        "In the object store, reachable only through the reflog until you attach a branch",
+        "Gone, because a detached HEAD cannot hold commits"
+      ],
+      "answer": 2,
+      "why": "Checking out a tag detaches HEAD, so the commits were recorded but no branch moved, and tags never move on their own. Git prints the ID as you leave and `git reflog` keeps it, so `git branch <name> <id>` recovers them."
+    }
+  ],
+  "mission": {
+    "title": "Walk one commit down to its bytes",
+    "where": "A local clone of your own repository. Every command here is read-only.",
+    "steps": [
+      "Run `git rev-parse HEAD`, then `git cat-file -p HEAD`. Write down the tree ID and the parent ID.",
+      "Run `git cat-file -p 'HEAD^{tree}'` and find the line for `README.md`. Copy its blob ID.",
+      "Run `git cat-file -p` on that blob ID and compare the output with the file. Then run `git hash-object README.md`. With no uncommitted edits it prints the same ID.",
+      "Run `cat .git/HEAD`, then `git rev-parse main`. If `.git/refs/heads/main` does not exist as a file, find the branch in `.git/packed-refs`.",
+      "Run `git count-objects -vH` and note how many objects are loose and how many are in packs.",
+      "Write three sentences in your own words: what a branch is, what a commit is, and why deleting the first does not delete the second."
+    ]
+  },
+  "terms": [
+    {
+      "term": "object ID",
+      "def": "The hash that names a Git object, computed from the object's type, size and content. Also called a hash, a SHA or an OID."
+    },
+    {
+      "term": "blob",
+      "def": "The object type that stores the bytes of one file, with no name or metadata attached."
+    },
+    {
+      "term": "tree",
+      "def": "The object type that stores one directory listing: each entry's name, mode and the object ID of a blob or another tree."
+    },
+    {
+      "term": "ref",
+      "def": "A name that holds one object ID. Branches, tags and remote-tracking branches are all refs."
+    },
+    {
+      "term": "packfile",
+      "def": "A single file holding many objects, with similar objects stored as deltas, plus an index for fast lookup."
+    },
+    {
+      "term": "reachable",
+      "def": "Describes an object you can get to by following pointers from a ref, from HEAD or from a reflog entry. Only unreachable objects are ever pruned."
+    },
+    {
+      "term": "detached HEAD",
+      "def": "The state where HEAD holds a commit ID directly instead of the name of a branch, so new commits belong to no branch."
+    },
+    {
+      "term": "plumbing and porcelain",
+      "def": "Git's two layers of commands. Plumbing reads and writes objects and refs directly. Porcelain is the everyday interface built on top of it."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git cat-file -p <object>",
+      "does": "Prints the content of any object: a commit record, a tree listing, a file's bytes or a tag.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git cat-file -t <object>",
+      "does": "Prints the type of an object: blob, tree, commit or tag.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git rev-parse <name>",
+      "does": "Resolves a branch, a tag, an expression such as `HEAD~2` or a short hash to the full object ID.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git ls-tree -r HEAD",
+      "does": "Lists every file in the current commit with its mode and blob ID.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git hash-object <file>",
+      "does": "Computes the blob ID a file would get, without storing anything.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git ls-files --stage",
+      "does": "Prints the index: each tracked path and the blob staged for it.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git count-objects -vH",
+      "does": "Reports how many objects are loose or packed and how much disk space they use.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git fsck",
+      "does": "Verifies that every object is intact and connected, and reports dangling ones.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git gc",
+      "does": "Packs loose objects and prunes unreachable ones that are past the grace period. Do not run it in the middle of a recovery.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git switch -c <name>",
+      "does": "Creates a branch at the current commit and moves onto it. The rescue for a detached HEAD.",
+      "kind": "git",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "Pro Git: Git Internals, Git Objects",
+      "url": "https://git-scm.com/book/en/v2/Git-Internals-Git-Objects"
+    },
+    {
+      "label": "Pro Git: Git Internals, Git References",
+      "url": "https://git-scm.com/book/en/v2/Git-Internals-Git-References"
+    },
+    {
+      "label": "Pro Git: Git Internals, Packfiles",
+      "url": "https://git-scm.com/book/en/v2/Git-Internals-Packfiles"
+    },
+    {
+      "label": "Git reference: git-cat-file",
+      "url": "https://git-scm.com/docs/git-cat-file"
+    },
+    {
+      "label": "Git reference: git-gc",
+      "url": "https://git-scm.com/docs/git-gc"
+    }
+  ]
+}

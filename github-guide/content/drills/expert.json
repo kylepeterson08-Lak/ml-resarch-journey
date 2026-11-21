@@ -1,0 +1,285 @@
+[
+  {
+    "id": "drill-force-push-main",
+    "track": "expert",
+    "title": "Someone force-pushed over main and a week of work vanished",
+    "minutes": 6,
+    "situation": "Monday, 9:10. A teammate ran `git push --force` from a laptop that had not been updated in two weeks. The default branch now lacks eleven commits merged last week, including the evaluation fix for a paper due Friday. CI is green, on the wrong history. Three people have clones, and `main` had no protection rule.",
+    "steps": [
+      {
+        "prompt": "What is your first move?",
+        "choices": [
+          {
+            "text": "Ask everyone to stop pushing, pulling and deleting clones until the old tip is found",
+            "verdict": "best",
+            "feedback": "Right. Every clone that fetched last week holds the missing commits, and the fastest way to lose them is for people to pull, reset or clone again while you are still looking. A freeze costs minutes and protects every copy."
+          },
+          {
+            "text": "Run `git pull` on your own machine to see the damage",
+            "verdict": "bad",
+            "feedback": "Your clone may be the best surviving copy of the lost history. A pull tries to reconcile it with the rewritten branch and can leave you with a confusing merge or, with some settings, move your branch to the bad tip. Look with `git fetch` and `git log`, which change nothing local."
+          },
+          {
+            "text": "Force-push your own `main` straight back",
+            "verdict": "ok",
+            "feedback": "It might restore most of the work, and it is tempting. But your copy may be missing commits that landed after your last fetch, and you would be overwriting the branch a second time without knowing what is on it. Find the true old tip first."
+          },
+          {
+            "text": "Delete your clone and clone again for a clean state",
+            "verdict": "bad",
+            "feedback": "That destroys one of the three copies of the missing commits, and its reflog with them. Never delete a clone during a recovery."
+          }
+        ]
+      },
+      {
+        "prompt": "How do you find the commit `main` pointed at before the force push?",
+        "choices": [
+          {
+            "text": "Open the repository's activity view for the force push, and confirm the ID with `git reflog show origin/main` in a recent clone",
+            "verdict": "best",
+            "feedback": "The activity view records the commit before and after a force push, and a clone's reflog for `origin/main` records what it saw at each fetch. Two independent sources that agree give you the ID with confidence."
+          },
+          {
+            "text": "Ask each teammate for their newest local commit and pick the latest date",
+            "verdict": "ok",
+            "feedback": "This can work, and it is the fallback when no record exists. It relies on people reading their own history correctly under pressure, and the latest date is not necessarily the tip that was on the server."
+          },
+          {
+            "text": "Rebuild the eleven commits from pull request diffs and email notifications",
+            "verdict": "bad",
+            "feedback": "The commits still exist, with their IDs, authors and review links intact. Recreating them by hand loses that record and invites mistakes in the very code the paper depends on."
+          }
+        ]
+      },
+      {
+        "prompt": "You have the old commit ID. How do you restore `main`?",
+        "choices": [
+          {
+            "text": "Force-push the old ID directly onto `main`",
+            "verdict": "ok",
+            "feedback": "Fast, and correct if nothing legitimate was pushed after the incident. If something was, you have repeated the original mistake in the other direction. Compare first."
+          },
+          {
+            "text": "Create a branch such as `rescue/main` at the old ID, compare it with the current `main`, keep any legitimate new commits, then update `main` on purpose",
+            "verdict": "best",
+            "feedback": "A rescue branch makes the lost commits reachable at once and changes nothing else. Comparing with `git log main..rescue/main`, and the reverse, shows exactly what each side has, so nothing pushed after the incident is thrown away."
+          },
+          {
+            "text": "Tell everyone to reset to the current `main` and redo last week's work",
+            "verdict": "bad",
+            "feedback": "This accepts a loss when nothing has actually been lost. The commits are sitting in the object store under an ID you already know."
+          }
+        ]
+      },
+      {
+        "prompt": "The branch is restored. What stops this from happening again?",
+        "choices": [
+          {
+            "text": "Ask the teammate to use `--force-with-lease` from now on",
+            "verdict": "ok",
+            "feedback": "A good personal habit, since it refuses to overwrite work you have not seen. It protects only the people who remember to use it, and it does nothing for a default branch that should never be force-pushed at all."
+          },
+          {
+            "text": "Remove the teammate's write access",
+            "verdict": "bad",
+            "feedback": "This punishes a person for a gap in the system and teaches everyone else to hide mistakes. The branch is still unprotected for the next person."
+          },
+          {
+            "text": "Add a rule that blocks force pushes and requires pull requests on `main`, then hold a blameless review",
+            "verdict": "best",
+            "feedback": "The system allowed a routine command to erase shared history. A rule removes that possibility for everyone, including the next new teammate. The review finds what else made the mistake likely, such as a stale clone and no warning."
+          }
+        ]
+      }
+    ],
+    "debrief": "A force push moves a pointer. The commits it left behind stay recoverable for a while, from GitHub's records and from every clone that fetched them, as long as nobody tidies up first. Freeze, find the old ID from two sources, rescue with a branch, compare, restore, then change the rule that allowed it.",
+    "lesson": "expert-incident-response"
+  },
+  {
+    "id": "drill-departing-admin",
+    "track": "expert",
+    "title": "The only organization owner leaves next week",
+    "minutes": 6,
+    "situation": "Dr. Rivera starts a new job in eight days and is the sole owner of the lab's GitHub organization. It holds 23 private repositories, the Actions secrets for the compute cluster, and a GitHub App that posts benchmark results, registered under Rivera's personal account. Two PhD students have Write access. Nobody else can change settings.",
+    "steps": [
+      {
+        "prompt": "What needs to happen today?",
+        "choices": [
+          {
+            "text": "Rivera promotes one successor to owner",
+            "verdict": "ok",
+            "feedback": "The organization survives the departure, and it still has exactly one owner. The same emergency is waiting for the next lost phone or job change."
+          },
+          {
+            "text": "Rivera promotes two continuing people to owner, and each confirms two-factor authentication and stored recovery codes",
+            "verdict": "best",
+            "feedback": "Ownership can only be granted by an existing owner, so this has a deadline. Two successors remove the single point of failure for good, and checking their sign-in methods now avoids discovering a problem after Rivera is gone."
+          },
+          {
+            "text": "Wait until the last day so the handover happens once",
+            "verdict": "bad",
+            "feedback": "If Rivera is ill, travelling or locked out that day, nobody can grant ownership and the organization is stuck. Recovery through GitHub Support takes time and proof."
+          },
+          {
+            "text": "Rivera shares the account password and recovery codes with the lab manager",
+            "verdict": "bad",
+            "feedback": "The account is Rivera's personal identity and goes with them. A shared sign-in also makes every audit log entry ambiguous and defeats two-factor authentication."
+          }
+        ]
+      },
+      {
+        "prompt": "The benchmark GitHub App is registered under Rivera's personal account. What do you do about it?",
+        "choices": [
+          {
+            "text": "Transfer the App's ownership to the organization, and list every other integration Rivera owns personally",
+            "verdict": "best",
+            "feedback": "An App can be transferred to an organization, which keeps its installations while moving control to the lab. The same review should cover webhooks, deploy keys, OAuth apps and scripts that run on Rivera's personal tokens."
+          },
+          {
+            "text": "Leave it, and rebuild it under the organization if it ever breaks",
+            "verdict": "ok",
+            "feedback": "It will keep working for a while, and the lab will be unable to rotate its key, change its permissions or repair it. You would be choosing an unplanned outage over a planned transfer."
+          },
+          {
+            "text": "Nothing, because Rivera will still have a GitHub account",
+            "verdict": "bad",
+            "feedback": "The lab's automation would depend on the goodwill and attention of someone who no longer works there, and on credentials the lab cannot see or revoke."
+          }
+        ]
+      },
+      {
+        "prompt": "Rivera created the cluster credentials stored as organization secrets. What is the right handling?",
+        "choices": [
+          {
+            "text": "No action is needed, because secret values cannot be read back from the settings page",
+            "verdict": "bad",
+            "feedback": "The page hides values from people who did not set them. The person who created the credentials has them, and so does any machine they were copied to."
+          },
+          {
+            "text": "Rotate only if the departure turns unfriendly",
+            "verdict": "ok",
+            "feedback": "This makes a security control depend on judging someone's intentions, and it signals suspicion if you ever do rotate. A rule applied to every departure is both safer and kinder."
+          },
+          {
+            "text": "Schedule a rotation for the handover: issue new cluster credentials and replace the secrets, as a routine step",
+            "verdict": "best",
+            "feedback": "Rivera knows the current values, so they stay usable outside GitHub after the departure. Rotating on a planned date is standard practice for any departure and says nothing about trust in the person."
+          }
+        ]
+      },
+      {
+        "prompt": "What access should Rivera have after the last day?",
+        "choices": [
+          {
+            "text": "Keep Rivera as a member and remove them from most teams",
+            "verdict": "ok",
+            "feedback": "Better than nothing, but membership still carries the base permission on every repository, which is more than a co-author on one paper needs."
+          },
+          {
+            "text": "Remove membership, or convert to outside collaborator with Read on the one repository for the paper still in review, with an end date",
+            "verdict": "best",
+            "feedback": "Access should match a current need. A named repository, the lowest role that works and a date to revisit it give Rivera what the paper requires and leave a clear record. Ask for unmerged branches to be pushed first, because private forks are deleted on removal."
+          },
+          {
+            "text": "Keep Rivera as an owner in case something comes up",
+            "verdict": "bad",
+            "feedback": "An owner outside the lab can change membership, billing and every repository. That is the largest possible grant, held by the person with the least current responsibility."
+          }
+        ]
+      }
+    ],
+    "debrief": "Governance is succession planning done before it is urgent. A person's account belongs to the person. Authority, automation and secrets should belong to the organization: held by at least two owners, granted through roles with end dates, and rotated on every departure as a matter of routine.",
+    "lesson": "expert-org-governance"
+  },
+  {
+    "id": "drill-revert-the-revert",
+    "track": "expert",
+    "title": "A reverted feature is fixed and needs to come back",
+    "minutes": 5,
+    "situation": "Two weeks ago pull request 212 merged `feature/mixed-precision` into `main`. It skewed the evaluation numbers, so the team reverted the merge on `main`. The author has now pushed two fix commits to the same branch and opened pull request 230 from it. Reviewers are puzzled: the diff shows only the two small fixes, not the feature.",
+    "steps": [
+      {
+        "prompt": "Why does the new pull request show only the two fix commits?",
+        "choices": [
+          {
+            "text": "GitHub's diff is stale and will correct itself after a refresh",
+            "verdict": "bad",
+            "feedback": "The diff is accurate. It reflects how Git defines what a merge would bring, and no refresh will change it."
+          },
+          {
+            "text": "The feature's original commits are already in the history of `main`. The revert added an inverse commit and removed nothing",
+            "verdict": "best",
+            "feedback": "A pull request shows what the branch has that the base does not. The original commits are ancestors of `main`, so they are not new, even though their effect was cancelled by the revert commit."
+          },
+          {
+            "text": "The revert damaged the feature branch",
+            "verdict": "bad",
+            "feedback": "A revert on `main` adds one commit to `main`. It does not touch the feature branch, which still holds every original commit."
+          }
+        ]
+      },
+      {
+        "prompt": "How do you bring the whole feature back, with the fixes?",
+        "choices": [
+          {
+            "text": "On a new branch from `main`, revert the revert commit, add the two fixes on top, and open a pull request from that branch",
+            "verdict": "best",
+            "feedback": "Reverting the revert restores the original changes as a new commit that reviewers can see. Adding the fixes on top gives one pull request whose diff is the full feature in its corrected form."
+          },
+          {
+            "text": "Merge pull request 230 as it is",
+            "verdict": "bad",
+            "feedback": "Only the two fixes would land, applied to code that the revert removed. The result is a conflict or a fragment of the feature on `main`, and the evaluation would be wrong in a new way."
+          },
+          {
+            "text": "Recreate the feature as brand-new commits on a fresh branch",
+            "verdict": "ok",
+            "feedback": "This works, because new commits have new IDs and Git treats them as unmerged. It takes more effort, risks copying mistakes, and breaks the link to the original review. Use it when the history is too tangled for a clean revert of the revert."
+          }
+        ]
+      },
+      {
+        "prompt": "What do you check before merging the restored feature?",
+        "choices": [
+          {
+            "text": "That CI is green",
+            "verdict": "ok",
+            "feedback": "Necessary, and not sufficient. CI was green the first time too. The check that matters is the one that found the problem."
+          },
+          {
+            "text": "That the number of commits matches the original pull request",
+            "verdict": "bad",
+            "feedback": "Commit counts say nothing about content. A revert of a revert is one commit that restores many."
+          },
+          {
+            "text": "That the diff contains the complete feature plus the fixes, and that the evaluation which caught the problem now passes",
+            "verdict": "best",
+            "feedback": "Two checks: the content is what you intend, and the specific failure is gone. The original bug escaped once, so rerun the evaluation that exposed it and attach the numbers to the pull request."
+          }
+        ]
+      },
+      {
+        "prompt": "What goes in the pull request description?",
+        "choices": [
+          {
+            "text": "Links to the original pull request and the revert, the cause of the bug, the fix, and the evaluation results",
+            "verdict": "best",
+            "feedback": "Six months from now someone will run blame on this code and find a merge, a revert, a revert of the revert and a second merge. The description is what turns that sequence into an explanation."
+          },
+          {
+            "text": "The same description as the original pull request",
+            "verdict": "ok",
+            "feedback": "It describes the feature and says nothing about why it left and came back, which is the question a future reader will have."
+          },
+          {
+            "text": "Nothing extra. The commit history already tells the story",
+            "verdict": "bad",
+            "feedback": "The history shows what happened and not why. A reader would have to reconstruct the incident from four commits and their timestamps."
+          }
+        ]
+      }
+    ],
+    "debrief": "A revert is a new record that cancels an earlier one, the way an amended filing supersedes an original without erasing it. Git remembers that the original commits were merged, so the way back is to revert the revert and then add the fix. Write down why, because the history alone will not say.",
+    "lesson": "expert-incident-response"
+  }
+]

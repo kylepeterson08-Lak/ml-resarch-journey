@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GitHub Inside Out</title>
+<meta name="description" content="An unofficial four-track field guide to Git and GitHub, with a practice terminal, drills and flashcards.">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link data-webfont rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@500;600;700&amp;display=swap">
+<link data-webfont rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:ital,wght@0,400;0,600;0,700;1,400&amp;display=swap">
+<link data-webfont rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Mono:wght@400;700&amp;display=swap">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="css/views.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="app">
+  <header class="topbar">
+    <a class="brand" href="#home">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <rect width="32" height="32" rx="8" style="fill:var(--ink)"></rect>
+        <path d="M10 23V9M10 19c0-6 12-3 12-9" fill="none" stroke-width="2.4" stroke-linecap="round" style="stroke:var(--paper)"></path>
+        <circle cx="10" cy="9" r="3.2" style="fill:var(--paper)"></circle>
+        <circle cx="10" cy="23" r="3.2" style="fill:var(--paper)"></circle>
+        <circle cx="22" cy="10" r="3.2" style="fill:var(--paper)"></circle>
+      </svg>
+      <span>GitHub Inside Out<small>An unofficial field guide</small></span>
+    </a>
+    <button class="icon-btn" id="btn-search" type="button" aria-label="Search the guide" title="Search (press /)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M11 11m-6 0a6 6 0 1 0 12 0a6 6 0 1 0-12 0M20 20l-4.7-4.7"></path></svg>
+      <span class="label">Search</span>
+    </button>
+    <button class="icon-btn" id="btn-display" type="button" aria-label="Display and reading settings">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M15 5v4M9 15v4"></path></svg>
+      <span class="label">Display</span>
+    </button>
+  </header>
+
+  <nav class="rail" id="rail" aria-label="Guide sections"></nav>
+
+  <main class="main" id="main" tabindex="-1">
+    <div class="page">
+      <h1>GitHub Inside Out</h1>
+      <p class="lede">Loading the guide.</p>
+      <noscript>
+        <p>This guide is interactive and needs JavaScript. Every lesson is also readable as plain JSON in the <code>content/</code> folder of the repository.</p>
+      </noscript>
+    </div>
+  </main>
+
+  <nav class="tabbar" id="tabbar" aria-label="Main sections"></nav>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/core.js" defer></script>
+<script src="js/progress.js" defer></script>
+<script src="js/store.js" defer></script>
+<script src="js/platform.js" defer></script>
+<script src="js/gitsim.js" defer></script>
+<script src="js/graph.js" defer></script>
+<script src="js/blocks.js" defer></script>
+<script src="js/views-lesson.js" defer></script>
+<script src="js/views-home.js" defer></script>
+<script src="js/views-review.js" defer></script>
+<script src="js/views-misc.js" defer></script>
+<script src="js/lab.js" defer></script>
+<script src="js/app.js" defer></script>
+</body>
+</html>

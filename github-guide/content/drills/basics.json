@@ -1,0 +1,275 @@
+[
+  {
+    "id": "drill-wrong-branch",
+    "track": "basics",
+    "title": "You committed to main instead of a feature branch",
+    "minutes": 5,
+    "situation": "You spent an hour on a new evaluation script and made two commits. Then `git status` shows `On branch main` and says your branch is ahead of `origin/main` by 2 commits. You meant to do this on a feature branch and open a pull request. Nothing has been pushed, and your working tree is clean.",
+    "steps": [
+      {
+        "prompt": "What is the first thing to establish?",
+        "choices": [
+          {
+            "text": "Whether the two commits have been pushed",
+            "verdict": "best",
+            "feedback": "Everything that follows depends on it. `git status` says you are ahead by 2, which means the commits exist only on your machine and you are free to rearrange them."
+          },
+          {
+            "text": "Whether deleting the folder and cloning again would fix it",
+            "verdict": "bad",
+            "feedback": "A fresh clone would not contain your two commits, because they were never pushed. You would lose the hour of work."
+          },
+          {
+            "text": "Whether a teammate can fix it from their side",
+            "verdict": "bad",
+            "feedback": "Nobody else can see local commits. This one is yours to fix, and it takes two commands."
+          }
+        ]
+      },
+      {
+        "prompt": "The commits are local. How do you get them onto a feature branch?",
+        "choices": [
+          {
+            "text": "Copy the changed files to the desktop, switch branches, and paste them back",
+            "verdict": "ok",
+            "feedback": "The file contents survive, but you lose the two commits and their messages, and manual copying is where mistakes creep in. Git can do this without touching a file."
+          },
+          {
+            "text": "Create a branch at the current commit: `git switch -c feature/add-eval`",
+            "verdict": "best",
+            "feedback": "The new branch points at your latest commit, so both commits are on it. Nothing was copied or moved. You added a label."
+          },
+          {
+            "text": "Push to `main` now and open a pull request afterward",
+            "verdict": "bad",
+            "feedback": "Once the commits are on the remote `main`, there is nothing left to propose in a pull request, and the unreviewed work is already in the shared branch."
+          }
+        ]
+      },
+      {
+        "prompt": "The feature branch has your work. Local `main` still has the two commits as well. What now?",
+        "choices": [
+          {
+            "text": "Leave `main` alone. It will sort itself out when the pull request merges",
+            "verdict": "ok",
+            "feedback": "With a merge commit this often resolves, because the same commits arrive through the pull request. With a squash merge, your local `main` and the remote diverge and the next pull produces a confusing merge. Putting `main` back now is cleaner."
+          },
+          {
+            "text": "Run `git revert` on both commits on `main`",
+            "verdict": "bad",
+            "feedback": "Revert adds two more commits that undo the work. Local `main` would be four commits ahead of the remote and still would not match it. Revert is for history that is already shared."
+          },
+          {
+            "text": "Point `main` back at the remote's position: `git switch main`, then `git reset --hard origin/main`",
+            "verdict": "best",
+            "feedback": "Local `main` matches GitHub again. The two commits are safe because `feature/add-eval` still points at them. This is one of the few times `reset --hard` is the right tool: the working tree is clean, the work is preserved under another name, and nothing was pushed. From the feature branch, `git branch -f main origin/main` does the same without touching your files. Check `git log --oneline --graph --all` before and after."
+          }
+        ]
+      },
+      {
+        "prompt": "How do you finish?",
+        "choices": [
+          {
+            "text": "Merge the feature branch into local `main` and push `main`",
+            "verdict": "bad",
+            "feedback": "That recreates the original problem by another route. The work lands on `main` with no pull request and no checks."
+          },
+          {
+            "text": "Keep working locally and push everything at the end of the week",
+            "verdict": "ok",
+            "feedback": "Nothing breaks, but unpushed work exists on one disk only, and a week of commits makes a large pull request. Push the branch now. A draft pull request can stay open while you continue."
+          },
+          {
+            "text": "Switch to the feature branch, push it with `-u`, and open a pull request",
+            "verdict": "best",
+            "feedback": "This is the state you wanted an hour ago: `main` clean, the work on its own branch, a pull request for review. To make the slip less likely, show the branch name in your terminal prompt, or check the editor's status bar before the first commit of a session."
+          }
+        ]
+      }
+    ],
+    "debrief": "A branch is a label, so work committed in the wrong place is fixed by adding and moving labels, with no copying of files. The question that decides how much freedom you have is whether the commits have been pushed. Unpushed history is yours to rearrange. Check the branch name before the first commit of every session.",
+    "lesson": "basics-branches"
+  },
+  {
+    "id": "drill-push-rejected",
+    "track": "basics",
+    "title": "Your push was rejected because the remote has new commits",
+    "minutes": 5,
+    "situation": "It is 4:40 pm and you want your fix on GitHub before a 5:00 meeting. You commit on `main`, run `git push`, and get `! [rejected] main -> main (fetch first)` with a hint that the remote contains work you do not have locally. You remember fixing a typo in the README from your phone this morning.",
+    "steps": [
+      {
+        "prompt": "What does the rejection mean?",
+        "choices": [
+          {
+            "text": "The remote branch has at least one commit that your local branch does not contain",
+            "verdict": "best",
+            "feedback": "Your phone edit created a commit directly on GitHub. Your laptop never fetched it, so your new commit and that one both build on the same older commit. GitHub refuses the push because accepting it would drop the phone commit."
+          },
+          {
+            "text": "Your credentials have expired",
+            "verdict": "bad",
+            "feedback": "An authentication failure reads differently. It mentions permission or authentication, and no `[rejected]` line appears. Read the message before acting on a guess."
+          },
+          {
+            "text": "The repository is locked for the day",
+            "verdict": "bad",
+            "feedback": "GitHub has no such lock. The message says exactly what is wrong: the remote has work you lack."
+          }
+        ]
+      },
+      {
+        "prompt": "What do you run next?",
+        "choices": [
+          {
+            "text": "`git push --force`",
+            "verdict": "bad",
+            "feedback": "This overwrites the remote with your branch and deletes the README fix you made this morning. On a team it would delete other people's commits. Force is never the answer to a routine rejection."
+          },
+          {
+            "text": "`git pull`",
+            "verdict": "best",
+            "feedback": "Pull fetches the phone commit and merges it with yours. The two changes touch different files, so Git combines them without asking. If Git asks how to reconcile the two lines, choose merge for now."
+          },
+          {
+            "text": "`git fetch`, then `git log --oneline main..origin/main`, then `git merge origin/main`",
+            "verdict": "ok",
+            "feedback": "This is a pull done in visible steps. It takes a few seconds longer and shows you what is coming in before it lands, which is a sound habit when you do not know what the remote has. With twenty minutes in hand either route works, and pull is the shorter one."
+          }
+        ]
+      },
+      {
+        "prompt": "The pull produced a merge commit and no conflicts. What do you do before pushing?",
+        "choices": [
+          {
+            "text": "Push immediately. No conflict means nothing can be wrong",
+            "verdict": "ok",
+            "feedback": "For a README typo plus an unrelated fix, the risk is close to zero and pushing is reasonable. As a habit it is unsafe: two changes can merge cleanly and still break each other. Know which kind of change you are combining."
+          },
+          {
+            "text": "Run the quick check for your fix, glance at `git log --oneline --graph -4`, then `git push`",
+            "verdict": "best",
+            "feedback": "Thirty seconds of checking confirms that the combined result does what you expect and that the history has both commits. The push now succeeds because your branch contains everything the remote has."
+          },
+          {
+            "text": "Remove the merge commit so the history looks cleaner",
+            "verdict": "bad",
+            "feedback": "Removing the merge commit puts you back where you started, behind the remote, and the push is rejected again. A merge commit here is an honest record that two lines of work met."
+          }
+        ]
+      },
+      {
+        "prompt": "How do you avoid the scramble next time?",
+        "choices": [
+          {
+            "text": "Never edit from the phone",
+            "verdict": "bad",
+            "feedback": "Editing from wherever you are is one of the benefits of having a remote. The problem was the missing pull, and giving up the phone does not help when a collaborator pushes."
+          },
+          {
+            "text": "Push after every commit",
+            "verdict": "ok",
+            "feedback": "Frequent pushes shrink the window in which the remote can move ahead of you, and they back up your work. They do not help if you start the session already behind. Combine this with pulling first."
+          },
+          {
+            "text": "Start each work session with `git pull`",
+            "verdict": "best",
+            "feedback": "Pulling first means your new commits build on the latest remote state, so the push goes straight through. If you also work on a branch and merge through pull requests, `main` rarely surprises you at all."
+          }
+        ]
+      }
+    ],
+    "debrief": "A rejected push is the remote protecting commits you have not seen. The fix is always to bring those commits in, check the combined result, and push again. Forcing discards work. Edits made in the browser or on a phone are commits on the remote, so pull at the start of every session on a computer.",
+    "lesson": "basics-remotes"
+  },
+  {
+    "id": "drill-oops-commit",
+    "track": "basics",
+    "title": "You committed a large junk file by mistake",
+    "minutes": 5,
+    "situation": "You ran `git add .` and committed with the message `Add evaluation script`. Then `git show --stat` reveals that the commit also contains `runs/debug_dump.bin`, a 180 MB scratch file from a failed run. It is not sensitive. You have not pushed. The same commit contains the real work you want to keep.",
+    "steps": [
+      {
+        "prompt": "Why deal with this before pushing?",
+        "choices": [
+          {
+            "text": "Large files stay in the repository's history for good, and GitHub blocks files over its size limit",
+            "verdict": "best",
+            "feedback": "Both parts matter. Once pushed, a file lives in history even after a later commit deletes it, and every clone downloads it. GitHub also rejects pushes that contain files over its per-file limit, so this push would probably fail anyway. Fixing it locally takes a minute."
+          },
+          {
+            "text": "It does not matter. Push, then delete the file in a follow-up commit",
+            "verdict": "bad",
+            "feedback": "A follow-up commit removes the file from the latest snapshot only. The 180 MB stays in the earlier commit, and GitHub would refuse the push for the oversized file in the first place."
+          },
+          {
+            "text": "Because junk files cause merge conflicts",
+            "verdict": "ok",
+            "feedback": "Binary files can cause conflicts, but that is the minor issue here. The real costs are permanent repository bloat and a rejected push."
+          }
+        ]
+      },
+      {
+        "prompt": "The commit is local and it is the most recent one. Which fix keeps your real work?",
+        "choices": [
+          {
+            "text": "`git revert HEAD`",
+            "verdict": "bad",
+            "feedback": "Revert adds a commit that undoes the whole previous commit, including your evaluation script, and the large file is still stored in the commit being reverted. Revert is for shared history, and it cannot shrink a repository."
+          },
+          {
+            "text": "`git rm --cached runs/debug_dump.bin`, then `git commit --amend --no-edit`",
+            "verdict": "best",
+            "feedback": "`git rm --cached` removes the file from the staging area and leaves it on disk. Amending then replaces the last commit with one that has everything except the junk file. Amending is safe here because the commit was never pushed."
+          },
+          {
+            "text": "`git restore runs/debug_dump.bin`",
+            "verdict": "bad",
+            "feedback": "Restore works on uncommitted changes. The file is already committed and has not changed since, so this does nothing to the commit. In other situations the same command discards edits, which makes it a risky one to try at random."
+          }
+        ]
+      },
+      {
+        "prompt": "How do you confirm the fix worked?",
+        "choices": [
+          {
+            "text": "Push and see whether GitHub complains",
+            "verdict": "ok",
+            "feedback": "It would tell you, but it tests in the one place where a mistake is hardest to take back. Inspect locally first. Looking costs nothing."
+          },
+          {
+            "text": "Assume it worked because no error appeared",
+            "verdict": "bad",
+            "feedback": "Git commands succeed quietly even when they did something other than what you intended. One look at the commit's file list settles it."
+          },
+          {
+            "text": "Run `git show --stat HEAD` and check that the file is no longer listed",
+            "verdict": "best",
+            "feedback": "The stat view lists every file in the commit. The junk file should be gone and your script still present. `git status` should now show `runs/debug_dump.bin` as untracked, which leads to the last step."
+          }
+        ]
+      },
+      {
+        "prompt": "How do you stop it happening again?",
+        "choices": [
+          {
+            "text": "Add `runs/` to `.gitignore` and commit that change",
+            "verdict": "best",
+            "feedback": "Ignored paths are skipped by `git add .` and stop showing up as untracked noise. One line removes the whole category of mistake. Reading `git status` before each commit catches whatever the ignore file misses."
+          },
+          {
+            "text": "Stop using `git add .` and stage files by name",
+            "verdict": "ok",
+            "feedback": "Staging by name does prevent this, and it is a fine habit. It also depends on never slipping. An ignore rule protects you on the day you are in a hurry."
+          },
+          {
+            "text": "Keep scratch files in the repository folder and remember not to add them",
+            "verdict": "bad",
+            "feedback": "Relying on memory is the approach that produced this commit. Let the tool carry the rule."
+          }
+        ]
+      }
+    ],
+    "debrief": "Unpushed commits are yours to repair: remove the file from the index, amend, verify. A large file that reaches the remote stays in history and in every clone, so the cheap moment to fix it is before the push. Then make the mistake impossible with an ignore rule, and read `git status` before each commit.",
+    "lesson": "basics-undo"
+  }
+]

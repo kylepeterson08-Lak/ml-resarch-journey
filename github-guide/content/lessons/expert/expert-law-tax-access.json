@@ -1,0 +1,487 @@
+{
+  "id": "expert-law-tax-access",
+  "track": "expert",
+  "title": "The non-code layer: licensing, employment, tax, privacy, accessibility",
+  "minutes": 24,
+  "summary": "A repository is also a legal and human artifact. Who owns the code, who may reuse it, how the money is treated, whose personal data sits in the history, and who can actually use the result are settled by documents and habits. Git does not decide any of them.",
+  "outcomes": [
+    "Say what a license file grants and what the absence of one means",
+    "Check whether an employer may have a claim on a side project before you publish it",
+    "Recognize when open-source money is taxable income and what records to keep",
+    "Keep personal data out of history and know what removal can and cannot do",
+    "Write READMEs, issues and contribution rules that people with disabilities can use"
+  ],
+  "prereqs": ["intermediate-forks-open-source"],
+  "lenses": {
+    "everyday": "Think of a repository as a house you built. The code is the structure. Separate from the structure are the deed that says who owns it, the sign on the lawn that says whether visitors may come in and what they may take, the mailbox that tells passers-by who lives there, and the ramp at the door that decides who can enter at all. A house can be soundly built and still have a defective deed, no sign, an overflowing mailbox and three steps where a ramp should be. This lesson is about the deed, the sign, the mailbox and the ramp.",
+    "legal": "Treat the repository as a matter file with four overlays. Title: who authored each contribution, and whether a work-for-hire rule or an invention assignment agreement moved ownership to someone else. License: the written grant that turns default all-rights-reserved copyright into permission, on stated conditions. Records: commit history as a contemporaneous record carrying names, email addresses and timestamps that privacy rules can reach and that are hard to expunge. Access: whether the work product is usable by people with disabilities, which is a legal duty for some organizations and a quality standard for all. Each overlay has its own controlling documents, and none of them is the code.",
+    "ml": "A model repository rarely carries one license. The training code may be MIT, the dataset CC BY-NC, the pretrained weights under a research-only license, and the figures owned by a publisher. Whatever you release inherits the tightest condition among its inputs. Add the lab or employer whose compute and time went into the run, and the people whose data is in the training set. Before you push a fine-tuned checkpoint, read the dataset card and the weight license the way you read a methods section. They define what you may claim, release and sell.",
+    "technical": "Git stores an author and committer name, email and timestamp in every commit, and those fields cannot change without rewriting the commit and all of its descendants. GitHub adds conventions on top. A `LICENSE` file at the repository root is detected and shown in the About panel. Without one, GitHub's Terms of Service let other users view and fork a public repository on GitHub and grant nothing more. `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CITATION.cff` and a funding file are plain files in known locations that change what the platform shows and how people are routed."
+  },
+  "sections": [
+    {
+      "heading": "Licenses: permission in writing",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Copyright attaches the moment you write code. You do not register anything and you do not add a notice. The default is **all rights reserved**: nobody else may copy, modify or distribute your work. A license is the document that replaces that default with permission, on conditions you choose."
+        },
+        {
+          "type": "p",
+          "text": "Making a repository public does not change this. GitHub's Terms of Service let other users view and fork a public repository within GitHub. That is the whole grant. A public repository with no license is published and still closed."
+        },
+        {
+          "type": "table",
+          "caption": "License families at a glance. Read the actual text before relying on any of them.",
+          "head": ["Family", "Examples", "What it asks in return"],
+          "rows": [
+            ["Permissive", "MIT, BSD-3-Clause, Apache-2.0", "Keep the copyright and license notice. Apache-2.0 also includes an express patent grant."],
+            ["Weak copyleft", "MPL-2.0, LGPL-3.0", "Changes to the licensed files or library stay under the same license. Your own surrounding code can differ."],
+            ["Strong copyleft", "GPL-3.0, AGPL-3.0", "If you distribute a derivative work, release it under the same license. AGPL extends that to software offered over a network."],
+            ["Content and data", "CC BY-4.0, CC BY-NC-4.0, CC0-1.0", "Written for data, text and media. Conditions range from attribution to non-commercial use only. Not designed for software."]
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "You find a public repository with exactly the function you need and no license file. May you copy the function into your own project?",
+          "answer": "Not without the owner's permission. You may read it and fork it on GitHub, because the Terms of Service allow that much. Using the code in your own work needs a license. Open an issue asking the owner to add one. Many will."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "One repository, several licenses",
+          "text": "Code, documentation, datasets and model weights can each carry a different license, and conditions travel with the material. A non-commercial or research-only term on a dataset or a checkpoint still applies to what you build from it, whatever license you put on your own code. List every outside input and its license in the README."
+        },
+        {
+          "type": "p",
+          "text": "Contributions need a rule too. By default on GitHub, a contribution to a licensed repository comes in under that repository's license. Some projects add a **Developer Certificate of Origin**, where each commit carries a `Signed-off-by` line stating the contributor has the right to submit it. Others require a contributor license agreement. Either way the project is building a record of who granted what."
+        }
+      ]
+    },
+    {
+      "heading": "Who owns what you push",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "In the United States, code an employee writes within the scope of the job is generally a work made for hire, owned by the employer from the start. Many employers go further with an **invention assignment agreement**, signed at hiring, that can reach work done outside office hours."
+        },
+        {
+          "type": "p",
+          "text": "Several states limit how far those agreements go. California Labor Code section 2870 is the best known, and Washington, Illinois, Minnesota, Delaware, Kansas, North Carolina, Utah, New Jersey and New York have comparable statutes. The common pattern protects an invention you develop entirely on your own time, without the employer's equipment, supplies, facilities or trade secret information. The protection has two exceptions, and they are wide: the employer can still claim work that relates to its business or its actual or anticipated research, and work that results from what you do for it."
+        },
+        {
+          "type": "flow",
+          "caption": "Before a side project goes public",
+          "steps": [
+            {"label": "Read the paper", "note": "Offer letter, IP agreement, handbook"},
+            {"label": "Own time and tools", "via": "then", "note": "No work laptop, account or credits"},
+            {"label": "Check the overlap", "via": "then", "note": "Is it near the employer's business?"},
+            {"label": "Ask in writing", "via": "if close", "note": "Get approval before you publish"},
+            {"label": "Publish", "via": "then", "note": "Personal account, clear license"}
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Read what you signed.** Look for sections titled inventions, intellectual property, outside activities, moonlighting or open source. Many employers have an approval process and grant it routinely.",
+            "**Keep the work physically separate.** Your own hardware, your own accounts, your own hours. One commit from a work laptop can undo the cleanest facts.",
+            "**Measure the distance.** A recipe app written by a payroll engineer is far from the employer's business. A scheduling tool written by an engineer at a scheduling company is not.",
+            "**Contractors are different.** Without a written assignment, an independent contractor generally keeps the copyright and the client gets whatever the contract grants. Read the statement of work.",
+            "**Students and researchers have policies too.** University IP policies, grant terms and lab agreements can claim work done with institutional resources.",
+            "**Never move employer or client material into a personal repository.** Confidentiality duties do not depend on who owns the code."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "General information, not advice",
+          "text": "Ownership rules differ by state and country, and agreements differ from one employer to the next. If a project could be valuable, an hour with an employment lawyer before you publish costs far less than a dispute after."
+        }
+      ]
+    },
+    {
+      "heading": "Money: sponsorships, bounties and tax",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Open-source work can pay through sponsorships, bug bounties, paid support and grants. In the United States that money is generally taxable income to the person who receives it. It is taxable whether or not a tax form arrives, and reporting thresholds for those forms have changed more than once in recent years."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Occasional and small",
+              "points": [
+                "Still income, and still reported",
+                "May be treated as other income when it is not a business",
+                "Expenses of an activity that is not a business are generally not deductible"
+              ]
+            },
+            {
+              "title": "Regular, with a profit motive",
+              "points": [
+                "Looks like a trade or business",
+                "Ordinary and necessary expenses can offset it",
+                "Self-employment tax and quarterly estimated payments can apply"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Keep records from the first payment.** Payout statements, platform fees, dates and what each payment was for.",
+            "**Separate the money.** A dedicated account turns a year-end reconstruction into a download.",
+            "**Sponsoring is not donating.** A payment to an individual maintainer is not a charitable contribution. A gift to a project housed in a qualified charitable organization can be. Check the recipient's status before you assume a deduction.",
+            "**Cross-border payments add forms.** Platforms ask for tax residency information, and treaties can change withholding.",
+            "**Employer-funded contributions belong to the job.** If you are paid to contribute, the time and usually the copyright sit with the employer."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Tax note",
+          "text": "How income is classified depends on your facts, and state rules add another layer. A tax professional can place it correctly in less time than it takes to fix a notice. This is general information."
+        }
+      ]
+    },
+    {
+      "heading": "Privacy: what your history says",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Every commit records a name, an email address and a timestamp with its time zone. In a public repository those are public, permanent and easy to harvest. The email is the one most people regret."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# every identity that appears in this repository's history\ngit log --format='%an <%ae>' | sort -u\n\n# what your next commit will use\ngit config user.email",
+          "caption": "Audit before you publish"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Use GitHub's noreply address.** It links commits to your account without exposing a real mailbox. GitHub can also reject pushes that would expose your private email.",
+            "**Other people's data is the larger risk.** Survey responses, client files, health information and scraped profiles do not belong in a repository. Notebook output cells are a common leak, because they can hold rows of real data.",
+            "**Deleting is not removing.** A commit that deletes a file leaves every earlier version in history. Removal means rewriting history, force-pushing and asking GitHub Support to clear cached views, and forks and clones keep their copies. Treat exposed data as disclosed. See [Incident response](#expert-incident-response).",
+            "**Research data has gatekeepers.** Ethics approvals and data use agreements usually say where data may be stored. A public Git host is rarely on the list."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Privacy law can reach a repository",
+          "text": "Personal data in code, tests, fixtures or datasets can fall under privacy and data protection law depending on whose data it is and where they live. Decide what may enter the repository before the first commit, because history is the expensive place to fix it."
+        }
+      ]
+    },
+    {
+      "heading": "Accessibility: who can use your work",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A README, an issue and a pull request description are interfaces. People read them with screen readers, magnifiers, voice control and high-contrast themes, and many read with dyslexia, low vision, fatigue or limited attention. Writing for them costs minutes and improves the page for every reader."
+        },
+        {
+          "type": "table",
+          "caption": "Six habits that make repository writing usable",
+          "head": ["Habit", "Why it matters"],
+          "rows": [
+            ["Give every meaningful image alt text that states what it shows", "A screen reader otherwise announces a file name or nothing"],
+            ["Use headings in order, without skipping levels", "Headings are the outline people navigate by"],
+            ["Write link text that names the destination", "A list of links that all say \"here\" is unusable out of context"],
+            ["Paste code and errors as text in fenced blocks", "A screenshot of text cannot be read aloud, searched or copied"],
+            ["Never rely on color alone in charts and status", "Red and green look alike to many readers, so add labels or patterns"],
+            ["Keep sentences short and put the action first", "Plain structure lowers the load for every reader"]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "![Line chart: validation accuracy rises from 71% to 89% over 20 epochs.\nThe cosine schedule leads the baseline from epoch 5 onward.](docs/accuracy.png)",
+          "caption": "Alt text states the finding. \"Chart\" or \"screenshot\" tells the reader nothing."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Settings worth knowing",
+          "text": "GitHub's personal settings include an Accessibility page and an Appearance page, with options such as high-contrast themes, themes tuned for color vision differences, underlined links, and control over animated images and keyboard shortcuts. Names and locations change, so look under your profile settings."
+        },
+        {
+          "type": "p",
+          "text": "Process is part of access. Put decisions in writing instead of leaving them in a call. Say what a reviewer is being asked to do and by when. Keep pull requests small enough to review without marathon concentration. State in `CONTRIBUTING.md` how someone can ask for a different format or more time. A project that does these things is easier for everyone to join."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "When the tool is part of the job",
+          "text": "In the United States, when an employer requires a tool such as GitHub, the Americans with Disabilities Act can require a reasonable accommodation for an employee with a disability who needs another way to do the work, such as assistive technology, a different client, an adjusted workflow or added time, unless it would cause undue hardship. It starts with a request and a good-faith conversation. Public bodies and federal agencies also carry digital accessibility duties of their own. The Job Accommodation Network publishes practical options."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Add a license to a repository",
+      "browser": [
+        "On the repository's main page, select **Add file**, then **Create new file**.",
+        "Name the file `LICENSE`. GitHub offers a **Choose a license template** button beside the name field.",
+        "Pick a license, fill in the year and the copyright holder, and review the text.",
+        "Commit to a new branch and open a pull request, so the decision has a record.",
+        "After merging, confirm the About panel on the main page shows the license."
+      ],
+      "phone": [
+        "The license template picker is a website feature. As of this writing the mobile app does not offer it.",
+        "Open the repository in your phone's browser at github.com and switch to the desktop site if **Add file** is missing.",
+        "Follow the browser steps. A license file is short, so this works on a small screen."
+      ],
+      "cli": [
+        "For a new repository, add the license at creation: `gh repo create my-project --public --license mit`.",
+        "For an existing one, copy the official text of your chosen license from choosealicense.com into a file named `LICENSE` at the repository root.",
+        "Replace the year and name placeholders. Change nothing else.",
+        "`git add LICENSE` then `git commit -m \"Add MIT license\"` and `git push`."
+      ],
+      "editor": [
+        "Create a file named `LICENSE` at the repository root and paste the official license text.",
+        "Fill in the year and the copyright holder, then commit and push from the Source Control view.",
+        "If a coding agent writes the file, compare it word for word with the official text. A paraphrased license is a different document."
+      ]
+    },
+    {
+      "task": "Stop exposing your personal email in commits",
+      "browser": [
+        "Select your profile picture, then **Settings**, then **Emails**.",
+        "Turn on **Keep my email addresses private**. GitHub shows a noreply address ending in `users.noreply.github.com`.",
+        "Turn on **Block command line pushes that expose my email** so a misconfigured machine cannot leak it.",
+        "Copy the noreply address for the command-line step."
+      ],
+      "phone": [
+        "Open github.com in your phone's browser and sign in. As of this writing these toggles are easier to find on the website than in the mobile app.",
+        "Open the menu, go to **Settings**, then **Emails**, and turn on both privacy options.",
+        "Edits you make in the mobile app or the web editor then use the noreply address automatically."
+      ],
+      "cli": [
+        "`git config --global user.email \"ID+USERNAME@users.noreply.github.com\"`, using the exact address from your settings page.",
+        "`git config user.email` to confirm what the current repository will use.",
+        "Make a commit, then run `git log -1 --format=%ae` to see the address it recorded.",
+        "Earlier commits keep the old address. Changing them means rewriting history, which is rarely worth it for a shared repository."
+      ],
+      "editor": [
+        "VS Code uses Git's own configuration, so run the `git config` command in the integrated terminal.",
+        "In a codespace, check with `git config user.email` before your first commit.",
+        "When a coding agent commits for you, inspect the author with `git log -5 --format='%an <%ae>'` before you push."
+      ]
+    },
+    {
+      "task": "Give an image useful alt text",
+      "browser": [
+        "Drag the image into the README editor, an issue or a comment. GitHub uploads it and inserts the image markup.",
+        "Replace the placeholder description with one or two sentences that state what the image shows and why it is there.",
+        "For a chart, state the finding. For a screenshot of an interface, name the screen and the state that matters.",
+        "Use **Preview** to check the image, then save."
+      ],
+      "phone": [
+        "Attach the image from the comment box in the mobile app or the mobile site.",
+        "Edit the inserted text and write the description between the square brackets of the image markup.",
+        "Phone dictation works well here: say what you see, then trim it."
+      ],
+      "cli": [
+        "Store the image in the repository, for example at `docs/accuracy.png`.",
+        "Write the Markdown by hand: an exclamation mark, the description in square brackets, then the relative path in parentheses.",
+        "Commit the image and the Markdown file together so the link never points at nothing."
+      ],
+      "editor": [
+        "Write the image line in the Markdown file and open the preview pane to confirm it renders.",
+        "A Markdown linter can flag images with no alternative text. Turn that rule on for the workspace.",
+        "A coding agent can draft a description from the plotting code. Check it against the figure, because only you know which point matters."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Publishing without a license because the repository is public anyway.",
+      "fix": "Add a `LICENSE` file on the first day. Public without a license means others may look and may not use."
+    },
+    {
+      "trap": "Building a side project on the work laptop, or with an employer's cloud credits, for convenience.",
+      "fix": "Use your own equipment, accounts and hours, read the agreement you signed, and get written approval when the subject is near your employer's business."
+    },
+    {
+      "trap": "Treating a dataset's or a checkpoint's license as somebody else's concern.",
+      "fix": "Record every outside input and its license in the README. The tightest condition among them governs what you may release."
+    },
+    {
+      "trap": "Treating sponsorship money as a gift that needs no records.",
+      "fix": "Track it as income from the first payment and ask a tax professional how to report it."
+    },
+    {
+      "trap": "Deleting a file that held personal data and assuming it is gone.",
+      "fix": "It remains in history, forks and clones. Treat it as disclosed, follow the incident steps, and prevent the next one with `.gitignore` and review."
+    },
+    {
+      "trap": "Posting a screenshot of an error message, or an image with no description.",
+      "fix": "Paste text as text in a fenced block, and give every meaningful image alt text that states what it shows."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "A public GitHub repository has no license file. What may other people do with its code?",
+      "choices": [
+        "Anything, because public code is in the public domain",
+        "Use it for non-commercial purposes only",
+        "View it and fork it on GitHub, and nothing more without the owner's permission",
+        "Use it freely as long as they credit the author"
+      ],
+      "answer": 2,
+      "why": "Copyright defaults to all rights reserved. GitHub's Terms of Service allow viewing and forking on GitHub. Reuse, modification and redistribution each need a license. Credit is not a substitute for permission."
+    },
+    {
+      "q": "Under statutes such as California Labor Code section 2870, an employee builds a project on personal time with personal equipment. When can the employer still have a claim?",
+      "choices": [
+        "When the project relates to the employer's business or anticipated research",
+        "Whenever the employee is salaried",
+        "Only if the project earns money",
+        "Never, because own time and own equipment settle the question"
+      ],
+      "answer": 0,
+      "why": "Own time and own equipment are the starting conditions, not the whole test. The statutes carve out work that relates to the employer's business or research, or that results from work done for the employer, and that carve-out is broad."
+    },
+    {
+      "q": "You fine-tune a model from pretrained weights released for non-commercial research only, using training code under the MIT license. What governs how you may release your fine-tuned weights?",
+      "choices": [
+        "The MIT license, because your code produced them",
+        "Whatever license you choose, because the result is a new work",
+        "Nothing, because model weights cannot be licensed",
+        "The conditions on the pretrained weights still apply to what you built from them"
+      ],
+      "answer": 3,
+      "why": "Conditions travel with the material. The MIT license covers the training code only. A non-commercial term on an input still binds what is derived from it, so the tightest condition among the inputs controls the release."
+    },
+    {
+      "q": "A maintainer in the United States receives monthly sponsorship payouts all year and no tax form arrives. What follows?",
+      "choices": [
+        "The income is not taxable, because no form was issued",
+        "The income is generally still taxable and should be reported",
+        "It is a gift, so the sponsors owe any tax",
+        "It becomes taxable only after the money leaves the platform"
+      ],
+      "answer": 1,
+      "why": "A reporting form is information for the tax agency. Its absence does not change whether income is taxable. Thresholds for those forms have shifted in recent years, which is one more reason to keep your own records."
+    },
+    {
+      "q": "Which is the most useful alt text for a results chart in a README?",
+      "choices": [
+        "chart.png",
+        "Image of a chart",
+        "Line chart: validation accuracy rises from 71% to 89% over 20 epochs",
+        "See the chart below"
+      ],
+      "answer": 2,
+      "why": "Alt text stands in for the image, so it should carry the finding. A file name, the word chart, or a pointer to the image gives a reader who cannot see it nothing to work with."
+    }
+  ],
+  "mission": {
+    "title": "Audit the non-code layer of your repository",
+    "where": "Your own repository and your own paperwork. Nothing here changes code.",
+    "steps": [
+      "Open the repository's main page and read the About panel. If no license is shown, choose one and add a `LICENSE` file through a pull request.",
+      "Run `git log --format='%an <%ae>' | sort -u`. If a personal address appears, turn on email privacy and set the noreply address for future commits.",
+      "Find the invention, intellectual property and outside-activity sections of your employment or enrollment paperwork. Note the date you read them and whether approval is needed.",
+      "List every outside dataset, checkpoint and borrowed code in the README with its license.",
+      "Read the README as a stranger using a screen reader would hear it. Fix one image without alt text, one skipped heading level or one link that says \"here\".",
+      "Add a line to `CONTRIBUTING.md` or the README saying how a contributor can ask for a different format or more time."
+    ]
+  },
+  "terms": [
+    {
+      "term": "license",
+      "def": "A written grant from a copyright holder that lets others use, change or share a work on stated conditions. Without one, the default is that nobody else may."
+    },
+    {
+      "term": "copyleft",
+      "def": "A license condition that requires derivative works to be distributed under the same license, so the freedoms granted carry forward."
+    },
+    {
+      "term": "work made for hire",
+      "def": "In United States copyright law, a work created by an employee within the scope of employment. The employer is treated as the author and owner from the start."
+    },
+    {
+      "term": "invention assignment agreement",
+      "def": "An employment contract term that transfers rights in an employee's inventions to the employer. Several states limit how far it can reach into work done on personal time."
+    },
+    {
+      "term": "Developer Certificate of Origin",
+      "def": "A short statement a contributor agrees to by adding a `Signed-off-by` line to each commit, certifying they have the right to submit the change."
+    },
+    {
+      "term": "SPDX identifier",
+      "def": "A short standard code for a license, such as `MIT` or `Apache-2.0`, used in files and metadata so tools can read licensing without parsing legal text."
+    },
+    {
+      "term": "alt text",
+      "def": "A text description attached to an image. Screen readers announce it and browsers show it when the image fails to load."
+    },
+    {
+      "term": "reasonable accommodation",
+      "def": "A change to how a job is done or to the tools used that lets a qualified person with a disability do the work. Employers covered by disability law must provide one unless it causes undue hardship."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh repo create my-project --public --license mit",
+      "does": "Creates a new repository on GitHub with an MIT `LICENSE` file already in place.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git log --format='%an <%ae>' | sort -u",
+      "does": "Lists every distinct author name and email address recorded in the repository's history.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git config --global user.email \"ID+USERNAME@users.noreply.github.com\"",
+      "does": "Makes future commits on this machine use your GitHub noreply address instead of a personal mailbox.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git commit -s -m \"Fix tokenizer bug\"",
+      "does": "Commits with a `Signed-off-by` line, which is how a contributor accepts a project's Developer Certificate of Origin.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "license:apache-2.0 language:python",
+      "does": "A repository search that returns only Python projects under the Apache 2.0 license. Swap in any SPDX identifier.",
+      "kind": "search",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: Licensing a repository",
+      "url": "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository"
+    },
+    {
+      "label": "Choose a License: plain-language comparison of open source licenses",
+      "url": "https://choosealicense.com/"
+    },
+    {
+      "label": "California Labor Code section 2870 (official text)",
+      "url": "https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=LAB&sectionNum=2870"
+    },
+    {
+      "label": "IRS: Self-employed individuals tax center",
+      "url": "https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center"
+    },
+    {
+      "label": "Job Accommodation Network: accommodation ideas and guidance",
+      "url": "https://askjan.org/"
+    },
+    {
+      "label": "W3C: An alt text decision tree",
+      "url": "https://www.w3.org/WAI/tutorials/images/decision-tree/"
+    }
+  ]
+}

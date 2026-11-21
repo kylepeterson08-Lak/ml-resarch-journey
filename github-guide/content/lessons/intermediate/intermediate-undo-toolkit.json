@@ -1,0 +1,511 @@
+{
+  "id": "intermediate-undo-toolkit",
+  "track": "intermediate",
+  "title": "The full undo toolkit: reset, revert, stash, reflog",
+  "minutes": 17,
+  "summary": "Git has a different undo for each place a mistake can live: the working tree, the staging area, your local commits and shared history. Choose the tool by asking where the mistake is and whether anyone else has it. The reflog remembers where your branches have been, so committed work is rarely gone.",
+  "outcomes": [
+    "Choose the right undo by locating the mistake: working tree, staging area, local commit or shared history",
+    "Predict what `git reset --soft`, `--mixed` and `--hard` each do to the branch, the staging area and your files",
+    "Undo a pushed commit with `git revert` without rewriting shared history",
+    "Shelve unfinished work with `git stash` and bring it back",
+    "Recover a commit you thought you destroyed by reading the reflog"
+  ],
+  "prereqs": ["basics-undo", "basics-branches"],
+  "lenses": {
+    "everyday": "Think of letters at an office. A draft on your desk can be crumpled and thrown away, and then it is gone. A letter in the outbox can be taken back out before the mail is collected. A letter that reached the mailroom but has not left the building can be fetched and rewritten. A letter that was delivered cannot be unsent, so you send a correction. The desk drawer is where you sweep half-finished work when someone needs your desk for an hour. And the building's visitor log shows every room you entered this month, so you can retrace your steps. Those are restore, unstage, reset, revert, stash and the reflog.",
+    "legal": "A draft return that has not been filed can be torn up and prepared again. A filed return is never altered. You file an amended return that refers to the original and states the correction, and the record shows both. A court docket works the same way: you cannot un-file a pleading, so you file a corrected one and the docket keeps both entries. In the books, a posted journal entry is not erased. It is reversed with a new entry. Git's reset is the tearing up, and it is for work nobody else has seen. Git's revert is the amended filing, and it is for anything already shared. The reflog is the system's own access log, kept for a retention period.",
+    "ml": "You hack on `train.py` to debug and break it: `git restore train.py` brings back the committed version. You commit a 2 GB checkpoint by accident and have not pushed: `git reset --soft HEAD~1`, unstage the file, ignore it, commit again. You pushed a commit that changed the default seed and broke a collaborator's reproduction: `git revert` it. You are halfway through a refactor when a data loader bug needs fixing now: `git stash`, fix, `git stash pop`. You hard-reset away the commit that held your best hyperparameters: `git reflog` finds it and `git branch rescue` pins it.",
+    "technical": "Git tracks three states: the commit HEAD points at, the index that holds the next commit, and the working tree. `git restore` copies content for chosen paths from the index or a commit into the working tree or the index. `git reset` moves the current branch to another commit, and optionally resets the index (`--mixed`, the default) and the working tree (`--hard`). `git revert` creates a new commit that applies the inverse of an earlier one, so history only grows. `git stash` saves uncommitted changes as commits on a hidden ref and cleans the working tree. The reflog is a local journal of every position HEAD and each branch has held. Its entries expire, by default after 90 days, or 30 for commits no branch can reach."
+  },
+  "sections": [
+    {
+      "heading": "Find the mistake first",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Every undo question starts with two others. Where does the mistake live right now? Has anyone else received it? The answers pick the tool."
+        },
+        {
+          "type": "flow",
+          "caption": "Four places a mistake can be. Each one has its own undo.",
+          "steps": [
+            {"label": "Working tree", "note": "Edits you have not staged"},
+            {"label": "Staging area", "via": "git add", "note": "What the next commit will hold"},
+            {"label": "Local commits", "via": "git commit", "note": "History only you have"},
+            {"label": "Shared history", "via": "git push", "note": "History other people may have"}
+          ]
+        },
+        {
+          "type": "table",
+          "caption": "From situation to command",
+          "head": ["Situation", "Command", "Notes"],
+          "rows": [
+            ["I edited a file and want the committed version back", "`git restore <file>`", "Discards the uncommitted edit for good"],
+            ["I staged something I did not mean to", "`git restore --staged <file>`", "Keeps your edit and removes it from the next commit"],
+            ["My last commit needs a fix and is not pushed", "`git commit --amend`", "Replaces the last commit"],
+            ["I want to redo my last few local commits", "`git reset --soft HEAD~2`", "Keeps all the changes, staged"],
+            ["I want to discard local commits and edits entirely", "`git reset --hard origin/main`", "Destroys uncommitted work"],
+            ["A pushed commit was a mistake", "`git revert <commit>`", "Adds a new commit, safe for shared branches"],
+            ["I need a clean working tree for a while", "`git stash`", "Shelves uncommitted changes"],
+            ["I lost a commit or a branch", "`git reflog`", "Find the hash, then `git branch rescue <hash>`"],
+            ["Untracked junk files are in the way", "`git clean -n`", "Lists what would be deleted. Then `git clean -f`"]
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Give the undos names you can remember",
+          "text": "Recalling exact flags under stress is hard for everyone and harder for some. Aliases turn them into plain words. `git config --global alias.unstage \"restore --staged\"` gives you `git unstage`. A short list of aliases you chose yourself lowers the memory load and costs nothing."
+        }
+      ]
+    },
+    {
+      "heading": "Reset moves the branch pointer",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "`git reset` does one main thing: it moves the branch you are on to a different commit. The three modes differ only in what they do to the staging area and your files afterward."
+        },
+        {
+          "type": "table",
+          "caption": "What each reset mode touches",
+          "head": ["Mode", "Branch pointer", "Staging area", "Working tree", "Use it to"],
+          "rows": [
+            ["`--soft`", "Moves", "Untouched, so the undone changes appear staged", "Untouched", "Recommit the same work differently"],
+            ["`--mixed` (default)", "Moves", "Reset to the target commit, so the changes appear unstaged", "Untouched", "Split or regroup changes into new commits"],
+            ["`--hard`", "Moves", "Reset", "Reset, and uncommitted edits to tracked files are lost", "Return everything to a known commit"]
+          ]
+        },
+        {
+          "type": "graph",
+          "caption": "After git reset HEAD~2, main points at B. C and D still exist and stay findable through the reflog until its entries expire.",
+          "commits": [
+            {"id": "A", "msg": "Start project"},
+            {"id": "B", "parents": ["A"], "msg": "Add config"},
+            {"id": "C", "parents": ["B"], "msg": "Add warmup", "ghost": true},
+            {"id": "D", "parents": ["C"], "msg": "Tune learning rate", "ghost": true}
+          ],
+          "branches": {"main": "B"},
+          "head": "main"
+        },
+        {
+          "type": "reveal",
+          "prompt": "You run `git reset --hard HEAD~1` and regret it one second later. Is the commit gone?",
+          "answer": "No. The commit still exists, and `git reflog` lists it as the position HEAD held one step ago. `git reset --hard HEAD@{1}` puts the branch back. What a hard reset does destroy is any edit you had not committed, because that content was never stored anywhere."
+        },
+        {
+          "type": "callout",
+          "kind": "danger",
+          "title": "Check before a hard reset",
+          "text": "`git reset --hard` overwrites tracked files in your working tree with no confirmation and no undo for uncommitted edits. Run `git status` first. If it lists changes you might want, commit or stash them before you reset."
+        }
+      ]
+    },
+    {
+      "heading": "Revert: undo in public",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Once a commit is pushed, other people may have built on it. Removing it from history would leave their copies disagreeing with the remote. `git revert` avoids that by adding a new commit that applies the exact opposite change. Everyone else only has to pull."
+        },
+        {
+          "type": "graph",
+          "caption": "git revert B adds R, which undoes B's change. B stays in the history, and so does the record that it was undone.",
+          "commits": [
+            {"id": "A", "msg": "Start project"},
+            {"id": "B", "parents": ["A"], "msg": "Change default seed"},
+            {"id": "C", "parents": ["B"], "msg": "Add eval script"},
+            {"id": "R", "parents": ["C"], "msg": "Revert: Change default seed"}
+          ],
+          "branches": {"main": "R"},
+          "head": "main",
+          "highlight": ["B", "R"]
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "git reset",
+              "points": [
+                "Moves the branch backward",
+                "Removes commits from the branch's history",
+                "For commits nobody else has",
+                "Needs a force push if the commits were pushed"
+              ]
+            },
+            {
+              "title": "git revert",
+              "points": [
+                "Moves the branch forward",
+                "Adds a commit that cancels an earlier one",
+                "For commits that are already shared",
+                "A normal push is enough"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Correct the record by adding to it",
+          "text": "A shared branch is a record that other people rely on, like a filed return or a docket. You correct it with a new entry that refers to the old one, and you say why. `git revert` writes the reference for you. Add the reason to the message: *Reverts the seed change because it broke reproduction of Table 2.*"
+        },
+        {
+          "type": "p",
+          "text": "On GitHub, a merged pull request has a **Revert** button that opens a new pull request containing the inverse change. Reverting a merge commit from the command line needs an extra flag, covered in [Incident response](#expert-incident-response)."
+        }
+      ]
+    },
+    {
+      "heading": "Stash: a drawer for unfinished work",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Sometimes you need a clean working tree right now, to switch branches or to pull, and your changes are not ready to commit. `git stash` shelves them and restores your files to the last commit."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git stash push -m \"wip: refactor data loader\"   # shelve tracked changes\ngit stash push -u -m \"wip: with new files\"      # also shelve untracked files\ngit stash list                                  # stash@{0}, stash@{1}, ...\ngit stash pop                                   # reapply the newest and remove it\ngit stash apply stash@{1}                       # reapply one and keep it in the list\ngit stash drop stash@{1}                        # delete one",
+          "caption": "The stash commands you will actually use"
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "A stash is for minutes, a branch is for days",
+          "text": "Stashes live only on your machine, have no branch name, and are quickly forgotten. For anything you will leave overnight, commit it on a branch with a message that starts with `wip`, and push it. That gives you a backup and a name."
+        }
+      ]
+    },
+    {
+      "heading": "Reflog: where your branches have been",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Every time HEAD moves, through a commit, a switch, a reset, a rebase or a merge, Git writes a line in a local journal called the reflog. When a commit seems lost, it is usually still there, and the reflog tells you its hash."
+        },
+        {
+          "type": "code",
+          "lang": "text",
+          "code": "$ git reflog\n3f2a9c1 HEAD@{0}: reset: moving to HEAD~1\n8d41e07 HEAD@{1}: commit: Tune learning rate\n3f2a9c1 HEAD@{2}: commit: Add warmup\n\n$ git branch rescue 8d41e07",
+          "caption": "The commit removed by the reset is one line down. A new branch pointing at it makes it safe."
+        },
+        {
+          "type": "list",
+          "items": [
+            "The reflog is local. It is not pushed, and a fresh clone starts with an empty one.",
+            "Entries expire. By default Git keeps them for 90 days, and for 30 days once the commit can no longer be reached from its branch. After that, the commit can be deleted for good.",
+            "It records commits only. Edits you never committed or stashed are not in it.",
+            "On GitHub, a branch deleted after a pull request can usually be brought back with the **Restore branch** button on that pull request."
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Cleaning untracked files",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "`git clean` deletes files Git is not tracking. Nothing in the reflog can bring them back, because untracked files were never stored in the repository."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git clean -n      # dry run: list what would be removed\ngit clean -f      # remove untracked files\ngit clean -fd     # also remove untracked directories",
+          "caption": "Always start with the dry run"
+        },
+        {
+          "type": "callout",
+          "kind": "danger",
+          "title": "Leave -x alone in a research repository",
+          "text": "Adding `-x` makes `git clean` delete ignored files too. In an ML project that means your datasets, checkpoints, virtual environment and `.env` file, all of which are ignored on purpose. Run with `-n` first, every time, and read the list."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Undo a commit that is already pushed",
+      "browser": [
+        "If the commit arrived through a pull request, open that merged pull request.",
+        "Select **Revert** near the bottom of the conversation. GitHub prepares a new pull request with the inverse change.",
+        "Say why in the description, then review and merge it like any other pull request.",
+        "For a commit that did not come from a pull request, use the command line or an editor."
+      ],
+      "phone": [
+        "Open the merged pull request in your phone's browser and select **Revert**. If the app shows the same control, it does the same thing.",
+        "Write the reason in the new pull request's description and merge it once the checks pass."
+      ],
+      "cli": [
+        "`git switch main` then `git pull` so you have the latest history.",
+        "`git log --oneline` to find the hash of the commit to undo.",
+        "`git revert <hash>` and write the reason in the message Git opens.",
+        "`git push`. No force is needed, because history only grew."
+      ],
+      "editor": [
+        "In VS Code, open the built-in terminal and run `git revert` with the commit's hash.",
+        "Save the commit message when the editor tab opens, then sync from the Source Control view.",
+        "The Command Palette's **Git: Undo Last Commit** is a soft reset. Use it only for a commit you have not pushed.",
+        "With a coding agent, say revert, name the hash, and forbid reset and force-push. Afterward check `git log --oneline -3` for a new commit whose message starts with Revert."
+      ]
+    },
+    {
+      "task": "Shelve unfinished work and bring it back",
+      "browser": [
+        "github.com has no working tree, so there is nothing to stash. Commit unfinished work to a branch whose name starts with `wip/`.",
+        "In github.dev or a Codespace you have a real working tree, and the editor steps apply."
+      ],
+      "phone": [
+        "There is no stash on a phone. Commit unfinished edits to a `wip/` branch from the app or the mobile browser, and continue later from any device."
+      ],
+      "cli": [
+        "`git stash push -m \"wip: loader refactor\"` to shelve tracked changes. Add `-u` to include new files.",
+        "`git status` should now report a clean working tree.",
+        "Do the other work, commit it, and return to your branch.",
+        "`git stash list` to see what is shelved, then `git stash pop` to reapply the newest entry.",
+        "If the pop reports a conflict, resolve it like a merge conflict. The stash entry is kept until you drop it."
+      ],
+      "editor": [
+        "In VS Code's Source Control view, open the menu, choose **Stash**, then **Stash** or **Stash (Include Untracked)**, and give it a message.",
+        "Later, from the same menu, choose **Pop Latest Stash** or **Apply Stash**.",
+        "The Source Control view lists your stashes, so you can see what is waiting."
+      ]
+    },
+    {
+      "task": "Recover a commit after a bad reset",
+      "browser": [
+        "The reflog exists only in your clone, so GitHub cannot show it.",
+        "If the lost commits were ever pushed, they may still be on GitHub. Check the branch's commit list, any pull request that contained them, and the repository's activity view.",
+        "For a branch deleted after a pull request, open the pull request and select **Restore branch**."
+      ],
+      "phone": [
+        "Recovery from the reflog needs the machine where the work was done.",
+        "From a phone you can only check whether the commits were pushed, by browsing the branch or the pull request on GitHub."
+      ],
+      "cli": [
+        "`git reflog` and find the line from before the reset. Copy its hash.",
+        "`git branch rescue <hash>` to pin the commit with a new branch. This changes nothing else.",
+        "`git log rescue --oneline -5` to confirm it holds what you expect.",
+        "Move your branch back with `git reset --hard rescue`, or merge `rescue` into it.",
+        "Delete the `rescue` branch when you are done."
+      ],
+      "editor": [
+        "Run `git reflog`, then `git branch rescue` with the hash, in VS Code's built-in terminal.",
+        "The new branch appears in the branch picker and in the Source Control graph, where you can inspect it.",
+        "With a coding agent, ask it to show the reflog and create a branch at the commit before the reset, and tell it not to run reset or clean. Read the reflog output yourself."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Running `git reset --hard` with uncommitted work in the tree. Those edits were never stored, so nothing can bring them back.",
+      "fix": "Run `git status` first. Commit or stash anything you might want."
+    },
+    {
+      "trap": "Resetting commits that are already pushed, then force-pushing. Teammates' clones now disagree with the remote.",
+      "fix": "On shared branches, undo with `git revert`. Keep reset for commits only you have."
+    },
+    {
+      "trap": "Running `git clean -fdx` to tidy up. It deletes ignored files too, which in a research repository means data, checkpoints and environment files.",
+      "fix": "Always run `git clean -n` first and read the list. Leave `-x` off unless you mean it."
+    },
+    {
+      "trap": "Stashing and forgetting. Weeks later there are six unnamed stashes and nobody knows which branch they belong to.",
+      "fix": "Give every stash a message, and prefer a `wip` commit on a branch for anything left overnight."
+    },
+    {
+      "trap": "Treating the reflog as a backup. It is local, it expires, and a new clone does not have it.",
+      "fix": "Push the branches you care about. The remote is the backup."
+    },
+    {
+      "trap": "Amending a commit you already pushed. Your branch and the remote now hold two different versions of the same commit.",
+      "fix": "Amend only unpushed commits. For pushed work, add a new commit."
+    }
+  ],
+  "lab": "lab-undo-toolkit",
+  "quiz": [
+    {
+      "q": "You run `git reset --soft HEAD~1`. Where are the changes from the commit you undid?",
+      "choices": [
+        "Deleted",
+        "In your files and staged, ready to commit again",
+        "In your files but not staged",
+        "In the stash"
+      ],
+      "answer": 1,
+      "why": "A soft reset moves only the branch pointer. The index and working tree still hold everything from the undone commit, so the changes show as staged. The default mixed reset would leave them unstaged, and only a hard reset removes them from your files."
+    },
+    {
+      "q": "Teammates have already pulled `main`, which contains a commit of yours that breaks training. How should you undo it?",
+      "choices": [
+        "`git revert` the commit and push",
+        "`git reset --hard HEAD~1` and force-push",
+        "`git commit --amend` and force-push",
+        "Delete `main` and push it again"
+      ],
+      "answer": 0,
+      "why": "Revert adds a new commit that cancels the bad one, so everyone's history stays compatible and a normal pull fixes them. Reset and amend rewrite history that other people already have, which forces every teammate to repair their clone."
+    },
+    {
+      "q": "After `git reset --hard`, which of these can the reflog NOT help you recover?",
+      "choices": [
+        "The commits the branch pointed at before",
+        "The previous position of HEAD",
+        "Edits to tracked files that you had not committed",
+        "A commit you made ten minutes earlier"
+      ],
+      "answer": 2,
+      "why": "The reflog records where HEAD and branches pointed, so any committed state can be found again. Uncommitted edits were never written into the repository, so no entry leads back to them."
+    },
+    {
+      "q": "What is the difference between `git stash pop` and `git stash apply`?",
+      "choices": [
+        "`pop` discards the changes, `apply` restores them",
+        "`pop` works on the newest stash only, `apply` on the oldest",
+        "There is no difference",
+        "`pop` reapplies the changes and removes the stash entry, `apply` keeps the entry"
+      ],
+      "answer": 3,
+      "why": "Both reapply shelved changes to your working tree. `pop` then deletes the entry from the stash list, unless a conflict stops it. `apply` leaves the entry in place, which helps when you want the same changes on more than one branch."
+    },
+    {
+      "q": "What does `git clean -n` do?",
+      "choices": [
+        "Deletes untracked files without asking",
+        "Lists the untracked files that would be deleted and deletes nothing",
+        "Removes ignored files only",
+        "Resets tracked files to the last commit"
+      ],
+      "answer": 1,
+      "why": "`-n` is a dry run. It prints what `git clean` would remove so you can check the list first. Deletion needs `-f`. Tracked files are never touched by `git clean`."
+    }
+  ],
+  "mission": {
+    "title": "Break things on purpose on a practice branch",
+    "where": "Your own repository, on a branch named `practice/undo`. Nothing here touches `main`.",
+    "steps": [
+      "Create `practice/undo` and make three small commits to a file `practice/undo.md`.",
+      "Run `git reset --soft HEAD~2` and then `git status`. Note that the changes are staged. Commit them as one commit.",
+      "Edit the file without committing. Run `git stash push -m \"practice\"`, check `git stash list`, then `git stash pop`.",
+      "Commit, then run `git reset --hard HEAD~1`. Find the lost commit with `git reflog` and pin it with `git branch rescue` and its hash.",
+      "Push `practice/undo`, run `git revert HEAD`, and push again. Look at both commits on GitHub.",
+      "Run `git clean -n` in the repository and read what it would delete. Do not run it with `-f`.",
+      "Delete the practice branches locally and on GitHub."
+    ]
+  },
+  "terms": [
+    {
+      "term": "reset",
+      "def": "Moving the current branch to a different commit, optionally resetting the staging area and the working tree to match it."
+    },
+    {
+      "term": "stash",
+      "def": "A local shelf for uncommitted changes. Stashing cleans the working tree, and popping puts the changes back."
+    },
+    {
+      "term": "reflog",
+      "def": "A local journal of every commit HEAD and each branch has pointed at. It is the main tool for finding commits that seem lost."
+    },
+    {
+      "term": "unreachable commit",
+      "def": "A commit that no branch or tag leads to. It still exists for a while and can be recovered through the reflog."
+    },
+    {
+      "term": "dry run",
+      "def": "Running a command in a mode that reports what it would do without doing it, such as `git clean -n`."
+    },
+    {
+      "term": "relative reference",
+      "def": "A way to name a commit by its distance from another, such as `HEAD~2` for two commits before the current one."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git reset --soft HEAD~1",
+      "does": "Undoes the last commit and keeps its changes staged.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git reset HEAD~1",
+      "does": "Undoes the last commit and keeps its changes in your files, unstaged.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git reset --hard <commit>",
+      "does": "Moves the branch and overwrites the staging area and tracked files. Uncommitted edits are lost.",
+      "kind": "git",
+      "risk": "danger"
+    },
+    {
+      "cmd": "git revert <commit>",
+      "does": "Adds a new commit that cancels an earlier one. Safe on shared branches.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git stash push -m \"message\"",
+      "does": "Shelves uncommitted changes to tracked files under a label. Add `-u` to include untracked files.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git stash pop",
+      "does": "Reapplies the newest stash and removes it from the list.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git reflog",
+      "does": "Lists every position HEAD has held recently, newest first.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git branch rescue <hash>",
+      "does": "Creates a branch at a commit so that it cannot be lost. Changes nothing else.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git clean -n",
+      "does": "Lists untracked files that would be deleted, without deleting anything.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git clean -fd",
+      "does": "Deletes untracked files and directories. There is no undo.",
+      "kind": "git",
+      "risk": "danger"
+    }
+  ],
+  "links": [
+    {
+      "label": "Git reference: git-reset",
+      "url": "https://git-scm.com/docs/git-reset"
+    },
+    {
+      "label": "Git reference: git-revert",
+      "url": "https://git-scm.com/docs/git-revert"
+    },
+    {
+      "label": "Git reference: git-stash",
+      "url": "https://git-scm.com/docs/git-stash"
+    },
+    {
+      "label": "Git reference: git-reflog",
+      "url": "https://git-scm.com/docs/git-reflog"
+    },
+    {
+      "label": "Pro Git: Reset Demystified",
+      "url": "https://git-scm.com/book/en/v2/Git-Tools-Reset-Demystified"
+    },
+    {
+      "label": "GitHub Docs: Reverting a pull request",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/reverting-a-pull-request"
+    }
+  ]
+}

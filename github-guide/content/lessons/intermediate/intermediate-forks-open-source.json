@@ -1,0 +1,478 @@
+{
+  "id": "intermediate-forks-open-source",
+  "track": "intermediate",
+  "title": "Forks and contributing to other people's projects",
+  "minutes": 16,
+  "summary": "A fork is your own copy of someone else's repository on GitHub. You cannot push to their project, so you push to your fork and propose the change with a pull request. Keep the fork in sync with the original, follow the project's rules, and check the license before you reuse anything.",
+  "outcomes": [
+    "Explain when to fork and when a branch in the original repository is enough",
+    "Set up `origin` and `upstream` remotes and keep a fork current",
+    "Take a contribution from an issue to a merged pull request in a project you do not own",
+    "Read the contributing guide, the code of conduct and the license before you start",
+    "Let maintainers push small fixes to your pull request branch"
+  ],
+  "prereqs": ["basics-remotes", "basics-pull-requests"],
+  "lenses": {
+    "everyday": "The library keeps a community cookbook. You are not allowed to write in the library's copy. So you photocopy it, which is your fork, and improve a recipe in your own copy. Then you hand the librarian your page with a note: \"I suggest replacing page 12 with this.\" That is the pull request. The librarian decides. Either way your copy stays yours. Meanwhile the library's edition keeps changing, so every so often you copy the new pages into your binder to keep it current. That is syncing your fork.",
+    "legal": "A standards body publishes a model form agreement. You have no authority to amend the official form. You take a copy into your own file, mark it up, and submit proposed revisions to the drafting committee with a transmittal memo. The committee may adopt, revise or decline them, and your marked-up copy remains yours in any case. The license is the grant that says what you may do with the form at all: use it, modify it, redistribute it, and with what attribution. Where there is no license there is no grant, and ordinary copyright applies. Some projects also ask for a signed contributor agreement, a representation that you have the right to submit the work.",
+    "ml": "You find a bug in an open-source training library: the warmup schedule is off by one step. You cannot push to the library's repository. You fork it, clone your fork, create `fix/warmup-off-by-one`, add a failing test and the fix, push to your fork and open a pull request against the library's `main`. While you wait, the library merges thirty other commits, so you sync your fork and update your branch. Forks also serve reproduction: forking a paper's code release gives you a copy you control, with your modifications recorded on top of the exact commit the authors published.",
+    "technical": "A fork is a server-side copy of a repository under a different owner. GitHub records the link to its parent, and the two share a fork network. The fork has its own branches, settings and permissions. A clone of your fork has a remote named `origin` that points at the fork, where you can push. You add a second remote, conventionally `upstream`, that points at the parent, where you can only read. A pull request can cross repositories: its head is a branch in your fork and its base is a branch in the parent. A fork of a public repository is public, and commits pushed to it are reachable through the fork network."
+  },
+  "sections": [
+    {
+      "heading": "Fork, clone or branch?",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Three words get mixed up because all three give you a copy. They differ in where the copy lives and who can change it."
+        },
+        {
+          "type": "table",
+          "caption": "Three kinds of copy",
+          "head": ["Copy", "Where it lives", "Who can change it", "Use it when"],
+          "rows": [
+            ["Branch", "Inside one repository", "Anyone with write access to that repository", "You can push to the project"],
+            ["Fork", "On GitHub, under your account", "You, and people you invite", "You cannot push to the project"],
+            ["Clone", "On your computer", "Only you, on your machine", "You want to edit and run the code locally"]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "They combine. To contribute to a project you cannot push to, you fork it on GitHub, clone the fork to your computer, and create a branch in that clone."
+        },
+        {
+          "type": "reveal",
+          "prompt": "You have write access to your lab's repository. Do you need a fork to contribute to it?",
+          "answer": "No. With write access you create a branch in the repository itself and open a pull request from it. A fork is for projects you cannot push to. Some large teams ask for forks anyway to keep the main repository's branch list short, so check the project's contributing guide."
+        }
+      ]
+    },
+    {
+      "heading": "Two remotes: origin and upstream",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Once you clone your fork, your computer knows about one remote, `origin`, which is your fork. To follow the original project you add a second remote and name it `upstream`. You fetch from `upstream` and push to `origin`."
+        },
+        {
+          "type": "flow",
+          "caption": "The round trip of a contribution",
+          "steps": [
+            {"label": "Original repository", "note": "You can read it and cannot push"},
+            {"label": "Your fork", "via": "Fork", "note": "Your copy on GitHub"},
+            {"label": "Your computer", "via": "git clone", "note": "Branch, edit, commit"},
+            {"label": "Your fork", "via": "git push", "note": "Your branch is now on GitHub"},
+            {"label": "Original repository", "via": "pull request", "note": "Maintainers review and merge"}
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git remote -v\n# origin    https://github.com/YOUR-USERNAME/trainlib.git (fetch)\n# origin    https://github.com/YOUR-USERNAME/trainlib.git (push)\n# upstream  https://github.com/ORIGINAL-OWNER/trainlib.git (fetch)\n# upstream  https://github.com/ORIGINAL-OWNER/trainlib.git (push)",
+          "caption": "What a correctly set up clone of a fork reports"
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "One command for the whole setup",
+          "text": "`gh repo fork ORIGINAL-OWNER/REPO --clone` creates the fork, clones it, and adds the `upstream` remote for you."
+        }
+      ]
+    },
+    {
+      "heading": "Keeping a fork current",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A fork does not update itself. The original keeps moving, and your fork's `main` stays where it was on the day you forked. Sync before you start each new piece of work."
+        },
+        {
+          "type": "graph",
+          "caption": "The original moved on to D while you worked on E. Syncing moves your main from B to D. Then you update your branch so that it builds on D.",
+          "commits": [
+            {"id": "A"},
+            {"id": "B", "parents": ["A"], "msg": "Where you forked"},
+            {"id": "C", "parents": ["B"], "msg": "Upstream: new scheduler"},
+            {"id": "D", "parents": ["C"], "msg": "Upstream: fix docs"},
+            {"id": "E", "parents": ["B"], "msg": "Fix warmup off-by-one"}
+          ],
+          "branches": {"upstream/main": "D", "main": "B", "fix/warmup": "E"},
+          "head": "fix/warmup"
+        },
+        {
+          "type": "compare",
+          "caption": "Three ways to sync",
+          "items": [
+            {
+              "title": "Sync fork button",
+              "points": [
+                "On your fork's page on GitHub",
+                "Updates the fork's default branch in one click",
+                "Afterward, run `git pull` in your clone"
+              ]
+            },
+            {
+              "title": "gh repo sync",
+              "points": [
+                "One command from a terminal",
+                "Updates the fork on GitHub from its parent",
+                "Refuses if your branch has diverged, unless you force it"
+              ]
+            },
+            {
+              "title": "Fetch upstream by hand",
+              "points": [
+                "Works with any Git host",
+                "`git fetch upstream`, then merge into `main`",
+                "Shows you exactly what arrived"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git fetch upstream\ngit switch main\ngit merge --ff-only upstream/main   # your main only ever fast-forwards\ngit push origin main\n\ngit switch fix/warmup-off-by-one\ngit rebase main                     # or: git merge main",
+          "caption": "Syncing by hand, then updating your working branch"
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Keep your fork's main clean",
+          "text": "Never commit your own work on the fork's default branch. Do everything on branches. Then `main` stays an exact mirror of the original, every sync is a fast-forward, and your pull requests contain only the commits you meant to send."
+        }
+      ]
+    },
+    {
+      "heading": "The contribution, start to finish",
+      "blocks": [
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Find or open an issue, and say you would like to work on it. That avoids two people doing the same fix, and it lets a maintainer warn you off an idea they will not accept.",
+            "Read the contributing guide. Note the test command, the commit style and any sign-off the project requires.",
+            "Fork, clone and create a branch named for the change.",
+            "Make the smallest change that solves the issue, with a test.",
+            "Run the project's own checks on your machine.",
+            "Push to your fork and open the pull request against the original. Fill in the template and link the issue.",
+            "Answer review comments with new commits. Be patient: most maintainers are volunteers.",
+            "After the merge, sync your fork and delete the branch."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "When you open a pull request from a fork, GitHub offers a checkbox that allows edits by maintainers. Leave it ticked. It lets people with push access to the original add small fixes to your branch, such as resolving a conflict or correcting a typo, so your pull request can merge without another round trip."
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Why your first checks may not start",
+          "text": "Many projects require a maintainer to approve automated checks on a first-time contributor's pull request before they run, and pull requests from forks do not receive the project's secrets. Both rules protect the project from untrusted code. Waiting for that approval is normal and does not mean anything is wrong."
+        }
+      ]
+    },
+    {
+      "heading": "Read the rules of the house",
+      "blocks": [
+        {
+          "type": "table",
+          "caption": "Four files to read before you write any code",
+          "head": ["File", "What it tells you"],
+          "rows": [
+            ["`CONTRIBUTING.md`", "How to set up, test and submit a change"],
+            ["`CODE_OF_CONDUCT.md`", "How people are expected to treat each other"],
+            ["`LICENSE`", "What anyone is allowed to do with the code"],
+            ["`SECURITY.md`", "How to report a vulnerability privately, never in a public issue"]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The `good first issue` and `help wanted` labels mark work that maintainers have set aside for newcomers. Adding `/contribute` to a repository's address shows that list, when the project has one. Some projects ask you to sign off each commit with `git commit -s`, which adds a `Signed-off-by` line certifying that you have the right to submit the work. Others ask you to accept a contributor license agreement on your first pull request."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "A license is a grant, and silence grants nothing",
+          "text": "A permissive license such as MIT, BSD or Apache 2.0 lets you reuse the code with few conditions, mainly attribution. A copyleft license such as the GPL also requires that derivative works you distribute carry the same license. A public repository with no license file gives you no permission to reuse the code elsewhere: default copyright applies, and GitHub's terms only cover viewing and forking on GitHub. This is general information, not legal advice. See [The non-code layer](#expert-law-tax-access)."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Accessibility fixes make good first contributions",
+          "text": "Missing alt text on images, headings that skip levels, links that say only *click here*, and low-contrast colors in documentation are common, quick to verify and welcome almost everywhere. If you use assistive technology, your report of what actually breaks is something most maintainers cannot produce themselves."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Fork a repository and open a pull request from the fork",
+      "browser": [
+        "On the original repository, select **Fork**. Leave the option to copy only the default branch ticked, and select **Create fork**.",
+        "In your fork, open the branch selector, type a new branch name, and create the branch.",
+        "Edit a file with the pencil icon and commit to that branch.",
+        "Select **Contribute**, then **Open pull request**.",
+        "Check the top of the form. The base repository must be the original, and the head repository your fork.",
+        "Fill in the description, keep the option that allows edits by maintainers ticked, and create the pull request."
+      ],
+      "phone": [
+        "As of this writing GitHub Mobile can fork a repository from the repository's menu.",
+        "Small edits can be made in the app's file view and committed to a new branch.",
+        "If the app does not offer a pull request across repositories, open your fork in the phone's browser, select **Contribute** and then **Open pull request**.",
+        "Check that the base repository is the original before you submit."
+      ],
+      "cli": [
+        "`gh repo fork ORIGINAL-OWNER/REPO --clone` forks, clones and adds the `upstream` remote.",
+        "`cd REPO` then `git remote -v` to confirm that `origin` is your fork and `upstream` is the original.",
+        "`git switch -c fix/warmup-off-by-one` and make your change.",
+        "`git add` the files, `git commit`, then `git push -u origin fix/warmup-off-by-one`.",
+        "`gh pr create`, and choose the original repository as the base when asked.",
+        "`gh pr status` to follow review and checks."
+      ],
+      "editor": [
+        "Clone your fork in VS Code with **Git: Clone** from the Command Palette.",
+        "If you cloned the original by mistake and try to push, VS Code offers to create a fork and push there instead.",
+        "Create a branch, commit, and publish it from the Source Control view.",
+        "Create the pull request with the GitHub Pull Requests extension and check that the base is the original repository.",
+        "With a coding agent, say which remote is yours and which is upstream, and tell it to follow the contributing guide and run the project's tests. Check whether the project has a policy on AI-assisted contributions before you submit."
+      ]
+    },
+    {
+      "task": "Bring your fork up to date",
+      "browser": [
+        "Open your fork on GitHub. Above the file list it says how many commits the branch is behind the original.",
+        "Select **Sync fork**, then **Update branch**.",
+        "In your clone, switch to `main` and pull."
+      ],
+      "phone": [
+        "Open your fork in the phone's browser. If **Sync fork** is not visible, switch to the desktop site.",
+        "Select **Sync fork**, then **Update branch**."
+      ],
+      "cli": [
+        "`gh repo sync YOUR-USERNAME/REPO` updates the fork on GitHub from its parent.",
+        "`git switch main` then `git pull` brings the update into your clone.",
+        "Or by hand: `git fetch upstream`, `git switch main`, `git merge --ff-only upstream/main`, `git push origin main`.",
+        "Switch back to your working branch and run `git rebase main` if the branch is yours alone, or `git merge main` otherwise."
+      ],
+      "editor": [
+        "In VS Code, open the Source Control menu and use the pull command that lets you pick a remote. Choose `upstream` and its `main` branch while you are on your own `main`.",
+        "Push `main` so that your fork on GitHub matches.",
+        "Or run the same commands as the command line path in the built-in terminal."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Committing your work on the fork's `main`. The next sync is no longer a fast-forward, and your pull requests pick up stray commits.",
+      "fix": "Work only on branches. If `main` has already drifted, move your commits to a branch, then reset `main` to `upstream/main`."
+    },
+    {
+      "trap": "Opening a large pull request nobody asked for. Maintainers have to decline it, and your effort is lost.",
+      "fix": "Open or find an issue first and agree on the approach before you write much code."
+    },
+    {
+      "trap": "Sending the pull request to your own fork instead of the original, because the base repository was wrong.",
+      "fix": "Read the base and head lines at the top of the pull request form before you submit."
+    },
+    {
+      "trap": "Skipping the contributing guide. The pull request stalls on a missing test, a commit format or a sign-off.",
+      "fix": "Read `CONTRIBUTING.md` first and run the project's checks on your machine."
+    },
+    {
+      "trap": "Assuming public code is free to reuse. Without a license you have no permission to copy it into your own project.",
+      "fix": "Check the `LICENSE` file. If there is none, ask the owner to add one before you build on the code."
+    },
+    {
+      "trap": "Pushing a credential to a public fork and deleting the fork to hide it.",
+      "fix": "Treat anything pushed to a public fork as published. Revoke the credential at once. See [The Security tab](#advanced-security-features)."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "After `gh repo fork ORIGINAL-OWNER/REPO --clone`, what do the two remotes point at?",
+      "choices": [
+        "`origin` is the original, `upstream` is your fork",
+        "`origin` is your fork, `upstream` is the original",
+        "Both point at the original",
+        "Only `origin` exists, and it points at the original"
+      ],
+      "answer": 1,
+      "why": "`origin` is where you push, so it is your fork. `upstream` is the project you forked from, which you can only read. Mixing them up is the usual reason a push is refused with a permission error."
+    },
+    {
+      "q": "Your fork's `main` is 40 commits behind the original and you have never committed on it. What does syncing do?",
+      "choices": [
+        "Creates a merge commit on your fork",
+        "Fast-forwards your fork's `main` to match the original",
+        "Deletes your other branches",
+        "Opens a pull request against the original"
+      ],
+      "answer": 1,
+      "why": "With no commits of your own on `main`, the original's history is strictly ahead of yours, so the sync moves your pointer forward. A merge commit would only be needed if your `main` had commits the original lacks, which is why you keep it clean."
+    },
+    {
+      "q": "A public repository has no license file. In general, what may you do with its code?",
+      "choices": [
+        "Anything, because it is public",
+        "Use it in your own project if you credit the author",
+        "View it and fork it on GitHub, with no permission to reuse it elsewhere",
+        "Use it for research but not commercially"
+      ],
+      "answer": 2,
+      "why": "Without a license, default copyright applies and nobody else has permission to copy, modify or distribute the work. GitHub's terms allow viewing and forking on GitHub and nothing more. Crediting the author does not create a license. This is general information, not legal advice."
+    },
+    {
+      "q": "What does the option that allows edits by maintainers do on a pull request from your fork?",
+      "choices": [
+        "Lets maintainers of the original push commits to your pull request branch",
+        "Gives maintainers admin rights on your fork",
+        "Lets anyone on GitHub edit your branch",
+        "Lets maintainers merge into your fork's `main`"
+      ],
+      "answer": 0,
+      "why": "It grants people with push access to the original repository permission to push to that one branch in your fork, so they can make small fixes without asking you. It gives no access to the rest of your fork."
+    },
+    {
+      "q": "When should you fork a repository instead of creating a branch in it?",
+      "choices": [
+        "Always, because forks are safer",
+        "When you do not have permission to push to it",
+        "When the change is larger than one commit",
+        "When the repository is private"
+      ],
+      "answer": 1,
+      "why": "A fork exists to give you somewhere to push when you cannot push to the project itself. With write access, a branch in the same repository is the shorter path. The size of the change has nothing to do with it."
+    }
+  ],
+  "mission": {
+    "title": "Make one real contribution, however small",
+    "where": "An open-source project you already use. Documentation fixes count.",
+    "steps": [
+      "Pick a project you use. Add `/contribute` to its repository address, or search its issues for the `good first issue` label.",
+      "Read `CONTRIBUTING.md` and `LICENSE`. Write down the license name and the command that runs the tests.",
+      "Fork and clone with `gh repo fork --clone`, or use the **Fork** button. Confirm both remotes with `git remote -v`.",
+      "On a branch, make one small improvement, such as a typo, an unclear sentence or a missing alt text. Run the project's checks.",
+      "Open the pull request against the original. Fill in the template and keep maintainer edits allowed.",
+      "A week later, sync your fork and note how many commits it had fallen behind."
+    ]
+  },
+  "terms": [
+    {
+      "term": "fork",
+      "def": "A copy of a repository under your own account on GitHub, linked to the original. You can push to it freely and propose changes back."
+    },
+    {
+      "term": "upstream",
+      "def": "The conventional name for the remote that points at the original repository a fork was made from."
+    },
+    {
+      "term": "maintainer",
+      "def": "A person with the rights and the responsibility to review and merge changes to a project."
+    },
+    {
+      "term": "contributing guide",
+      "def": "A file, usually `CONTRIBUTING.md`, that explains how to set up, test and submit changes to a project."
+    },
+    {
+      "term": "permissive license",
+      "def": "A license, such as MIT, BSD or Apache 2.0, that allows reuse with few conditions, mainly keeping the copyright notice."
+    },
+    {
+      "term": "copyleft license",
+      "def": "A license, such as the GPL, that allows reuse on the condition that derivative works you distribute carry the same license."
+    },
+    {
+      "term": "sign-off",
+      "def": "A `Signed-off-by` line added with `git commit -s`, certifying that you have the right to contribute the change."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh repo fork <owner>/<repo> --clone",
+      "does": "Forks a repository to your account, clones the fork and adds the `upstream` remote.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git remote -v",
+      "does": "Lists your remotes and the addresses they point at.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git remote add upstream <url>",
+      "does": "Adds a remote named `upstream` that points at the original repository.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git fetch upstream",
+      "does": "Downloads the original's new commits without changing your branches.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git merge --ff-only upstream/main",
+      "does": "Moves your `main` forward to the original's, and stops if that is not a fast-forward.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh repo sync <your-username>/<repo>",
+      "does": "Updates your fork's default branch on GitHub from its parent.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr create",
+      "does": "Opens a pull request from the current branch. From a fork, it offers the original as the base.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git commit -s",
+      "does": "Commits with a `Signed-off-by` line, which some projects require.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "https://github.com/OWNER/REPO/contribute",
+      "does": "Lists a project's issues marked as good for first-time contributors.",
+      "kind": "web",
+      "risk": "safe"
+    },
+    {
+      "cmd": "label:\"good first issue\" is:open language:python",
+      "does": "Search qualifiers for beginner-friendly open issues in Python projects.",
+      "kind": "search",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About forks",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/about-forks"
+    },
+    {
+      "label": "GitHub Docs: Syncing a fork",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/working-with-forks/syncing-a-fork"
+    },
+    {
+      "label": "GitHub Docs: Contributing to a project",
+      "url": "https://docs.github.com/en/get-started/exploring-projects-on-github/contributing-to-a-project"
+    },
+    {
+      "label": "GitHub Docs: Licensing a repository",
+      "url": "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository"
+    },
+    {
+      "label": "Choose a License: what happens with no license",
+      "url": "https://choosealicense.com/no-permission/"
+    },
+    {
+      "label": "GitHub CLI manual: gh repo fork",
+      "url": "https://cli.github.com/manual/gh_repo_fork"
+    }
+  ]
+}

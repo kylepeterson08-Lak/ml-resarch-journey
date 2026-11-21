@@ -1,0 +1,459 @@
+{
+  "id": "basics-repo-tour",
+  "track": "basics",
+  "title": "Reading a repository page",
+  "minutes": 12,
+  "summary": "A repository page is a dashboard, and the file list is only one tab of it. Once you know what each tab, sidebar and button reports, you can size up any project in a minute: what it is, whether it is maintained, and where to look next.",
+  "outcomes": [
+    "Name what each repository tab is for and which ones you will use every week",
+    "Read the About sidebar, the README and the license to size up a project",
+    "Switch branches and find the commit history, a file's history and its blame view",
+    "Tell public from private visibility and say who can see what",
+    "Use Star, Watch and Fork for their actual purposes"
+  ],
+  "prereqs": [
+    "basics-mental-model"
+  ],
+  "lenses": {
+    "everyday": "A repository page is like the front of a well-run shop. The sign and window display are the README and the About box: what this place is. The shelves are the file list. The notice board by the door is Issues, where customers leave requests. The back office, where staff propose and approve changes to the shelves, is Pull requests. The alarm panel is Security, and the manager's office is Settings. You can learn a lot about a shop without buying anything: is the notice board answered, were the shelves restocked this week, is there a posted returns policy.",
+    "legal": "Treat the repository page as a matter file with labeled tabs. Code is the current set of documents. The commit history is the version log: who changed what, and when. Issues is the open-items list. Pull requests are proposed revisions waiting for review and sign-off. Actions is the log of automated checks. Security holds the risk notices. Settings is the access list and the rules of the engagement. The license file is the grant of rights: it states what others may do with the work. Before you rely on a project, you read the file the way you would at intake: who maintains it, what is outstanding, and on what terms.",
+    "ml": "You find a repository that claims to reproduce a paper. The page tells you whether to trust it before you clone anything. The README should name the paper, the dataset and the command to run. The commit list shows whether anyone has touched the code since the preprint appeared. Issues reveal whether others reproduced the numbers or got stuck. Releases and tags mark the exact code state behind the reported results. The license says whether you may build on it. The About sidebar often links the paper and lists topics such as `pytorch`. Five minutes on the page can save a day of debugging abandoned code.",
+    "technical": "A repository page on GitHub is a set of views over one Git repository and the GitHub features attached to it. The Code tab renders the tree of the selected branch, tag or commit, with the README shown below the file list. Other tabs expose GitHub objects that are not stored in Git: issues, pull requests, workflow runs, projects, security alerts and settings. The About sidebar holds the description, website, topics and detected license. Visibility is public or private and controls who can read the repository. Stars, watches and forks are per-user relationships to it."
+  },
+  "sections": [
+    {
+      "heading": "The tabs across the top",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Every repository has a row of tabs under its name. Which tabs you see depends on your permissions and on the features the owner turned on. **Settings** appears only for people with enough access to manage the repository. On a narrow screen some tabs fold into a menu. GitHub renames and rearranges tabs from time to time, so match by purpose if a label differs."
+        },
+        {
+          "type": "table",
+          "caption": "The standard tabs. Owners can also turn on Discussions and Wiki.",
+          "head": [
+            "Tab",
+            "What it holds",
+            "Use it to"
+          ],
+          "rows": [
+            [
+              "**Code**",
+              "Files, branches, commits, README",
+              "Read and navigate the project"
+            ],
+            [
+              "**Issues**",
+              "Bug reports, tasks, questions",
+              "Track work and see what is outstanding"
+            ],
+            [
+              "**Pull requests**",
+              "Proposed changes under review",
+              "Review, discuss and merge work"
+            ],
+            [
+              "**Actions**",
+              "Automated workflow runs and their logs",
+              "See whether checks passed, and why not"
+            ],
+            [
+              "**Projects**",
+              "Boards and tables that organize issues",
+              "Plan and prioritize"
+            ],
+            [
+              "**Security**",
+              "Security policy and alerts",
+              "Find vulnerable dependencies and leaked secrets"
+            ],
+            [
+              "**Insights**",
+              "Activity graphs, contributors, traffic",
+              "Judge how active a project is"
+            ],
+            [
+              "**Settings**",
+              "Access, branch rules, feature switches",
+              "Configure the repository"
+            ]
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "You want to know whether a project is still maintained. Which three places on the page would you check, and what would you look for?",
+          "answer": "The date of the latest commit above the file list, the Issues tab for recent replies from maintainers, and the Pull requests tab for recently merged work. A repository with many stars and no commits for two years is popular and unmaintained. Activity tells you more than popularity."
+        }
+      ]
+    },
+    {
+      "heading": "The Code tab, piece by piece",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The Code tab is where you land. Six parts of it carry most of the information."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Branch selector.** The button at the top left of the file list names the branch you are viewing, usually `main`. Use it to switch to another branch or a tag.",
+            "**Latest commit bar.** The row above the files shows the most recent commit, its author, and a link to the full commit history.",
+            "**File list.** Each row shows a file or folder, the message of the last commit that touched it, and when.",
+            "**README.** GitHub renders `README.md` below the file list. It is the project's front page.",
+            "**About sidebar.** The description, website link, topics and detected license. Releases, packages, contributors and languages are listed below it.",
+            "**Code button.** The green **Code** button gives the clone URLs, the option to open a codespace, and a ZIP download."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Three views of one file",
+          "text": "Open any file and look at the controls above it. **Raw** shows the plain text. **Blame** shows, line by line, the commit that last changed each line. **History** lists every commit that touched the file. Blame is badly named. Use it to find the context for a line, including the pull request where it was discussed."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Read the license before you reuse anything",
+          "text": "A public repository lets you read the code. It does not by itself let you copy that code into your own work. That permission comes from the license file. If there is no license, default copyright applies and the author has kept the rights. This is general information, not legal advice. Licensing is covered in depth in [the non-code layer](#expert-law-tax-access)."
+        }
+      ]
+    },
+    {
+      "heading": "Public, private, and who sees what",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Visibility is set per repository. A **public** repository can be read by anyone on the internet, signed in or not. A **private** repository can be read only by you and the people or teams you grant access. In both cases, only people with write access can change it."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Public",
+              "points": [
+                "Anyone can view, clone and fork it",
+                "It can appear in search engines and on your profile",
+                "Changes still need write access, or a pull request you accept",
+                "Good for portfolios, open research and shared tools"
+              ]
+            },
+            {
+              "title": "Private",
+              "points": [
+                "Visible only to you and invited collaborators",
+                "Hidden from search and from your public profile",
+                "Still a full repository with issues, pull requests and Actions",
+                "Good for unpublished work and drafts"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Public means the whole history",
+          "text": "When a repository is public, every past commit is public too. A file you deleted last month is still readable in the history. Check for passwords, keys and personal data before you switch a repository from private to public. Private is an access setting. Confidential client or employer material belongs in a repository only if your organization has approved that use."
+        }
+      ]
+    },
+    {
+      "heading": "Star, Watch, Fork",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Three buttons sit at the top right of every repository. They are often confused, and none of them changes the repository itself."
+        },
+        {
+          "type": "table",
+          "head": [
+            "Button",
+            "What it does",
+            "What it does not do"
+          ],
+          "rows": [
+            [
+              "**Star**",
+              "Bookmarks the repository in your starred list and signals interest to the owner",
+              "Send you notifications"
+            ],
+            [
+              "**Watch**",
+              "Subscribes you to notifications for the activity you choose",
+              "Give you any access"
+            ],
+            [
+              "**Fork**",
+              "Creates your own copy of the repository under your account",
+              "Change the original in any way"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Forks matter when you want to contribute to a project you cannot write to. That flow has its own lesson: [Forks and contributing](#intermediate-forks-open-source)."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Keyboard first",
+          "text": "Almost everything on a repository page is reachable from the keyboard. Press {{?}} on any GitHub page to list the shortcuts available there. {{t}} opens a file finder, which is faster than scrolling a long file list and kinder to screen reader and switch users. If single-key shortcuts interfere with your assistive technology, you can turn them off in your account's accessibility settings."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Size up an unfamiliar repository in two minutes",
+      "browser": [
+        "Read the **About** sidebar: description, website, topics and license.",
+        "Skim the README for what the project does and how to run it.",
+        "Check the date of the latest commit in the bar above the file list.",
+        "Open **Issues** and **Pull requests**. Look at how recently maintainers replied or merged.",
+        "Open **Insights**, then **Contributors**, to see whether one person or many do the work."
+      ],
+      "phone": [
+        "Open the repository in GitHub Mobile. The first screen shows the description and star count, with the README further down.",
+        "Use the **Issues** and **Pull Requests** rows to check recent activity.",
+        "Browse the commit list for the default branch to see the date of the latest commit.",
+        "Insights graphs are limited in the app as of this writing. Open the repository in your mobile browser if you need them."
+      ],
+      "cli": [
+        "`gh repo view OWNER/REPO` prints the description and README in the terminal.",
+        "`gh repo view OWNER/REPO --web` opens the page in your browser.",
+        "`gh issue list --repo OWNER/REPO --limit 10` shows the ten most recently created open issues.",
+        "`gh pr list --repo OWNER/REPO --state merged --limit 5` shows recently merged work.",
+        "After cloning, `git log -5 --date=short --format=\"%ad %an %s\"` shows the last five commits with dates and authors."
+      ],
+      "editor": [
+        "On github.com, press {{.}} on the repository page to open the code in the github.dev web editor and browse it with search and file navigation.",
+        "In VS Code with the GitHub Pull Requests extension, the GitHub view lists the repository's issues and pull requests after you clone it.",
+        "Ask a coding agent to summarize the repository's purpose, structure and setup steps from the README and file tree. Check its claims against the README yourself."
+      ]
+    },
+    {
+      "task": "Find out why a line of code is the way it is",
+      "browser": [
+        "Open the file and select **Blame** in the controls above it.",
+        "Find the line. The column beside it shows the commit that last changed it, with its message and age.",
+        "Select the commit message to open the commit and read the full change.",
+        "On the commit page, follow the pull request link next to the branch name, if there is one, to read the discussion."
+      ],
+      "phone": [
+        "Blame is not available in GitHub Mobile as of this writing.",
+        "Open the file in your phone's browser at github.com and select **Blame**. Switch to the desktop site if the control is hidden.",
+        "Alternatively, browse the repository's commit list in the app and open the commit whose message mentions the change."
+      ],
+      "cli": [
+        "`git blame path/to/file.py` prints each line with the commit, author and date that last changed it.",
+        "`git blame -L 40,60 path/to/file.py` limits the output to lines 40 through 60.",
+        "`git show <commit-id>` displays that commit's message and full diff.",
+        "`git log --oneline -- path/to/file.py` lists every commit that touched the file."
+      ],
+      "editor": [
+        "In VS Code, open Settings, search for `git blame`, and turn on the blame decoration or the status bar item.",
+        "Place the cursor on a line to see the commit, author and date that last changed it.",
+        "Open the **Timeline** view in the Explorer to list the commits that touched the current file.",
+        "Ask a coding agent to explain why a line changed. Have it cite the commit ID, then open that commit yourself to confirm."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Judging a project by its star count. Stars measure attention at some point in the past.",
+      "fix": "Check the latest commit date and how maintainers respond in Issues and Pull requests."
+    },
+    {
+      "trap": "Assuming public code is free to reuse.",
+      "fix": "Read the license named in the About sidebar. No license means the author has kept the rights."
+    },
+    {
+      "trap": "Reading files on the wrong branch and concluding that a feature is missing.",
+      "fix": "Look at the branch selector before you read. Switch to the default branch, or to the tag for the release you use."
+    },
+    {
+      "trap": "Selecting **Watch** on a busy repository and drowning in notifications.",
+      "fix": "Choose **Custom** in the Watch menu and subscribe only to releases or to the activity you need."
+    },
+    {
+      "trap": "Switching a private repository to public without checking its history.",
+      "fix": "Search the history for keys and personal data first. Past commits become public along with the current files."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "Where do you look to see whether a repository's automated checks passed on the latest commit, with logs?",
+      "choices": [
+        "**Insights**",
+        "**Actions**",
+        "**Security**",
+        "**Projects**"
+      ],
+      "answer": 1,
+      "why": "Actions lists every workflow run with its status and logs. Insights shows activity graphs, and Security shows vulnerability and secret alerts, which are a different kind of check."
+    },
+    {
+      "q": "A public repository has no license file. What may you do with its code?",
+      "choices": [
+        "Anything, because it is public",
+        "Use it in personal projects only",
+        "View it and fork it on GitHub, with no general permission to reuse it",
+        "Use it anywhere if you credit the author"
+      ],
+      "answer": 2,
+      "why": "Without a license, default copyright applies and the author keeps the rights. GitHub's terms let others view and fork public repositories on GitHub, and nothing more. Giving credit does not create permission. This is general information, not legal advice."
+    },
+    {
+      "q": "What does the **Blame** view show?",
+      "choices": [
+        "The commit that last changed each line of a file",
+        "The person who introduced each bug",
+        "Everyone who has ever edited the file",
+        "Lines that failed code review"
+      ],
+      "answer": 0,
+      "why": "Blame labels each line with the most recent commit that touched it. That last change is often a reformat or a rename, so follow the commit to its pull request for the real context. It makes no judgment about bugs."
+    },
+    {
+      "q": "You want a notification only when a project publishes a new release. Which control do you use?",
+      "choices": [
+        "**Star**",
+        "**Fork**",
+        "**Watch**, set to all activity",
+        "**Watch**, set to custom with releases selected"
+      ],
+      "answer": 3,
+      "why": "Watch controls notifications, and its custom option lets you pick releases alone. Star is a bookmark and sends nothing. Watching all activity would also send every issue and pull request comment."
+    },
+    {
+      "q": "You press {{t}} on a repository's Code tab. What happens?",
+      "choices": [
+        "The page scrolls to the top",
+        "A file finder opens so you can type part of a file name",
+        "The repository's topics open",
+        "The page opens in a new tab"
+      ],
+      "answer": 1,
+      "why": "{{t}} opens the file finder, which searches file paths across the repository. It is the fastest way to reach a file in a large project. Press {{?}} to see the other shortcuts for the page."
+    }
+  ],
+  "mission": {
+    "title": "Audit your own repository's front page",
+    "where": "Your repository on github.com, in a browser or on your phone.",
+    "steps": [
+      "Open your repository and read it as a stranger would. Can you tell what it is for within ten seconds?",
+      "Edit the About sidebar with the gear icon. Add a one-line description and two or three topics.",
+      "Check whether the sidebar shows a license. If it does not, note that as a decision to make, and read the licensing section of [the non-code layer](#expert-law-tax-access) before choosing one.",
+      "Press {{t}} and jump to a file by typing part of its name. Then open **Blame** on that file.",
+      "Open the commit history and read your own messages. Would they make sense to you in a year?",
+      "Pick one busy repository you follow and set **Watch** to **Custom**, so only the activity you choose reaches you."
+    ]
+  },
+  "terms": [
+    {
+      "term": "README",
+      "def": "A file, usually `README.md`, that GitHub renders on the repository's front page. It explains what the project is and how to use it."
+    },
+    {
+      "term": "visibility",
+      "def": "The setting that controls who can read a repository. Public means anyone. Private means only people you grant access."
+    },
+    {
+      "term": "blame",
+      "def": "A view that labels each line of a file with the commit that last changed it."
+    },
+    {
+      "term": "star",
+      "def": "A bookmark on a repository. It adds the repository to your starred list and sends no notifications."
+    },
+    {
+      "term": "watch",
+      "def": "A subscription to a repository's notifications, with levels from participating only to all activity."
+    },
+    {
+      "term": "fork",
+      "def": "Your own copy of someone else's repository, linked to the original so you can propose changes back."
+    },
+    {
+      "term": "topics",
+      "def": "Labels in the About sidebar that describe a repository's subject, such as `machine-learning`, and help people find it in search."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "t",
+      "does": "On a repository page, opens the file finder. Type part of a path to jump to a file.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": ".",
+      "does": "Opens the repository in the github.dev web editor in the same browser tab.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "y",
+      "does": "While viewing a file, changes the URL to a permanent link for the exact commit you are looking at.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "b",
+      "does": "While viewing a file, opens its blame view.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "w",
+      "does": "On the Code tab, opens the branch and tag switcher.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "/",
+      "does": "Moves keyboard focus to the search bar.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "?",
+      "does": "Lists the keyboard shortcuts available on the current page.",
+      "kind": "key",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh repo view OWNER/REPO --web",
+      "does": "Opens a repository's page in your default browser from the terminal.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git blame <file>",
+      "does": "Prints each line of a file with the commit, author and date that last changed it.",
+      "kind": "git",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About repositories",
+      "url": "https://docs.github.com/en/repositories/creating-and-managing-repositories/about-repositories"
+    },
+    {
+      "label": "GitHub Docs: Keyboard shortcuts",
+      "url": "https://docs.github.com/en/get-started/accessibility/keyboard-shortcuts"
+    },
+    {
+      "label": "GitHub Docs: Licensing a repository",
+      "url": "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository"
+    },
+    {
+      "label": "GitHub Docs: Setting repository visibility",
+      "url": "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility"
+    },
+    {
+      "label": "GitHub Docs: Viewing and understanding files",
+      "url": "https://docs.github.com/en/repositories/working-with-files/using-files/viewing-and-understanding-files"
+    }
+  ]
+}

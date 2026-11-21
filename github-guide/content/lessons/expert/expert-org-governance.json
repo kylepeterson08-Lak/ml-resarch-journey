@@ -1,0 +1,512 @@
+{
+  "id": "expert-org-governance",
+  "track": "expert",
+  "title": "Organizations, roles, audit logs and policy",
+  "minutes": 21,
+  "summary": "An owner decides who can do what and what evidence exists afterward. Organizations add teams, roles, policy and an audit log on top of repositories. Design them for least privilege, for two people who can always get in, and for the day someone leaves.",
+  "outcomes": [
+    "Choose between a personal account and an organization for shared work",
+    "Assign the five repository roles through teams, not one-off grants",
+    "Apply rules and security settings across many repositories with rulesets and custom properties",
+    "Search and export the audit log, and explain its limits as a record",
+    "Decide between archiving, transferring and deleting a repository",
+    "Run an offboarding checklist that covers secrets, apps and personal forks"
+  ],
+  "prereqs": ["advanced-branch-protection", "advanced-secrets-environments"],
+  "lenses": {
+    "everyday": "A shared house can run on one person's keys for a while. Then that person travels, and nobody can let the plumber in. An organization is the house with a proper key system. A few people hold master keys. Housemates get keys to the rooms they use. A guest gets one key to one room for the weekend. House rules are posted where everyone sees them, and a logbook by the door records who changed the locks. The two questions that matter are the same for a house and an organization: can at least two people always get in, and when someone moves out, which keys and codes need to change.",
+    "legal": "A firm does not let matter files live in one partner's personal cabinet. The document management system belongs to the firm, access follows role and matter, and ethical walls keep one team out of another's files. Partners, associates, paralegals and contract attorneys map closely to Admin, Write, Triage and outside collaborator. The system's audit trail records who opened, changed or exported what. A retention schedule says how long records are kept, and a legal hold suspends deletion when a dispute is reasonably anticipated. Access is recertified periodically, and a departure triggers a checklist. GitHub organizations give you the same instruments: teams, roles, rulesets, an audit log, archiving and offboarding.",
+    "ml": "A lab's code usually starts in a graduate student's personal account. Three years later the student graduates, the repository goes with them, and the next cohort cannot reproduce the paper. An organization fixes ownership: the lab owns the repositories, and people come and go. The principal investigator and the lab manager are owners. Each project has a team with write access. External co-authors are outside collaborators on one repository. Cluster credentials live in organization secrets, not in anyone's shell history. When a paper is published, the repository is tagged and archived. When someone leaves, they move to an alumni team with read access and the cluster token is rotated.",
+    "technical": "An organization is a shared account that owns repositories. Members receive access from three sources that combine to the highest level: the organization's base permission, team membership and direct grants. Each grant carries one of five repository roles: Read, Triage, Write, Maintain or Admin. Outside collaborators hold repository access without membership. Organization owners control settings, billing and membership. Rulesets and security configurations apply policy across repositories, selected by name pattern or by custom properties. The audit log records administrative events with actor, action and time. It is searchable and exportable, with retention and API access that depend on plan. Enterprise accounts add single sign-on, managed users and policy across several organizations."
+  },
+  "sections": [
+    {
+      "heading": "Who owns the repository",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Every repository has exactly one owner, and the owner is an account. If that account is personal, the repository's fate is tied to one person: their employment, their attention, their two-factor device. An organization separates the two. People hold roles in it. The organization holds the repositories."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Personal account",
+              "points": [
+                "One owner. Invited collaborators all get the same broad level of access",
+                "Right for solo work, experiments and a public profile",
+                "The repository leaves when the person does"
+              ]
+            },
+            {
+              "title": "Organization",
+              "points": [
+                "Several owners, many members, teams and five repository roles",
+                "Right for any work a group depends on: a lab, a company, an open-source project",
+                "Policy, secrets and the audit log are shared and outlive any one member"
+              ]
+            },
+            {
+              "title": "Enterprise account",
+              "points": [
+                "Sits above several organizations",
+                "Adds central policy, single sign-on and managed user accounts",
+                "Availability depends on your plan"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "A bus factor of one is a governance failure",
+          "text": "If one person is the only owner, a lost phone, an illness or a resignation can lock everyone out of settings, billing and membership. Recovery through GitHub Support is slow and needs proof of entitlement. Keep at least two owners, each with their own two-factor method and stored recovery codes."
+        }
+      ]
+    },
+    {
+      "heading": "Roles and teams: least privilege as the default",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Access in an organization is granted per repository through one of five roles. Grant roles to **teams**, not to individuals. A team is a named group you can review in one place, mention in a comment, list in CODEOWNERS and empty in one action when a project ends."
+        },
+        {
+          "type": "table",
+          "caption": "The five repository roles",
+          "head": ["Role", "Can do", "Typical holder"],
+          "rows": [
+            ["**Read**", "View and clone, open issues, comment", "Stakeholders, alumni, auditors"],
+            ["**Triage**", "Manage issues and pull requests without pushing code", "Project coordinators and community moderators"],
+            ["**Write**", "Push branches, review and merge within the branch rules", "Active contributors"],
+            ["**Maintain**", "Manage the repository day to day, without the sensitive or destructive settings", "Project leads"],
+            ["**Admin**", "Everything, including access, secrets, rules and deletion", "As few people as possible"]
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Base permission** is what every member gets on every repository. Set it to the lowest level your culture can live with. Read supports discovery and reuse. None suits organizations that hold confidential data.",
+            "**Teams can nest.** A child team inherits its parent's access, so a `research` parent with `nlp` and `vision` children mirrors a real structure.",
+            "**Outside collaborators** have access to named repositories and are not members. They see nothing else in the organization. Use this for external co-authors and contractors.",
+            "**Effective access is the highest of all sources.** A team cannot subtract what the base permission already gives."
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "The base permission is Read. Dana is on a team with Write on `eval-suite`, and was once granted Admin on it directly for a migration. What can Dana do on `eval-suite` today?",
+          "answer": "Everything. Access from the base permission, teams and direct grants combines to the highest level, so the forgotten direct Admin grant wins. This is why a one-off grant should carry an end date, and why an access review looks at direct grants first."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Segregation of duties in three settings",
+          "text": "The person who writes a change should not be the only person who approves it, and neither should be the only person who can change the approval rule. Write access for authors, required review on the default branch, and Admin held by a different, smaller group gives you that separation, with a record of each step."
+        }
+      ]
+    },
+    {
+      "heading": "Policy at scale",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Configuring forty repositories by hand guarantees forty slightly different configurations. Organizations provide instruments for setting policy once and letting it follow the repositories."
+        },
+        {
+          "type": "flow",
+          "caption": "Describe repositories once, then let policy follow the description",
+          "steps": [
+            {"label": "Custom properties", "note": "Label each repository, for example with a data classification"},
+            {"label": "Ruleset or security configuration", "via": "targets", "note": "Selects repositories by property or name pattern"},
+            {"label": "Enforcement", "via": "applies", "note": "Blocks or flags pushes and merges that break a rule"},
+            {"label": "Audit log and rule insights", "via": "records", "note": "Shows what was changed, bypassed or blocked"}
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Organization rulesets** apply branch and tag rules, such as required reviews or blocked force pushes, to every repository that matches. A new repository is covered from its first commit.",
+            "**Security configurations** turn on features such as secret scanning, push protection and Dependabot for many repositories at once.",
+            "**Actions policies** limit which actions may run, set the default token permissions to read-only, and require approval before workflows run for outside contributors.",
+            "**Member privileges** decide who may create, delete, transfer or change the visibility of repositories, and whether private repositories can be forked."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Check what your plan includes",
+          "text": "Several of these features, including organization-level rulesets, custom properties, the audit log API and single sign-on, depend on your plan. Design the policy you want first. Then read the documentation to see which parts you can enforce automatically and which need a written procedure in the meantime."
+        }
+      ]
+    },
+    {
+      "heading": "The audit log: your system of record",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The organization audit log answers who did what, and when, for administrative events: members added and removed, roles changed, repositories created, transferred, made public or deleted, rules and settings edited, secrets created. Each entry has an actor, an action name and a timestamp."
+        },
+        {
+          "type": "code",
+          "lang": "text",
+          "code": "action:repo.destroy                      repositories that were deleted\naction:org.remove_member                 members removed from the organization\naction:repo.access                       repository visibility changes\naction:protected_branch                  changes to branch protection\nactor:dana-okafor created:>=2026-10-01   everything one account did since a date",
+          "caption": "Search qualifiers for the audit log. The documentation lists every action name."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**It is not forever.** Entries are kept for a limited period that depends on your plan. If you need a longer record, export on a schedule or stream the log to storage you control.",
+            "**It is mostly administrative.** Who changed a setting is there. Who read a file generally is not. Git activity such as clones and pushes is available only on some plans.",
+            "**It records the account, not the human.** A shared or compromised account makes an entry misleading, which is one more reason every person needs their own account and two-factor authentication."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Retention, legal holds and the record you are writing",
+          "text": "Issues, pull request discussions and commit messages are business records, and they can be requested in a dispute or an audit. If a claim is reasonably anticipated, routine deletion and cleanup may need to stop for the affected repositories. Archive and export before anything is removed, and get legal advice on scope. This is general information, not legal advice."
+        }
+      ]
+    },
+    {
+      "heading": "Identity: two-factor authentication and single sign-on",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Every control above assumes that an account belongs to the person it names. An organization can require two-factor authentication for all members and outside collaborators. People who have not enabled it lose access to the organization's resources until they do."
+        },
+        {
+          "type": "p",
+          "text": "Larger organizations connect GitHub to an identity provider with SAML single sign-on, so that access ends when the employment record ends. Some go further with managed user accounts that the enterprise owns outright. Both depend on your plan. With single sign-on in place, a personal access token or SSH key must also be authorized for the organization before it works there."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Security rules people can actually follow",
+          "text": "A two-factor policy that offers only one method excludes someone. Authenticator apps, passkeys, hardware keys and text messages make different demands on vision, dexterity and memory. Let members choose, ask them to register a backup, and tell them where to get help before enforcement day. That flexibility costs nothing in security."
+        }
+      ]
+    },
+    {
+      "heading": "Lifecycle: archive, transfer, delete, offboard",
+      "blocks": [
+        {
+          "type": "table",
+          "caption": "Three ways a repository's life changes",
+          "head": ["Action", "What happens", "Use it when"],
+          "rows": [
+            ["**Archive**", "The repository becomes read-only. Code, issues and pull requests stay visible. It can be unarchived.", "A project is finished or published and should be preserved."],
+            ["**Transfer**", "Ownership moves to another account, with issues, pull requests, stars and history. Old addresses redirect.", "Work that started in a personal account belongs in the organization."],
+            ["**Delete**", "Everything is removed, including issues and releases. Restoring it is possible only for a limited time.", "A scratch repository with nothing worth keeping, after you have checked your retention duties."]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Offboarding is where governance is tested. A departing member's account belongs to them. What you control is everything that account could reach."
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Transfer any organization work that lives in their personal account before their last day.",
+            "Remove them from the organization, or convert them to an outside collaborator with Read on named repositories and an end date.",
+            "Rotate every secret they could read or set: Actions secrets, deploy keys, cloud keys, cluster tokens.",
+            "Find automation that runs as them: personal access tokens in scripts, webhooks they created, OAuth apps and GitHub Apps registered under their account. Move each one to the organization.",
+            "Remove their name from CODEOWNERS, required reviewer lists and environment approvers, and name a replacement.",
+            "Reassign their open issues and pull requests, and decide what happens to their unmerged branches.",
+            "Deregister self-hosted runners on machines they control.",
+            "Record what you did and when, and keep the relevant audit log export with the record."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Private forks do not survive removal",
+          "text": "When a member loses access to a private repository, their forks of it are deleted. That is the system protecting the organization. It also means unmerged work in those forks is gone, so ask people to push their branches to the organization's repository before their access ends."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Review who has access to a repository",
+      "browser": [
+        "Open the repository's **Settings** and select **Collaborators and teams**.",
+        "Read the base role at the top, then each team and person with their role. Direct grants to individuals deserve the closest look.",
+        "For the whole organization, open the organization page, select **People**, and filter by role to list owners and outside collaborators.",
+        "Change or remove a grant from the same page, and note the reason in your access review record."
+      ],
+      "phone": [
+        "GitHub Mobile does not expose repository access settings as of this writing.",
+        "In the phone's browser, open the repository's settings with the desktop site. A read-only review is workable. Leave changes for a larger screen, where a mis-tap on a role menu is less likely."
+      ],
+      "cli": [
+        "`gh api repos/OWNER/REPO/collaborators --paginate --jq '.[] | [.login, .role_name] | @tsv'` lists every person with access and their role.",
+        "`gh api repos/OWNER/REPO/teams --jq '.[] | [.slug, .permission] | @tsv'` lists the teams and their level of access.",
+        "`gh api \"orgs/ORG/members?role=admin\" --jq '.[].login'` lists the organization's owners.",
+        "`gh api orgs/ORG/outside_collaborators --jq '.[].login'` lists outside collaborators.",
+        "Save the output with the date. Next quarter's review starts by comparing against it."
+      ],
+      "editor": [
+        "Run the `gh api` commands in the integrated terminal and save the output outside the repository.",
+        "With a coding agent, ask it to turn the output into a table of person, source of access and role, flagging direct Admin grants. Check three rows against the settings page before you rely on it."
+      ]
+    },
+    {
+      "task": "Search and export the organization audit log",
+      "browser": [
+        "Open the organization's **Settings** and select **Audit log** in the sidebar, in the logs section.",
+        "Type a query such as `action:repo.destroy` or `actor:USERNAME` in the search box.",
+        "Narrow by date with the `created:` qualifier and a range.",
+        "Select **Export** and choose JSON or CSV. Store the file where your retention rules say records belong."
+      ],
+      "phone": [
+        "The audit log is not available in GitHub Mobile as of this writing. A mobile browser can display it with the desktop site, which is enough to check one event. Do exports at a computer."
+      ],
+      "cli": [
+        "On plans that include the audit log API, `gh api \"orgs/ORG/audit-log?phrase=action:repo.destroy\" --paginate` returns the matching events as JSON.",
+        "Add `--jq '.[] | [.action, .actor, .repo] | @tsv'` for a compact table.",
+        "Without API access, use **Export** in the browser and keep the file with your records."
+      ],
+      "editor": [
+        "There is no editor integration for the audit log. Run the API query in the integrated terminal, or open the exported file to read and filter it.",
+        "Keep exports out of the repository. They contain names and activity that do not belong in version control."
+      ]
+    },
+    {
+      "task": "Offboard a departing member",
+      "browser": [
+        "Ask the person to push their unmerged branches and to transfer any organization work out of their personal account.",
+        "Open the organization's **People** page, find the member, open the menu on their row, and choose **Remove from organization** or **Convert to outside collaborator**.",
+        "Open each repository they administered and check **Settings** for secrets, deploy keys, webhooks and environments that need a new owner or a new value.",
+        "Search the organization for their username to find CODEOWNERS entries and reviewer lists.",
+        "Rotate the secrets they could reach, then record the date and what was done."
+      ],
+      "phone": [
+        "Do not run an offboarding from a phone. It is a multi-step control that needs several settings pages and a written record. If the removal is urgent, ask a second owner at a computer to do it."
+      ],
+      "cli": [
+        "`gh search code \"@USERNAME\" --owner ORG --filename CODEOWNERS` finds ownership entries that name them.",
+        "`gh secret list --org ORG` and `gh secret list --repo OWNER/REPO` list the secrets to rotate. Values are never shown.",
+        "`gh api repos/OWNER/REPO/keys --jq '.[] | [.id, .title] | @tsv'` lists deploy keys.",
+        "`gh api -X DELETE orgs/ORG/members/USERNAME` removes the membership. Run it last, once everything else is prepared.",
+        "On plans that include the audit log API, `gh api \"orgs/ORG/audit-log?phrase=actor:USERNAME\"` reviews their recent administrative activity."
+      ],
+      "editor": [
+        "In a clone, `git grep -n \"@USERNAME\"` finds mentions in CODEOWNERS, workflow files and documentation.",
+        "A coding agent can draft the checklist and prepare a pull request that replaces their name. A human owner performs the removal and the secret rotation."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Running an organization with a single owner.",
+      "fix": "Appoint at least two owners today. Each needs their own two-factor method and recovery codes stored safely."
+    },
+    {
+      "trap": "Granting Admin because it is the role that makes the error message go away.",
+      "fix": "Find the smallest role that covers the task, usually Write or Maintain. If Admin is needed for a migration, set a date to remove it."
+    },
+    {
+      "trap": "Granting access person by person.",
+      "fix": "Create a team per project and grant roles to teams. Reviewing five teams is feasible. Reviewing two hundred individual grants is not."
+    },
+    {
+      "trap": "Leaving lab or company code in personal accounts because transferring feels bureaucratic.",
+      "fix": "Transfer early, while the owner is present and willing. Afterward it depends on the goodwill of someone who has left."
+    },
+    {
+      "trap": "Treating the audit log as a permanent archive.",
+      "fix": "Export or stream it on a schedule that matches how long you need the record."
+    },
+    {
+      "trap": "Removing a member and leaving the secrets they knew unchanged.",
+      "fix": "Rotate anything they could read, set or copy, and record that you did."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "A contractor needs to label and close issues for three months and must not push code. Which repository role fits?",
+      "choices": [
+        "Read",
+        "Triage",
+        "Write",
+        "Maintain"
+      ],
+      "answer": 1,
+      "why": "Triage manages issues and pull requests without write access to the code. Read cannot apply labels or close other people's issues. Write and Maintain grant more than the task needs."
+    },
+    {
+      "q": "An external co-author needs access to one private repository. What is the least-privilege way to grant it?",
+      "choices": [
+        "Add them as an outside collaborator on that repository",
+        "Invite them as an organization member and rely on the base permission",
+        "Share a member's sign-in for the duration of the project",
+        "Make the repository public until the paper is submitted"
+      ],
+      "answer": 0,
+      "why": "An outside collaborator gets a role on named repositories and sees nothing else. Membership would add the base permission on every repository. A shared sign-in destroys the audit trail and defeats two-factor authentication."
+    },
+    {
+      "q": "A member who has forks of your private repositories is removed from the organization. What happens to those forks?",
+      "choices": [
+        "They become public",
+        "They stay in the person's account as private repositories",
+        "They are transferred to the organization",
+        "They are deleted"
+      ],
+      "answer": 3,
+      "why": "A fork of a private repository exists only while the person has access to the parent. Removing access deletes it. That protects the organization and also destroys any unpushed work, so collect branches first."
+    },
+    {
+      "q": "An investigation needs to know who made a repository public fourteen months ago. The audit log has no entries that old. What should have been in place?",
+      "choices": [
+        "A larger runner for the organization",
+        "Vigilant mode on every account",
+        "A scheduled export or stream of the audit log to storage you control",
+        "A CODEOWNERS file in every repository"
+      ],
+      "answer": 2,
+      "why": "The audit log keeps entries for a limited period that depends on plan. A record you need for longer has to be copied out while it exists. The other options are real features that do not preserve administrative history."
+    },
+    {
+      "q": "A paper is published and its repository will not change again. Reviewers and future students still need the code, the issues and the release. What do you do?",
+      "choices": [
+        "Delete it to reduce clutter",
+        "Archive it after tagging the release",
+        "Transfer it to the first author's personal account",
+        "Make every member an Admin so anyone can maintain it"
+      ],
+      "answer": 1,
+      "why": "Archiving makes the repository read-only and keeps everything visible and citable. Deleting destroys the record. A personal account reintroduces the single-owner risk the organization was created to remove."
+    }
+  ],
+  "mission": {
+    "title": "Run an access review on something you own",
+    "where": "Your own account and one repository you administer. Steps 1 to 3 only read. Steps 4 and 5 remove access you decide you no longer need.",
+    "steps": [
+      "List everyone with access to one of your repositories, from **Settings** or with `gh api`. For each, write the role and one sentence on why they need it.",
+      "Open your account's **Settings**, then **Security log**, and scan the last month for sign-ins or changes you do not recognize.",
+      "Open **Settings**, then **Applications**, and read the lists of authorized OAuth apps and installed GitHub Apps.",
+      "Revoke any application you no longer use.",
+      "Open **Developer settings**, then **Personal access tokens**. Delete tokens you cannot explain, and give the rest an expiry date.",
+      "Write a two-line succession note: who else can administer this repository if you cannot, and where the recovery codes are kept."
+    ]
+  },
+  "terms": [
+    {
+      "term": "organization",
+      "def": "A shared GitHub account that owns repositories and grants people access through membership, teams and roles."
+    },
+    {
+      "term": "organization owner",
+      "def": "A member with full administrative control of an organization, including membership, settings and billing."
+    },
+    {
+      "term": "team",
+      "def": "A named group of organization members. Granting a repository role to a team grants it to everyone in the team."
+    },
+    {
+      "term": "repository role",
+      "def": "One of five levels of access to a repository: Read, Triage, Write, Maintain or Admin."
+    },
+    {
+      "term": "base permission",
+      "def": "The level of access every organization member has to every repository in the organization, before teams and direct grants are added."
+    },
+    {
+      "term": "outside collaborator",
+      "def": "A person with access to one or more of an organization's repositories who is not a member of the organization."
+    },
+    {
+      "term": "audit log",
+      "def": "A searchable record of administrative events in an organization, each with an actor, an action and a time."
+    },
+    {
+      "term": "archived repository",
+      "def": "A repository set to read-only. Its code, issues and pull requests stay visible, and it can be unarchived later."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh api repos/OWNER/REPO/collaborators --jq '.[] | [.login, .role_name] | @tsv'",
+      "does": "Lists every person with access to a repository and their role.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api repos/OWNER/REPO/teams --jq '.[] | [.slug, .permission] | @tsv'",
+      "does": "Lists the teams with access to a repository and the level each one has.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api \"orgs/ORG/members?role=admin\" --jq '.[].login'",
+      "does": "Lists the owners of an organization.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api orgs/ORG/outside_collaborators --jq '.[].login'",
+      "does": "Lists people who have repository access without being members.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh secret list --org ORG",
+      "does": "Lists the names of organization-level Actions secrets. Values are never shown.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh search code \"@USERNAME\" --owner ORG --filename CODEOWNERS",
+      "does": "Finds CODEOWNERS files in an organization that name a particular person.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh repo archive OWNER/REPO",
+      "does": "Makes a repository read-only. Reverse it with `gh repo unarchive`.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh api -X DELETE orgs/ORG/members/USERNAME",
+      "does": "Removes a person from the organization. Their forks of its private repositories are deleted.",
+      "kind": "gh",
+      "risk": "danger"
+    },
+    {
+      "cmd": "action:repo.destroy actor:USERNAME",
+      "does": "In the audit log search box, finds repositories deleted by one account.",
+      "kind": "search",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: Repository roles for an organization",
+      "url": "https://docs.github.com/en/organizations/managing-user-access-to-your-organizations-repositories/managing-repository-roles/repository-roles-for-an-organization"
+    },
+    {
+      "label": "GitHub Docs: About teams",
+      "url": "https://docs.github.com/en/organizations/organizing-members-into-teams/about-teams"
+    },
+    {
+      "label": "GitHub Docs: Reviewing the audit log for your organization",
+      "url": "https://docs.github.com/en/organizations/keeping-your-organization-secure/managing-security-settings-for-your-organization/reviewing-the-audit-log-for-your-organization"
+    },
+    {
+      "label": "GitHub Docs: Managing rulesets for repositories in your organization",
+      "url": "https://docs.github.com/en/organizations/managing-organization-settings/managing-rulesets-for-repositories-in-your-organization"
+    },
+    {
+      "label": "GitHub Docs: Archiving repositories",
+      "url": "https://docs.github.com/en/repositories/archiving-a-github-repository/archiving-repositories"
+    },
+    {
+      "label": "GitHub Docs: Transferring a repository",
+      "url": "https://docs.github.com/en/repositories/creating-and-managing-repositories/transferring-a-repository"
+    }
+  ]
+}

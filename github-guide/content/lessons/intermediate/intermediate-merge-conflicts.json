@@ -1,0 +1,431 @@
+{
+  "id": "intermediate-merge-conflicts",
+  "track": "intermediate",
+  "title": "Merge conflicts: reading and resolving them calmly",
+  "minutes": 18,
+  "summary": "A conflict is Git declining to guess. Two lines of work changed the same lines, so Git stops, writes both versions into the file, and waits for a human decision. Nothing is broken and nothing is lost.",
+  "outcomes": [
+    "Predict when a merge will conflict and when Git will combine the changes on its own",
+    "Read conflict markers and say which side each block came from",
+    "Resolve a conflict in the browser, on a phone, in a terminal and in an editor",
+    "Back out of a merge you are not ready to finish",
+    "Shrink future conflicts with smaller branches and frequent syncing"
+  ],
+  "prereqs": ["basics-branches", "basics-pull-requests"],
+  "lenses": {
+    "everyday": "Two roommates photocopy the same grocery list. One crosses out \"milk\" and writes \"oat milk\". The other crosses out \"milk\" and writes \"2% milk\". Taping the copies back together works for every line only one person touched. For the milk line there is no way to know who is right, so you put both versions side by side and ask. That question is the entire conflict. The rest of the list merged without anyone noticing.",
+    "legal": "Two associates take the same draft agreement and redline it overnight. Where only one of them touched a clause, the change is accepted. Where both rewrote the indemnification clause differently, no software should pick a winner. A supervising attorney reads both redlines against the original and decides the language. Git works the same way: it compares each side to the common ancestor, accepts one-sided edits, and escalates only the clauses with competing edits. Resolving the conflict is the sign-off, and the merge commit records who made the call and when.",
+    "ml": "You branch off to try a new learning-rate schedule and change `lr: 0.001` to `lr: 0.0003` in `config.yaml`. Meanwhile a collaborator merges a change that sets the same line to `lr: 0.01` with warmup. When you merge `main` into your branch, Git cannot know which experiment should win, so it stops on that line. Your edits to `train.py` and their new `eval.py` merge cleanly because nobody else touched those lines. The conflict is one line of config, and resolving it is a research decision.",
+    "technical": "A merge is a three-way comparison between two branch tips and their merge base, the most recent common ancestor. For each region of each file, Git asks who changed it relative to the base. Changed on one side only: take that side. Changed identically on both: take it once. Changed differently on both sides in overlapping or adjacent lines: write both versions into the file between conflict markers, record the path as unmerged in the index, and stop before creating the merge commit. You finish by editing the file, staging it, and committing."
+  },
+  "sections": [
+    {
+      "heading": "Why conflicts happen",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Git merges by comparing three versions of every file: yours, theirs, and the **merge base**, the last commit both branches share. The base is what makes the merge smart. Without it Git would only see that two files differ. With it Git can tell *who* changed *what*."
+        },
+        {
+          "type": "graph",
+          "caption": "Both branches grew from commit B. B is the merge base. C changed a line on main, D changed the same line on feature.",
+          "commits": [
+            {"id": "A", "msg": "Start project"},
+            {"id": "B", "parents": ["A"], "msg": "Add config"},
+            {"id": "C", "parents": ["B"], "msg": "Raise learning rate"},
+            {"id": "D", "parents": ["B"], "msg": "Lower learning rate"}
+          ],
+          "branches": {"main": "C", "feature": "D"},
+          "head": "feature",
+          "highlight": ["B"]
+        },
+        {
+          "type": "table",
+          "caption": "What Git does with each region of a file during a merge",
+          "head": ["Compared to the base", "Result"],
+          "rows": [
+            ["Neither side changed it", "Keep the base text"],
+            ["Only your side changed it", "Take your change"],
+            ["Only their side changed it", "Take their change"],
+            ["Both sides made the identical change", "Take it once"],
+            ["Both sides changed it differently", "**Conflict.** Git stops and asks you"]
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "You edit line 3 of `README.md`. A teammate edits line 40 of the same file. You merge. Conflict or not?",
+          "answer": "No conflict. Git merges at the level of line regions, not whole files. Two edits far apart in one file combine automatically. Conflicts need *overlapping or adjacent* lines changed differently on both sides."
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Three other ways to get a conflict",
+          "text": "One side edits a file the other side deleted. Both sides add a new file with the same name and different content. Both sides change a binary file such as an image or a model checkpoint, which Git cannot merge line by line. In each case the fix is the same: you choose."
+        }
+      ]
+    },
+    {
+      "heading": "Reading the markers",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "When Git stops, it edits the conflicted file for you and brackets the disputed region with three marker lines. Everything outside the markers already merged cleanly."
+        },
+        {
+          "type": "code",
+          "lang": "conflict",
+          "file": "config.yaml",
+          "code": "model: resnet18\n<<<<<<< HEAD\nlr: 0.0003\n=======\nlr: 0.01\nwarmup_steps: 500\n>>>>>>> main\nbatch_size: 64",
+          "caption": "A conflict seen from the feature branch after running git merge main"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`<<<<<<< HEAD` opens the block. The lines under it are **your side**: the branch you had checked out when you started the merge.",
+            "`=======` is the divider between the two versions.",
+            "`>>>>>>> main` closes the block. The lines above it are **the incoming side**, and the label names the branch or commit they came from.",
+            "`model: resnet18` and `batch_size: 64` sit outside the markers, so Git has already settled them."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Ask Git to show the original too",
+          "text": "Run `git config --global merge.conflictstyle zdiff3` once. Conflicts then include a third section, between `|||||||` and `=======`, showing the base text. Seeing what the line said before either of you touched it makes most conflicts obvious."
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "During a rebase the sides swap",
+          "text": "In a merge, HEAD is your branch. In a rebase, Git replays your commits on top of the other branch, so HEAD is *their* work and the incoming block is *yours*. Editors label these Current and Incoming. Read the label before you accept anything."
+        }
+      ]
+    },
+    {
+      "heading": "Resolving, step by step",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Resolution is always the same four moves, whatever tool you use. Find the conflicted files. Edit each one into the text you actually want. Tell Git each file is settled. Finish the merge."
+        },
+        {
+          "type": "flow",
+          "caption": "The resolution loop",
+          "steps": [
+            {"label": "Merge stops", "note": "Git lists unmerged paths"},
+            {"label": "Edit the file", "via": "open", "note": "Keep one side, both, or new text"},
+            {"label": "Mark resolved", "via": "git add", "note": "Staging says this file is settled"},
+            {"label": "Merge commit", "via": "git commit", "note": "Two parents, your decision recorded"}
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git merge main                 # CONFLICT (content): Merge conflict in config.yaml\ngit status                     # lists files under \"Unmerged paths\"\n\n# open config.yaml, edit it to the final text, delete all three marker lines\n\ngit add config.yaml            # tells Git this file is resolved\ngit status                     # \"All conflicts fixed but you are still merging\"\ngit commit                     # completes the merge with a prepared message",
+          "caption": "The whole procedure in a terminal"
+        },
+        {
+          "type": "p",
+          "text": "Your edit does not have to pick a side. The right answer is often a third version that respects both changes. In the example above that could be the lower learning rate *and* the warmup line. Git only checks that the markers are gone and the file is staged. Whether the result is correct is your judgment, so run the tests or the script before you commit."
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "The exit is always open",
+          "text": "`git merge --abort` puts your branch and files back exactly as they were before the merge started. Use it freely. Aborting, thinking, and starting again costs nothing."
+        }
+      ]
+    },
+    {
+      "heading": "Conflicts on a pull request",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "GitHub tests every open pull request against its base branch. If they conflict, the merge box says **This branch has conflicts that must be resolved** and the merge button is disabled. The pull request is fine. It is waiting for the same decision."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Resolve on GitHub",
+              "points": [
+                "Best for a few simple text conflicts",
+                "The web editor shows the markers and you edit in place",
+                "Committing merges the base branch into your pull request branch",
+                "No terminal needed, works from a phone browser"
+              ]
+            },
+            {
+              "title": "Resolve locally",
+              "points": [
+                "Needed when the button is greyed out for complex conflicts",
+                "You can run tests before committing the resolution",
+                "Use `git merge origin/main` on your branch, or rebase if your team prefers",
+                "Push, and the pull request updates itself"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "The record you leave",
+          "text": "A resolution is a decision with an author and a timestamp. In regulated work that is the point: the merge commit shows who reconciled the competing changes, and the pull request shows who reviewed it. Write the reason in the commit message when the choice was not obvious."
+        }
+      ]
+    },
+    {
+      "heading": "Having fewer conflicts",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Conflicts scale with two things: how long a branch lives and how much of the same text people touch. You control both."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Keep branches short.** A branch merged in two days conflicts far less than one merged in two weeks.",
+            "**Sync early.** Merge or rebase `main` into your branch every day or two, so you meet conflicts one at a time while the change is fresh.",
+            "**Do not reformat files you are not changing.** A whole-file reformat touches every line and conflicts with everyone.",
+            "**Regenerate, do not hand-merge, generated files.** For lock files, take one side and rerun the tool that writes them.",
+            "**Keep notebook outputs out of commits.** A `.ipynb` file is JSON, and its output cells conflict constantly. Strip outputs before committing. See [What stays out](#intermediate-ignore-lfs).",
+            "**Say what you are touching.** A one-line comment on the issue prevents two people rewriting the same function."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "If the markers are hard to parse visually",
+          "text": "Conflict markers are dense and easy to misread. A merge editor that shows the two sides in separate labeled panes, or the `zdiff3` style with the base included, lowers the load. Screen reader users often prefer `git diff` output, which reads line by line with a plus or minus prefix."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Resolve a conflict on a pull request",
+      "browser": [
+        "Open the pull request and scroll to the merge box at the bottom of the **Conversation** tab.",
+        "Select **Resolve conflicts**. If the button is disabled, the conflict is too complex for the web editor, so use the command line or an editor.",
+        "For each file in the left list, edit the text into the final version and delete the `<<<<<<<`, `=======` and `>>>>>>>` lines.",
+        "Select **Mark as resolved** for the file. Repeat until every file shows a check mark.",
+        "Select **Commit merge**. GitHub adds a merge commit to your branch and re-runs the checks."
+      ],
+      "phone": [
+        "GitHub Mobile shows that the pull request has conflicts. As of this writing it has no conflict editor.",
+        "Open the same pull request in your phone's browser at github.com.",
+        "Select **Resolve conflicts** in the merge box. If you do not see it, switch the browser to the desktop site.",
+        "Edit each file in the web editor, remove the marker lines, then select **Mark as resolved** and **Commit merge**.",
+        "For anything larger than a few lines, wait for a bigger screen or hand the branch to a Codespace or a coding agent."
+      ],
+      "cli": [
+        "`git switch your-branch` then `git fetch origin` to get the latest base branch.",
+        "`git merge origin/main` to bring the base branch into yours. Git reports the conflicted files.",
+        "`git status` to list everything under **Unmerged paths**.",
+        "Edit each file to its final text and delete the marker lines.",
+        "`git add <file>` for each resolved file, then `git commit` to complete the merge.",
+        "`git push` to update the pull request."
+      ],
+      "editor": [
+        "In VS Code, pull the base branch into yours from the Source Control view, or run the merge in the built-in terminal.",
+        "Conflicted files appear under **Merge Changes**. Open one.",
+        "Use **Accept Current Change**, **Accept Incoming Change** or **Accept Both Changes** above each block, or open the **Merge Editor** for a side-by-side view.",
+        "Save, then stage the file with the plus icon. Commit when every file is staged, and sync.",
+        "With a coding agent, ask it to merge the base branch and explain each resolution. Read the resulting diff yourself before you push. The decision is still yours."
+      ]
+    },
+    {
+      "task": "Back out of a merge in progress",
+      "browser": [
+        "Leave the conflict editor without selecting **Commit merge**. Nothing is saved until you commit, so the pull request is unchanged."
+      ],
+      "phone": [
+        "Close the conflict editor tab in your mobile browser without committing. The pull request stays exactly as it was."
+      ],
+      "cli": [
+        "`git merge --abort` restores your branch and working files to the moment before the merge.",
+        "`git status` to confirm it says nothing to commit, working tree clean."
+      ],
+      "editor": [
+        "In VS Code, open the Command Palette and run **Git: Abort Merge**.",
+        "Check the Source Control view. The **Merge Changes** group should be gone."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Committing a file that still contains marker lines. The code will not run and the next person inherits the mess.",
+      "fix": "Search the project for `<<<<<<<` before you commit. `git diff --check` flags leftover markers."
+    },
+    {
+      "trap": "Accepting your own side everywhere to make the conflict go away. That silently deletes a teammate's work.",
+      "fix": "Read both sides against the base. If you cannot tell why they changed the line, ask the author before you choose."
+    },
+    {
+      "trap": "Hand-editing a lock file or a notebook's output cells line by line.",
+      "fix": "Take one side whole, then regenerate: rerun the package manager for lock files, or clear and rerun the notebook."
+    },
+    {
+      "trap": "Assuming a clean merge means working code. Two changes can combine without a textual conflict and still break each other.",
+      "fix": "Run the tests after every merge. Automated checks on pull requests exist for exactly this reason."
+    }
+  ],
+  "lab": "lab-merge-conflict",
+  "quiz": [
+    {
+      "q": "You and a teammate both edited `train.py`. You changed the data loader near the top. They changed the logging near the bottom. What happens when you merge?",
+      "choices": [
+        "A conflict, because the same file changed on both sides",
+        "Git combines both changes automatically",
+        "Git keeps your version and discards theirs",
+        "Git asks which whole file to keep"
+      ],
+      "answer": 1,
+      "why": "Git merges regions of lines, not whole files. Edits in separate parts of one file combine cleanly. A conflict needs both sides to change the same or adjacent lines differently."
+    },
+    {
+      "q": "During a merge, what is the text between `<<<<<<< HEAD` and `=======`?",
+      "choices": [
+        "The version from the branch you had checked out",
+        "The version from the branch being merged in",
+        "The original text from the merge base",
+        "Git's suggested combination of both"
+      ],
+      "answer": 0,
+      "why": "HEAD is where you are standing, so that block is your side. The incoming side sits between `=======` and `>>>>>>>`. The base text only appears if you turn on the `zdiff3` conflict style."
+    },
+    {
+      "q": "You started a merge, hit conflicts in fourteen files, and realize you need to talk to a teammate first. What is the safest move?",
+      "choices": [
+        "Delete the branch and start over",
+        "Accept your side in every file and commit",
+        "Run `git merge --abort`",
+        "Close the terminal and reopen it"
+      ],
+      "answer": 2,
+      "why": "`git merge --abort` returns everything to the pre-merge state with no side effects. Closing the terminal leaves the repository mid-merge, and accepting one side blindly throws away work."
+    },
+    {
+      "q": "You edited a conflicted file and removed the markers. How does Git learn the conflict is resolved?",
+      "choices": [
+        "It detects that the markers are gone when you save",
+        "You run `git resolve <file>`",
+        "You run `git add <file>`, then commit",
+        "You push the branch"
+      ],
+      "answer": 2,
+      "why": "Staging is the signal. `git add` moves the file out of Unmerged paths, and `git commit` then creates the merge commit. Git does not watch your editor, and there is no `git resolve` command."
+    },
+    {
+      "q": "You resolve a pull request's conflicts with GitHub's web editor. What does **Commit merge** actually do?",
+      "choices": [
+        "Merges the pull request into the base branch",
+        "Rewrites the base branch to match yours",
+        "Adds a merge commit to your pull request branch that brings in the base branch",
+        "Squashes all your commits into one"
+      ],
+      "answer": 2,
+      "why": "The web editor merges the base branch *into your branch*. Your pull request is then up to date and mergeable, but it is still open. Merging the pull request itself is a separate, later click."
+    }
+  ],
+  "mission": {
+    "title": "Cause a conflict on purpose, then resolve it",
+    "where": "Your own repository, in a scratch file so nothing real is at risk.",
+    "steps": [
+      "On `main`, add a file `practice/conflict.md` containing the single line `color: blue` and commit it.",
+      "Create a branch named `practice-conflict`. On that branch change the line to `color: green`, commit, and push.",
+      "Back on `main`, change the same line to `color: red` and commit directly, using the web editor if you like.",
+      "Open a pull request from `practice-conflict` into `main`. Confirm the merge box reports conflicts.",
+      "Resolve it with the tool you use least often. Choose a final value, remove the markers, and complete the merge.",
+      "Merge the pull request, delete the branch, and read the merge commit in the history."
+    ]
+  },
+  "terms": [
+    {
+      "term": "merge base",
+      "def": "The most recent commit that two branches have in common. Git compares both sides to it to work out who changed what."
+    },
+    {
+      "term": "three-way merge",
+      "def": "A merge that uses three inputs, the two branch tips and their merge base, so one-sided changes can be accepted automatically."
+    },
+    {
+      "term": "conflict markers",
+      "def": "The lines `<<<<<<<`, `=======` and `>>>>>>>` that Git writes into a file to bracket two competing versions of the same region."
+    },
+    {
+      "term": "unmerged path",
+      "def": "A file Git could not merge on its own. It stays listed under Unmerged paths in `git status` until you stage a resolution."
+    },
+    {
+      "term": "ours and theirs",
+      "def": "Git's names for the two sides. In a merge, ours is the branch you are on and theirs is the branch coming in. In a rebase the roles reverse."
+    },
+    {
+      "term": "merge commit",
+      "def": "A commit with two parents that joins two lines of history. When a merge had conflicts, it also records your resolution."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git merge <branch>",
+      "does": "Brings another branch's commits into the branch you are on, stopping if there are conflicts.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git merge --abort",
+      "does": "Cancels a merge in progress and restores the state from before it started.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git status",
+      "does": "During a merge, lists unmerged paths and tells you the next step.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git diff --name-only --diff-filter=U",
+      "does": "Prints only the names of files that still have unresolved conflicts.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git checkout --theirs -- <file>",
+      "does": "Replaces a conflicted file with the incoming side's whole version. Use `--ours` for your side. You still need to `git add` it.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git config --global merge.conflictstyle zdiff3",
+      "does": "Shows the base text inside every future conflict block, between the two sides.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git diff --check",
+      "does": "Warns about leftover conflict markers and whitespace errors before you commit.",
+      "kind": "git",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About merge conflicts",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/addressing-merge-conflicts/about-merge-conflicts"
+    },
+    {
+      "label": "GitHub Docs: Resolving a merge conflict on GitHub",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/addressing-merge-conflicts/resolving-a-merge-conflict-on-github"
+    },
+    {
+      "label": "GitHub Docs: Resolving a merge conflict using the command line",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/addressing-merge-conflicts/resolving-a-merge-conflict-using-the-command-line"
+    },
+    {
+      "label": "Git reference: git-merge",
+      "url": "https://git-scm.com/docs/git-merge"
+    }
+  ]
+}

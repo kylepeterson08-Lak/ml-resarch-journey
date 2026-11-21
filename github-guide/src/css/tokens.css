@@ -1,0 +1,208 @@
+/*
+ * Design plan
+ *
+ * Subject: version control drawn as a transit map. The four tracks are four
+ * colored lines, lessons are stations, and the commit graph is the house
+ * diagram that every lesson reuses.
+ *
+ * Type: Lexend for display and Atkinson Hyperlegible Next for reading, both
+ * designed from legibility research, with Atkinson Hyperlegible Mono for code.
+ *
+ * Layout: one reading column of about 66 characters beside a quiet rail.
+ * Maps, graphs and the practice lab may take the full width.
+ *
+ * Color: neutral paper and ink carry the interface. Color is reserved for
+ * the four lines, and every line also has a letter, so nothing depends on
+ * hue alone. tests/test_tools.py checks these pairs for contrast.
+ */
+
+:root {
+  --paper: #F3F5F7;
+  --surface: #FFFFFF;
+  --well: #E8ECF0;
+  --ink: #0F1B2A;
+  --ink-2: #44546A;
+  --rule: #C9D1DA;
+  --rule-strong: #7C8998;
+  --link: #0A4FA6;
+  --focus: #0A4FA6;
+
+  --line-b: #0B62A8;
+  --line-i: #0A7557;
+  --line-a: #9C5200;
+  --line-e: #9B2D7B;
+  --on-line: #FFFFFF;
+
+  --good: #116B3A;
+  --good-bg: #E2F3E9;
+  --warn: #7A4E00;
+  --warn-bg: #FBEFD2;
+  --bad: #B3261E;
+  --bad-bg: #FBE7E5;
+  --note-bg: #E3EEF9;
+
+  --shadow: 0 1px 2px rgba(15, 27, 42, 0.08), 0 6px 18px rgba(15, 27, 42, 0.06);
+
+  --font-display: "Lexend", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono: "Atkinson Hyperlegible Mono", ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+  /* Reading controls. The Display panel changes these four. */
+  --scale: 1;
+  --leading: 1.6;
+  --tracking: 0em;
+  --word: 0em;
+  --para: 1em;
+
+  --t-xs: 0.8125rem;
+  --t-s: 0.9375rem;
+  --t-base: 1.0625rem;
+  --t-m: 1.1875rem;
+  --t-l: 1.4375rem;
+  --t-xl: 1.8125rem;
+  --t-xxl: 2.375rem;
+
+  --radius: 10px;
+  --radius-s: 6px;
+  --measure: 66ch;
+  --gutter: 1rem;
+
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0D1318;
+    --surface: #151D25;
+    --well: #1D2731;
+    --ink: #E9EEF3;
+    --ink-2: #A3B1BF;
+    --rule: #2C3844;
+    --rule-strong: #6F7E8D;
+    --link: #8EC5FF;
+    --focus: #FFD23F;
+    --line-b: #62B4F5;
+    --line-i: #45CFA0;
+    --line-a: #F2A640;
+    --line-e: #EC8CCB;
+    --on-line: #0D1318;
+    --good: #5DD39E;
+    --good-bg: #12301F;
+    --warn: #F2C14E;
+    --warn-bg: #33270B;
+    --bad: #FF8E84;
+    --bad-bg: #3A1614;
+    --note-bg: #14283C;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 18px rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme="dark"] {
+  --paper: #0D1318;
+  --surface: #151D25;
+  --well: #1D2731;
+  --ink: #E9EEF3;
+  --ink-2: #A3B1BF;
+  --rule: #2C3844;
+  --rule-strong: #6F7E8D;
+  --link: #8EC5FF;
+  --focus: #FFD23F;
+  --line-b: #62B4F5;
+  --line-i: #45CFA0;
+  --line-a: #F2A640;
+  --line-e: #EC8CCB;
+  --on-line: #0D1318;
+  --good: #5DD39E;
+  --good-bg: #12301F;
+  --warn: #F2C14E;
+  --warn-bg: #33270B;
+  --bad: #FF8E84;
+  --bad-bg: #3A1614;
+  --note-bg: #14283C;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 6px 18px rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+/* More contrast: pure grounds, heavier rules. */
+:root[data-contrast="more"] {
+  --paper: #FFFFFF;
+  --surface: #FFFFFF;
+  --well: #EEF1F4;
+  --ink: #000000;
+  --ink-2: #1F2A37;
+  --rule: #5B6672;
+  --rule-strong: #000000;
+  --link: #003A8C;
+  --line-b: #004E8F;
+  --line-i: #005A41;
+  --line-a: #7A3E00;
+  --line-e: #7C1F60;
+  --good: #0B5129;
+  --warn: #5C3A00;
+  --bad: #8E1B14;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root[data-contrast="more"]:not([data-theme="light"]) {
+    --paper: #000000;
+    --surface: #000000;
+    --well: #141B22;
+    --ink: #FFFFFF;
+    --ink-2: #D7DEE6;
+    --rule: #93A1AF;
+    --rule-strong: #FFFFFF;
+    --link: #B5D9FF;
+    --line-b: #8CCBFF;
+    --line-i: #6FE5BA;
+    --line-a: #FFC36B;
+    --line-e: #FFB0DF;
+    --good: #86E8B8;
+    --warn: #FFD777;
+    --bad: #FFB1AA;
+  }
+}
+
+:root[data-contrast="more"][data-theme="dark"] {
+  --paper: #000000;
+  --surface: #000000;
+  --well: #141B22;
+  --ink: #FFFFFF;
+  --ink-2: #D7DEE6;
+  --rule: #93A1AF;
+  --rule-strong: #FFFFFF;
+  --link: #B5D9FF;
+  --line-b: #8CCBFF;
+  --line-i: #6FE5BA;
+  --line-a: #FFC36B;
+  --line-e: #FFB0DF;
+  --good: #86E8B8;
+  --warn: #FFD777;
+  --bad: #FFB1AA;
+}
+
+/* Text size */
+:root[data-size="s"] { --scale: 0.9; }
+:root[data-size="l"] { --scale: 1.15; }
+:root[data-size="xl"] { --scale: 1.3; }
+
+/* Roomier text: wider line, letter and word spacing (WCAG 1.4.12 values). */
+:root[data-spacing="relaxed"] {
+  --leading: 1.9;
+  --tracking: 0.035em;
+  --word: 0.12em;
+  --para: 1.7em;
+}
+
+/* System fonts: no request to any font host. */
+:root[data-font="system"] {
+  --font-display: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+/* Each track sets --line for everything inside it. */
+.t-basics { --line: var(--line-b); }
+.t-intermediate { --line: var(--line-i); }
+.t-advanced { --line: var(--line-a); }
+.t-expert { --line: var(--line-e); }

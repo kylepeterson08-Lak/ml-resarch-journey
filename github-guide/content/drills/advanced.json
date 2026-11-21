@@ -1,0 +1,250 @@
+[
+  {
+    "id": "drill-leaked-secret",
+    "track": "advanced",
+    "title": "You pushed an API key to a public repository",
+    "minutes": 6,
+    "situation": "Ten minutes ago you pushed a commit to a public repository. An email from GitHub now says secret scanning found an active API key for a paid inference service in `config.py`. The key is tied to your personal billing account. Push protection had been switched off on this repository months ago, so nothing stopped the push. Two people forked the repository this week.",
+    "steps": [
+      {
+        "prompt": "The key is live and public. What do you do first?",
+        "choices": [
+          {
+            "text": "Sign in to the inference provider, revoke the key and create a new one",
+            "verdict": "best",
+            "feedback": "Right. Revocation is the only action that makes the leaked value useless. Automated scrapers watch public pushes, so assume the key was copied within minutes. Everything else can wait until the old key is dead."
+          },
+          {
+            "text": "Delete the key from `config.py`, commit and push",
+            "verdict": "bad",
+            "feedback": "The key is still in the previous commit, one click away in the history, and it still works. You have hidden it from the file view and from nobody who is looking for it."
+          },
+          {
+            "text": "Make the repository private",
+            "verdict": "bad",
+            "feedback": "This stops new visitors but does nothing about copies already taken, and the forks keep theirs. The key still works. Changing visibility also has side effects on forks and stars that you may not want."
+          },
+          {
+            "text": "Rewrite history with `git filter-repo` and force-push",
+            "verdict": "bad",
+            "feedback": "History cleanup takes time, and for every minute of it the key works. It also cannot reach the forks or anyone who already cloned. Clean up later if you need to. Disable the key now."
+          }
+        ]
+      },
+      {
+        "prompt": "The old key is revoked and a new one is in your password manager. What next?",
+        "choices": [
+          {
+            "text": "Open the provider's usage and billing pages and look for requests you did not make while the key was exposed",
+            "verdict": "best",
+            "feedback": "Yes. You need to know whether the key was used. Unfamiliar usage changes what you do next: dispute the charges, tell the provider, and work out what the key could reach. No unfamiliar usage lets you close the incident with confidence."
+          },
+          {
+            "text": "Start cleaning the commit out of history",
+            "verdict": "ok",
+            "feedback": "Reasonable hygiene, and it can come next, but it answers a less urgent question. First find out whether anyone used the key."
+          },
+          {
+            "text": "Nothing. A revoked key cannot hurt you",
+            "verdict": "bad",
+            "feedback": "It cannot hurt you from now on. It may already have. Skipping the usage check means a surprise on next month's invoice, or not knowing what was accessed."
+          }
+        ]
+      },
+      {
+        "prompt": "Usage looks clean. The dead key is still visible in the repository's history. What do you do about it?",
+        "choices": [
+          {
+            "text": "Leave history alone unless a policy requires removal, close the alert as revoked, and write a short note of what happened",
+            "verdict": "best",
+            "feedback": "For a revoked key this is a sound choice. The value is useless, and rewriting public history disrupts every clone and fork for little gain. Closing the secret scanning alert as revoked keeps the record accurate."
+          },
+          {
+            "text": "Rewrite history with `git filter-repo`, force-push, and tell collaborators to clone again",
+            "verdict": "ok",
+            "feedback": "Also defensible, and some organizations require it. It costs coordination, and copies in forks and old clones remain. Do it deliberately, never as a substitute for revocation."
+          },
+          {
+            "text": "Delete the repository and create a new one with the same name",
+            "verdict": "bad",
+            "feedback": "This destroys issues, pull requests, stars and links, and the forks still contain the commit. It is the most disruptive option and fixes the least."
+          }
+        ]
+      },
+      {
+        "prompt": "How do you keep this from happening again?",
+        "choices": [
+          {
+            "text": "Read the key from an environment variable, store it as an Actions secret for CI, add `.env` to `.gitignore`, and switch push protection back on",
+            "verdict": "best",
+            "feedback": "This removes the cause, a credential in a tracked file, and restores the control that would have stopped the push. Each piece covers a different path: local runs, CI, and the next mistake."
+          },
+          {
+            "text": "Install a secret-detecting pre-commit hook on your laptop",
+            "verdict": "ok",
+            "feedback": "Helpful for you on that machine. It does nothing for collaborators or for edits made in the browser, and it can be skipped. Use it in addition to push protection, not in place of it."
+          },
+          {
+            "text": "Split the key into two strings in the code so scanners cannot match it",
+            "verdict": "bad",
+            "feedback": "That defeats the control that protects you while leaving the secret in the repository for anyone who reads the code. It turns an accident into a decision."
+          }
+        ]
+      }
+    ],
+    "debrief": "Revoke first, investigate second, clean up third, prevent fourth. The order follows the harm. A working key is an open door, usage logs tell you whether anyone walked through it, and history cleanup is housekeeping. Prevention means the credential never lives in a tracked file again and the platform's own check is switched on.",
+    "lesson": "advanced-security-features"
+  },
+  {
+    "id": "drill-ci-red-on-main",
+    "track": "advanced",
+    "title": "Checks fail on main right after your merge",
+    "minutes": 5,
+    "situation": "You merged a pull request five minutes ago. Every check on it had passed. The workflow run on `main` for the merge commit has now failed: a test in `tests/test_loader.py` does not pass. Two teammates have open pull requests, and one of them is about to merge.",
+    "steps": [
+      {
+        "prompt": "What is your first move?",
+        "choices": [
+          {
+            "text": "Open the failed run and read the first failing step before changing anything",
+            "verdict": "best",
+            "feedback": "Yes. Thirty seconds of reading tells you whether this is your change, an unreliable test or an outage, and those need different responses. Acting before reading is how one problem becomes two."
+          },
+          {
+            "text": "Select **Re-run failed jobs** to see whether it was a fluke",
+            "verdict": "ok",
+            "feedback": "Cheap, and sometimes right. But if it fails again you have learned nothing and lost several minutes while `main` stays broken. Read the log first, then decide whether a re-run makes sense."
+          },
+          {
+            "text": "Push a commit to `main` that marks the test as skipped",
+            "verdict": "bad",
+            "feedback": "This turns the alarm off without putting the fire out. The bug stays, the test stops protecting anyone, and a rule that requires pull requests should refuse the push anyway."
+          },
+          {
+            "text": "Ignore it. The pull request passed, so the code is fine",
+            "verdict": "bad",
+            "feedback": "The pull request was tested against an older `main`. The run on the merge commit tests what is actually there now, and it says something is broken."
+          }
+        ]
+      },
+      {
+        "prompt": "The log shows a real failure. Your change renamed a function, and a pull request merged an hour before yours added a new call to the old name. Each passed alone. What now?",
+        "choices": [
+          {
+            "text": "Tell the team `main` is broken, revert your merge through a pull request, and fix the combination on a branch",
+            "verdict": "best",
+            "feedback": "Reverting restores a known-good `main` in minutes and unblocks everyone, and a quick message stops the next merge from landing on a broken base. You then fix the interaction calmly and bring the change back with a test that covers it."
+          },
+          {
+            "text": "Open a small pull request that updates the missed call, and merge it once the checks pass",
+            "verdict": "ok",
+            "feedback": "Fixing forward is fine when the fix is obvious and fast, as it may be here. The risk is that it takes longer than you expect while `main` stays broken. Set yourself a time limit, and revert if you pass it."
+          },
+          {
+            "text": "Reset `main` to the commit before your merge and force-push",
+            "verdict": "bad",
+            "feedback": "Rewriting shared history strands everyone who has pulled since, and it erases the record of what happened. A rule that blocks force pushes exists to stop exactly this. A revert adds a commit and keeps the record."
+          }
+        ]
+      },
+      {
+        "prompt": "`main` is passing again. How do you make this kind of failure rarer?",
+        "choices": [
+          {
+            "text": "Require branches to be up to date before merging, or use a merge queue where available, so checks run against the current `main`",
+            "verdict": "best",
+            "feedback": "This closes the actual gap: two changes that pass separately but fail together. The checks then test the combination that will exist after the merge, not an old snapshot."
+          },
+          {
+            "text": "Ask everyone to pull `main` and run the tests locally right before merging",
+            "verdict": "ok",
+            "feedback": "A good habit that catches some of these. It depends on memory and time pressure, and nothing enforces it. Prefer a rule the platform applies for you."
+          },
+          {
+            "text": "Remove the loader test from the required checks so merges are never blocked",
+            "verdict": "bad",
+            "feedback": "The test did its job. Removing the gate means the same breakage would land silently next time and be found later, by someone with less context."
+          }
+        ]
+      }
+    ],
+    "debrief": "A passing pull request proves the change worked against the base it was tested on. Read before reacting, restore a working `main` first, fix the cause second, and then close the gap with a rule: up-to-date branches or a merge queue. Never skip or delete a test to make a failure disappear.",
+    "lesson": "advanced-ci-pipelines"
+  },
+  {
+    "id": "drill-force-push-shared",
+    "track": "advanced",
+    "title": "About to force-push a branch a teammate also uses",
+    "minutes": 5,
+    "situation": "You spent the morning tidying `feature/eval-metrics` with an interactive rebase onto the latest `main`. A plain `git push` is rejected, which you expected. What you forgot is that a teammate has been committing to the same branch, and you last fetched on Tuesday. You have typed `git push --force` and your finger is over the Enter key.",
+    "steps": [
+      {
+        "prompt": "What do you run in its place?",
+        "choices": [
+          {
+            "text": "`git fetch origin`, then look at what the remote branch has beyond the point where your rebase started",
+            "verdict": "best",
+            "feedback": "Right. You cannot decide anything until you know whether the remote moved. Fetching changes nothing in your branch. `git log <your-old-tip>..origin/feature/eval-metrics`, with your backup branch or a reflog entry as the old tip, lists the commits a force push would have removed."
+          },
+          {
+            "text": "`git push --force-with-lease`",
+            "verdict": "ok",
+            "feedback": "The lease would refuse this push, because the remote has moved since Tuesday, so it protects your teammate. That is protection and no more. You still have to fetch, look and decide."
+          },
+          {
+            "text": "`git push --force`",
+            "verdict": "bad",
+            "feedback": "This replaces the remote branch with yours, and the teammate's commits fall off it with no warning to either of you. They would find out the next time they pulled, in the worst possible way."
+          },
+          {
+            "text": "`git pull`, then push",
+            "verdict": "bad",
+            "feedback": "A plain pull merges the old, pre-rebase history back into your rebased branch. Every commit now appears twice, once in each form, and the tidy history you built is buried under a confusing merge."
+          }
+        ]
+      },
+      {
+        "prompt": "The fetch shows two new commits from your teammate on top of the old history. They are not in your rebased branch. What is the best way forward?",
+        "choices": [
+          {
+            "text": "Message the teammate and agree on a moment. Cherry-pick their two commits onto your rebased branch, push with `--force-with-lease`, and have them reset their local branch to the new remote",
+            "verdict": "best",
+            "feedback": "Coordination is the whole fix. With agreement, rewriting a shared branch is safe: their work is carried over, the lease guards against anything newer, and they move to the new history on purpose instead of by accident."
+          },
+          {
+            "text": "Undo your rebase with the reflog, merge `origin/feature/eval-metrics`, and push normally",
+            "verdict": "ok",
+            "feedback": "Completely safe and needs no coordination, at the price of the morning's tidying. A good choice when the teammate is unreachable or more than two people use the branch. You can still squash at merge time."
+          },
+          {
+            "text": "Force-push now and send the teammate the two commit hashes so they can apply them again",
+            "verdict": "bad",
+            "feedback": "You have made your cleanup their emergency. Their local branch now disagrees with the remote, their next pull will tangle, and recovery depends on them reading your message before they do anything else."
+          }
+        ]
+      },
+      {
+        "prompt": "What habit would have prevented the whole situation?",
+        "choices": [
+          {
+            "text": "Rewrite only branches that are yours alone, agree as a team which branches are shared, and block force pushes on the shared ones with a rule",
+            "verdict": "best",
+            "feedback": "The agreement and the rule do different jobs. The agreement tells people where rewriting is welcome. The rule makes the dangerous version impossible on the branches that matter, on the day someone forgets."
+          },
+          {
+            "text": "Always run `git fetch` before starting a rebase",
+            "verdict": "ok",
+            "feedback": "A good habit, and it would have shown you the teammate's commits this time. It does not help if they push while you are mid-rebase, which is what the lease is for, and it does not settle whether the branch should be rewritten at all."
+          },
+          {
+            "text": "Create an alias so that `git push` always uses `--force`",
+            "verdict": "bad",
+            "feedback": "This removes the one moment of friction that made you stop today. Force should be rare, deliberate and leased."
+          }
+        ]
+      }
+    ],
+    "debrief": "Force-pushing is safe on history only you hold. On a shared branch the technical step takes seconds and the coordination is the work: fetch, look, talk, then either carry their commits across or drop the rewrite. Use `--force-with-lease` for every rewrite, and put a rule that blocks force pushes on anything more than one person relies on.",
+    "lesson": "advanced-history-surgery"
+  }
+]

@@ -1,0 +1,491 @@
+{
+  "id": "advanced-security-features",
+  "track": "advanced",
+  "title": "The Security tab: Dependabot, secret scanning, code scanning",
+  "minutes": 22,
+  "summary": "Three scanners watch a repository for three kinds of trouble: dependencies with known vulnerabilities, credentials committed by mistake, and risky patterns in your own code. Turn them on once and they report without being asked.",
+  "outcomes": [
+    "Say what Dependabot alerts, security updates and version updates each do",
+    "Write a `dependabot.yml` that groups routine updates into a few pull requests",
+    "Respond correctly when push protection blocks a push",
+    "Enable CodeQL default setup and triage a code scanning alert",
+    "Add a security policy and turn on private vulnerability reporting",
+    "Put the steps of a leaked-secret response in the right order"
+  ],
+  "prereqs": [
+    "advanced-actions-fundamentals",
+    "advanced-secrets-environments"
+  ],
+  "lenses": {
+    "everyday": "A house has three quiet protections. A recall notice arrives when the water heater you bought turns out to be faulty. A neighbor texts you when you leave the key in the front door. A home inspector walks through and points at the wiring that will cause trouble later. None of them stops you living your life. Each tells you one specific thing early, when fixing it is cheap. Dependabot is the recall notice, secret scanning is the neighbor, and code scanning is the inspector.",
+    "legal": "A compliance function monitors three things continuously. Vendor risk: a supplier you rely on has disclosed a defect, and you must assess your exposure. Data loss prevention: something confidential is about to leave the building, so the system stops the message before it sends. Internal audit: a reviewer samples your own work against known error patterns. Dependabot, push protection and code scanning are those three controls for a codebase. Each alert is a finding with a status, an owner and a disposition, and dismissing one requires a stated reason that stays on the record.",
+    "ml": "Your project pins an old version of an image library to match a paper's results. Months later a vulnerability is published for that version, and Dependabot opens an alert naming the file, the severity and the fixed version. Separately, you paste a model hub token into a notebook cell to test a download and commit it. Push protection rejects the push before the token reaches GitHub. And code scanning flags the line where a path read from a config file is handed to `pickle.load`. Three different risks, three different scanners.",
+    "technical": "The dependency graph parses manifests and lock files to list what a repository depends on. Dependabot alerts match that list against the GitHub Advisory Database. Security updates open pull requests that move a vulnerable dependency to a fixed version. Version updates, driven by `.github/dependabot.yml`, keep dependencies current on a schedule. Secret scanning searches content and history for credential patterns, and push protection runs the same detection on incoming pushes and rejects matches. Code scanning runs static analysis, by default with CodeQL, and reports alerts on the Security tab and on pull requests."
+  },
+  "sections": [
+    {
+      "heading": "Three scanners, three questions",
+      "blocks": [
+        {
+          "type": "table",
+          "head": [
+            "Feature",
+            "Question it answers",
+            "What you get"
+          ],
+          "rows": [
+            [
+              "Dependabot alerts",
+              "Do I depend on something with a known vulnerability?",
+              "An alert naming the package, severity and fixed version"
+            ],
+            [
+              "Dependabot security updates",
+              "Can that be fixed for me?",
+              "A pull request that updates the vulnerable package"
+            ],
+            [
+              "Dependabot version updates",
+              "Am I falling behind on routine updates?",
+              "Scheduled pull requests, grouped as you configure"
+            ],
+            [
+              "Secret scanning",
+              "Is a credential sitting in this repository?",
+              "An alert naming the secret type and its location"
+            ],
+            [
+              "Push protection",
+              "Is a credential about to enter this repository?",
+              "A rejected push, before anything is stored"
+            ],
+            [
+              "Code scanning",
+              "Does my own code contain a risky pattern?",
+              "An alert on the exact line, with an explanation"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "You switch these on in the repository's settings, in the section for code security. Its label has changed more than once, so look for **Advanced Security** or **Code security**. Results land on the **Security** tab."
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "What your plan includes",
+          "text": "On public repositories these features are available without charge. On private repositories some of them depend on your plan. The settings page is the reliable guide: it shows what your repository can enable."
+        }
+      ]
+    },
+    {
+      "heading": "Dependabot: alerts, fixes and routine updates",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Everything starts with the **dependency graph**, the list GitHub builds from files such as `requirements.txt`, `pyproject.toml` and lock files. If a dependency is not declared in a file GitHub can read, Dependabot cannot see it. Alerts and security updates need only a switch. Version updates need a file that says what to watch and how often."
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "version: 2\nupdates:\n  - package-ecosystem: \"github-actions\"\n    directory: \"/\"\n    schedule:\n      interval: \"weekly\"\n    groups:\n      actions:\n        patterns:\n          - \"*\"\n\n  - package-ecosystem: \"pip\"\n    directory: \"/\"\n    schedule:\n      interval: \"weekly\"\n      day: \"monday\"\n    open-pull-requests-limit: 5\n    groups:\n      python-minor-and-patch:\n        update-types:\n          - \"minor\"\n          - \"patch\"\n    ignore:\n      # Frozen to reproduce the results in the 2026 paper. Revisit after publication.\n      - dependency-name: \"torch\"",
+          "file": ".github/dependabot.yml"
+        },
+        {
+          "type": "list",
+          "items": [
+            "The `github-actions` ecosystem keeps the `uses:` versions in your workflows current. Directory `/` means the standard workflows folder.",
+            "The `pip` ecosystem reads Python requirement and lock files in the given directory.",
+            "`groups` bundles matching updates into one pull request. Without groups, ten updates are ten pull requests and ten CI runs.",
+            "Major version updates stay out of the Python group, so each arrives alone, where a breaking change stands out.",
+            "`ignore` leaves a dependency alone. The comment says why, which is what turns silence into a decision.",
+            "Dependabot pull requests run your CI. A passing grouped update is usually a one-minute review. A failing one has told you something useful."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Ignoring an update is not ignoring an alert",
+          "text": "An `ignore` entry stops routine version updates for that package. Security alerts for it still arrive, and they should. When one does, assess whether your use of the package is actually affected, and record the conclusion on the alert."
+        }
+      ]
+    },
+    {
+      "heading": "Secret scanning and push protection",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Secret scanning looks for strings that match known credential formats from many providers. On public repositories, when it finds a token from a participating provider, GitHub also notifies that provider, which may revoke the token automatically. Push protection applies the same detection earlier, at the moment you push."
+        },
+        {
+          "type": "code",
+          "lang": "text",
+          "code": "$ git push\nremote: error: GH013: Repository rule violations found for refs/heads/main.\nremote:\nremote: - GITHUB PUSH PROTECTION\nremote:     Push cannot contain secrets\nremote:\nremote:     -- Example Provider Access Token --\nremote:      locations:\nremote:        - commit: 8a2c1f0\nremote:          path: notebooks/download.ipynb:42\nremote:\nremote:     To push, remove the secret from your commits, or follow the\nremote:     link below to allow it:\nremote:     https://github.com/OWNER/REPO/security/secret-scanning/unblock-secret/...\n ! [remote rejected] main -> main (push declined due to repository rule violations)",
+          "caption": "A blocked push, abridged. The real message names the secret type, the commit and the file."
+        },
+        {
+          "type": "list",
+          "items": [
+            "Read which commit and which file contain the secret.",
+            "If the value is real and has been anywhere outside your own machine, rotate it now.",
+            "Remove it from the commit. In your latest commit, fix the file and run `git commit --amend`. In an earlier unpushed commit, use an interactive rebase. See [History surgery](#advanced-history-surgery).",
+            "Push again. The check runs on the new commits.",
+            "Use the bypass link only for a true false positive or a value used in tests, and choose the reason that matches. A bypass is recorded."
+          ],
+          "ordered": true
+        },
+        {
+          "type": "reveal",
+          "prompt": "Push protection blocked your push. You delete the token from the file in a new commit and push again. Does the push succeed?",
+          "answer": "No. The earlier commit, which still contains the token, is part of what you are pushing. Push protection scans every new commit, not only the latest state of the files. You have to rewrite the unpushed commits so the secret never appears in them, with `git commit --amend` or an interactive rebase."
+        },
+        {
+          "type": "callout",
+          "kind": "danger",
+          "title": "A leaked secret: the order matters",
+          "text": "If a real credential reached GitHub, work in this order. **First revoke or rotate it at the provider**, so the leaked value stops working. Second, check the provider's logs for use you do not recognize. Third, and only then, decide whether to remove it from history. Rewriting history does not un-leak a secret, because clones, forks and caches may already hold it. [Incident response](#expert-incident-response) walks through the full procedure."
+        }
+      ]
+    },
+    {
+      "heading": "Code scanning with CodeQL",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Code scanning analyzes your own source for patterns that lead to vulnerabilities: untrusted input reaching a shell command, unsafe deserialization, hard-coded credentials and many more. The engine GitHub provides is CodeQL. **Default setup** needs no workflow file. GitHub detects the languages, chooses the queries, and runs the analysis on pushes, on pull requests to the default branch and on a schedule."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Default setup",
+              "points": [
+                "One switch, no file to maintain",
+                "Languages detected automatically",
+                "The right choice for most repositories",
+                "Configuration lives in settings"
+              ]
+            },
+            {
+              "title": "Advanced setup",
+              "points": [
+                "A CodeQL workflow file in your repository",
+                "You control triggers, languages, build steps and query packs",
+                "Needed for unusual builds or custom queries",
+                "Configuration is reviewed like any other code"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "text": "An alert shows the file and line, the path the data takes from where it enters to where it does harm, and an explanation with a recommended fix. On a pull request, new alerts appear as a check and as annotations on the changed lines, which is the cheapest moment to fix them."
+        },
+        {
+          "type": "table",
+          "head": [
+            "Dismissal reason",
+            "Use it when"
+          ],
+          "rows": [
+            [
+              "False positive",
+              "The analysis is wrong about this code"
+            ],
+            [
+              "Used in tests",
+              "The flagged code only runs in tests"
+            ],
+            [
+              "Won't fix",
+              "The risk is real but accepted, and you can say why"
+            ]
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "A dismissal is a documented judgment",
+          "text": "Closing an alert with a reason and a comment creates a record that someone considered the finding and decided. That is very different from an alert nobody opened. If your work is ever examined, after an incident or in due diligence, the trail of findings and dispositions is what shows a functioning process."
+        }
+      ]
+    },
+    {
+      "heading": "A security policy and a private way to report",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "One small file and one switch tell outsiders how to reach you about a vulnerability without posting it in a public issue."
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "# Security policy\n\n## Supported versions\n\nOnly the latest release receives security fixes.\n\n## Reporting a vulnerability\n\nPlease do not open a public issue for a security problem.\n\nUse **Report a vulnerability** on this repository's Security tab.\nYou will get a reply within five working days.",
+          "file": "SECURITY.md"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`SECURITY.md` can live in the repository root, in `docs/` or in `.github/`. GitHub links it from the Security tab.",
+            "**Private vulnerability reporting** adds a **Report a vulnerability** button. Reports arrive as draft security advisories visible only to maintainers and the reporter.",
+            "A **security advisory** lets you discuss and fix the problem privately, then publish the details once a fix is out."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Alert fatigue is an access problem too",
+          "text": "A wall of alerts is hard for anyone, and harder with limited attention or energy. Reduce the volume at the source: group Dependabot updates, close each alert with a fix or a reason, and choose a digest in your notification settings if the daily stream is too much. A short list you read beats a long one you avoid."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Turn on the scanners for a repository",
+      "browser": [
+        "Open **Settings** and find the code security section, labeled **Advanced Security** or **Code security**.",
+        "Enable the **Dependency graph**, **Dependabot alerts** and **Dependabot security updates**.",
+        "Enable **Secret scanning** and **Push protection** if they are not already on.",
+        "Under **Code scanning**, choose **Set up**, then **Default**, review the detected languages, and enable CodeQL.",
+        "Enable **Private vulnerability reporting**.",
+        "Open the **Security** tab. Each feature now has a page there, and the first results arrive within minutes to hours."
+      ],
+      "phone": [
+        "Enabling these settings is a computer task. The mobile browser's desktop site works, but the page is long.",
+        "Afterward GitHub Mobile is useful for the stream. As of this writing security alerts appear in its inbox with your other notifications, and Dependabot pull requests look like any others.",
+        "Review and merge a passing, grouped Dependabot pull request from the app. Leave anything failing, and any major version update, for a larger screen."
+      ],
+      "cli": [
+        "`gh api \"repos/{owner}/{repo}/dependabot/alerts?state=open\" --jq '.[].security_advisory.summary'` lists open Dependabot alerts.",
+        "`gh api repos/{owner}/{repo}/secret-scanning/alerts` and `gh api repos/{owner}/{repo}/code-scanning/alerts` do the same for the other scanners.",
+        "`gh pr list --author \"app/dependabot\"` shows Dependabot's open pull requests.",
+        "The settings themselves are easier in the browser. The API can change them, but the web page shows what your plan allows."
+      ],
+      "editor": [
+        "Add `.github/dependabot.yml` and `SECURITY.md` in VS Code or a codespace and open a pull request.",
+        "Install a secret-detecting pre-commit hook locally, so most mistakes never reach a push.",
+        "When a code scanning alert points at a line, open that file and line in the editor. The alert page describes the data flow to follow.",
+        "A coding agent can draft a fix for an alert. Check that the fix removes the cause and does not merely silence the query, and let code scanning run again on the pull request to confirm."
+      ]
+    },
+    {
+      "task": "Respond to a blocked push",
+      "browser": [
+        "The web editor enforces push protection too. If you commit a secret in the browser, the commit is stopped with a message that names the secret.",
+        "Remove the secret from the edit and commit again.",
+        "For a real false positive, choose the bypass option, pick the matching reason, and commit.",
+        "If the secret was real and has been anywhere outside your control, rotate it at the provider now."
+      ],
+      "phone": [
+        "Edits made in GitHub Mobile or the mobile browser go through the same check and are stopped the same way.",
+        "Remove the secret from the edit and commit again.",
+        "If the credential was real, rotate it from the provider's site. Do not postpone rotation until you are at a desk."
+      ],
+      "cli": [
+        "Read the rejection. It lists the secret type, the commit and the file.",
+        "If the secret is in your latest commit: remove it from the file, `git add` the file, and run `git commit --amend --no-edit`.",
+        "If it is in an older unpushed commit: start `git rebase -i` from the commit before it, mark that commit `edit`, remove the secret, run `git commit --amend`, then `git rebase --continue`.",
+        "`git push` again.",
+        "`git log -p -S \"<fragment>\"`, with a short piece of the secret, confirms that no remaining commit adds that text."
+      ],
+      "editor": [
+        "VS Code shows the rejection in the Git output panel. Open it and read which file and commit are named.",
+        "Remove the secret from the file, stage it, and amend the commit from the Source Control view's commit menu.",
+        "Sync again.",
+        "If an agent made the commit, tell it the push was blocked and why. Have it move the value to an environment variable, and verify the secret is gone from the commit's diff before pushing."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Deleting a leaked secret in a new commit and considering it handled. The secret is still in history, and it was exposed the moment it was pushed.",
+      "fix": "Rotate the credential first. History cleanup is optional hygiene after that."
+    },
+    {
+      "trap": "Bypassing push protection with the first reason offered because you are in a hurry.",
+      "fix": "Bypass only for a real false positive or a test value, and pick the true reason. If you choose to fix it later, an alert is opened to hold you to that."
+    },
+    {
+      "trap": "Letting ungrouped Dependabot pull requests pile up until nobody reads them.",
+      "fix": "Group minor and patch updates, set a weekly schedule, and merge passing groups promptly."
+    },
+    {
+      "trap": "Dismissing code scanning alerts in bulk to clear the page.",
+      "fix": "Dismiss one at a time with a reason and a sentence of explanation, or fix them. The record is the point."
+    },
+    {
+      "trap": "Assuming no alerts means no vulnerabilities. A dependency installed by a script, or copied into the repository by hand, is invisible to the dependency graph.",
+      "fix": "Declare dependencies in manifest files GitHub can read, and keep copied-in code to a minimum."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "Which Dependabot feature needs a `.github/dependabot.yml` file?",
+      "choices": [
+        "Dependabot alerts",
+        "Dependabot security updates",
+        "Dependabot version updates",
+        "The dependency graph"
+      ],
+      "answer": 2,
+      "why": "Alerts and security updates are switched on in settings and react to published vulnerabilities. Version updates are routine, scheduled updates, so you must say which ecosystems to watch and how often."
+    },
+    {
+      "q": "Push protection blocks your push because a commit two back contains a token. You remove the token in a new commit. What happens when you push?",
+      "choices": [
+        "It succeeds, because the latest files are clean",
+        "It is blocked again, because the old commit is still being pushed",
+        "It succeeds, but an alert is created",
+        "The token is stripped from the old commit automatically"
+      ],
+      "answer": 1,
+      "why": "Every new commit is scanned. A later commit that deletes the secret does not change the earlier commit that contains it. You must rewrite the unpushed commits so the secret never appears."
+    },
+    {
+      "q": "A real API key was pushed to a public repository an hour ago. What is the first action?",
+      "choices": [
+        "Revoke or rotate the key at the provider",
+        "Force-push to remove the commit",
+        "Make the repository private",
+        "Delete the file on GitHub"
+      ],
+      "answer": 0,
+      "why": "Only revocation makes the leaked value useless. Public pushes are scraped within minutes, and clones or forks may already hold the commit. History cleanup and visibility changes do not help while the key still works."
+    },
+    {
+      "q": "What does CodeQL default setup require you to add to the repository?",
+      "choices": [
+        "A `codeql.yml` workflow file",
+        "A `SECURITY.md` file",
+        "A configuration file listing languages",
+        "Nothing; it is configured in settings"
+      ],
+      "answer": 3,
+      "why": "Default setup runs without a workflow file. GitHub detects the languages and schedules the analysis. Advanced setup is the option that adds a workflow file you maintain."
+    },
+    {
+      "q": "Why does the example `dependabot.yml` group minor and patch updates but leave major updates ungrouped?",
+      "choices": [
+        "Dependabot cannot open major updates",
+        "Grouping major updates costs extra",
+        "A major version may contain breaking changes, so each deserves its own pull request and CI run",
+        "Major updates are applied without a pull request"
+      ],
+      "answer": 2,
+      "why": "A major update can break your code. Alone in a pull request, a failure points at one package. Mixed into a group of fifteen, it is a hunt."
+    }
+  ],
+  "mission": {
+    "title": "Switch on the scanners and handle one finding",
+    "where": "Your own repository. Everything here can be switched off again in settings.",
+    "steps": [
+      "Enable the dependency graph, Dependabot alerts, secret scanning and push protection in the repository's code security settings.",
+      "Add `.github/dependabot.yml` from this lesson by pull request. Keep only the ecosystems your repository uses, and delete the `ignore` entry unless you need it.",
+      "Enable CodeQL default setup and wait for the first analysis to finish. Open the **Security** tab and read any alert it raised.",
+      "Add a short `SECURITY.md` and enable private vulnerability reporting.",
+      "When the first Dependabot pull request arrives, read its release notes section, check CI, and merge it or close it with a reason.",
+      "Write down, in your own words, the three steps of the leaked-secret response and which comes first."
+    ]
+  },
+  "terms": [
+    {
+      "term": "dependency graph",
+      "def": "GitHub's list of the packages a repository depends on, built by reading its manifest and lock files."
+    },
+    {
+      "term": "Dependabot",
+      "def": "GitHub's dependency service. It raises alerts for vulnerable dependencies and opens pull requests to update them."
+    },
+    {
+      "term": "security advisory",
+      "def": "A structured description of a vulnerability: the affected versions, the severity and the fixed version."
+    },
+    {
+      "term": "secret scanning",
+      "def": "Detection of credential patterns, such as API tokens, in a repository's content and history."
+    },
+    {
+      "term": "push protection",
+      "def": "A check that rejects a push containing a detected secret before it is stored on GitHub."
+    },
+    {
+      "term": "code scanning",
+      "def": "Static analysis of a repository's own source for vulnerable patterns, reported as alerts on the Security tab."
+    },
+    {
+      "term": "CodeQL",
+      "def": "GitHub's code analysis engine. It treats code as data and runs queries that find vulnerable patterns."
+    },
+    {
+      "term": "private vulnerability reporting",
+      "def": "A setting that lets outsiders report a security problem privately to maintainers through the Security tab."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh api \"repos/{owner}/{repo}/dependabot/alerts?state=open\"",
+      "does": "Lists open Dependabot alerts for the current repository as JSON.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api repos/{owner}/{repo}/secret-scanning/alerts",
+      "does": "Lists secret scanning alerts, including the secret type and state.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api repos/{owner}/{repo}/code-scanning/alerts",
+      "does": "Lists code scanning alerts with rule, severity and location.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr list --author \"app/dependabot\"",
+      "does": "Shows the open pull requests created by Dependabot.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git commit --amend --no-edit",
+      "does": "Replaces the latest commit with the staged changes, keeping its message. Use it to remove a secret from an unpushed commit.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git log -p -S \"<fragment>\"",
+      "does": "Shows every commit that adds or removes the given text. Use a short fragment to confirm a secret is gone from history.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "https://github.com/<owner>/<repo>/security",
+      "does": "The Security tab: the policy, advisories and every scanner's alerts.",
+      "kind": "web",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: Code security",
+      "url": "https://docs.github.com/en/code-security"
+    },
+    {
+      "label": "GitHub Docs: Dependabot",
+      "url": "https://docs.github.com/en/code-security/dependabot"
+    },
+    {
+      "label": "GitHub Docs: Secret scanning",
+      "url": "https://docs.github.com/en/code-security/secret-scanning"
+    },
+    {
+      "label": "GitHub Docs: Code scanning",
+      "url": "https://docs.github.com/en/code-security/code-scanning"
+    },
+    {
+      "label": "GitHub Docs: Adding a security policy to your repository",
+      "url": "https://docs.github.com/en/code-security/getting-started/adding-a-security-policy-to-your-repository"
+    }
+  ]
+}

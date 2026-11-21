@@ -1,0 +1,542 @@
+{
+  "id": "expert-apps-webhooks",
+  "track": "expert",
+  "title": "Building on GitHub: GraphQL, webhooks and GitHub Apps",
+  "minutes": 23,
+  "summary": "GitHub has three programmable surfaces: REST for one resource at a time, GraphQL for exactly the data you describe, and webhooks that call you when something happens. Pair them with the right identity, usually a GitHub App, and verify every delivery before you trust it.",
+  "outcomes": [
+    "Write a GraphQL query that replaces a chain of REST calls, and page through results with cursors",
+    "Verify a webhook delivery's signature in Python before acting on it",
+    "Choose between a personal access token, an OAuth app and a GitHub App",
+    "Structure a bot as receive, verify, queue, act, with idempotent handling",
+    "Decide when a workflow in Actions is simpler than a service",
+    "Stay inside rate limits with conditional requests and backoff"
+  ],
+  "prereqs": ["advanced-gh-cli-api", "advanced-secrets-environments"],
+  "lenses": {
+    "everyday": "There are two ways to learn that a parcel has arrived. You can walk to the mailbox every ten minutes, or the courier can ring your doorbell. Polling an API is the first. A webhook is the second. When the bell rings you still check through the window that it really is the courier before you open the door, which is what signature verification does. Ordering exactly the dishes you want from one waiter is GraphQL. Queueing at four separate counters for four set menus is REST. A house-sitter holding a key that opens only the rooms they need is a GitHub App. Lending out your own key ring is a personal access token.",
+    "legal": "Service of process is a webhook. When something happens, notice is delivered to the address you designated, and you do not have to keep checking the docket. Before acting on a document you confirm it is authentic, which is the signature check on a delivery. You acknowledge receipt promptly and do the substantive work afterward. The delivery log is your proof of service, and a duplicate must not be docketed twice. A GitHub App is a limited power of attorney granted to an entity: scoped to named matters, revocable, exercised through short-lived letters of authority. A personal access token is handing over your own credentials. A GraphQL query is a document request that names exactly what must be produced.",
+    "ml": "Your lab wants a bot. When a pull request is labeled `run-benchmark`, it launches an evaluation job on the cluster and posts a metrics table as a comment. GitHub sends a webhook the moment the label is added. The bot verifies the signature, answers within seconds, and puts the job on a queue, because evaluation takes an hour and GitHub will not wait. It keeps the delivery ID so a redelivery cannot burn another three GPU hours. It posts the result as `lab-bench[bot]`, a GitHub App with permission to comment and nothing else. And the weekly dashboard of open pull requests with their CI state across the lab's repositories is one GraphQL query.",
+    "technical": "The REST API exposes resources at many endpoints and paginates with link headers. The GraphQL API has one endpoint: a query names the fields it wants, connections page with cursors, and cost is counted in points. A webhook is an HTTP POST that GitHub sends to your URL for subscribed events, carrying the event name, a unique delivery ID and an HMAC-SHA256 signature of the raw body computed with a shared secret. A GitHub App is an integration with its own identity and fine-grained permissions. It authenticates with a signed JSON Web Token and exchanges it for a short-lived installation access token scoped to the repositories where it is installed."
+  },
+  "sections": [
+    {
+      "heading": "Three ways in",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Everything the website can do is available to a program. The three surfaces differ in who starts the conversation and how much comes back."
+        },
+        {
+          "type": "table",
+          "head": ["Surface", "Shape", "Best for", "Watch for"],
+          "rows": [
+            ["**REST**", "Many endpoints, one kind of resource each", "Simple reads and writes, and anything `gh api` can do in one call", "Chains of follow-up requests to assemble related data"],
+            ["**GraphQL**", "One endpoint. The query describes the response", "Dashboards and reports that join several kinds of data", "Expensive nested queries, and a schema to learn"],
+            ["**Webhooks**", "GitHub sends an HTTP request to you when an event occurs", "Reacting within seconds without polling", "Running a public endpoint, verifying signatures, missed deliveries"]
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "GraphQL: ask for the exact shape",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "With REST, a report of open pull requests with their review state and CI result needs one call for the list and then more calls for each pull request. GraphQL lets you describe the whole shape once."
+        },
+        {
+          "type": "code",
+          "lang": "graphql",
+          "file": "open-prs.graphql",
+          "code": "query($owner: String!, $name: String!, $cursor: String) {\n  repository(owner: $owner, name: $name) {\n    pullRequests(states: OPEN, first: 25, after: $cursor) {\n      nodes {\n        number\n        title\n        author { login }\n        reviewDecision\n        commits(last: 1) {\n          nodes { commit { statusCheckRollup { state } } }\n        }\n      }\n      pageInfo { hasNextPage endCursor }\n    }\n  }\n  rateLimit { cost remaining resetAt }\n}",
+          "caption": "Open pull requests with review decision and CI state, in one request"
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "gh api graphql \\\n  -F owner=my-lab -F name=research \\\n  -f query=\"$(cat open-prs.graphql)\" \\\n  --jq '.data.repository.pullRequests.nodes[] | [.number, .reviewDecision, .title] | @tsv'",
+          "caption": "Running the saved query with variables and shaping the output"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Connections page with cursors.** Ask for `first: N`, read `pageInfo.endCursor`, and pass it back as `after` until `hasNextPage` is false. Page sizes are capped, so plan to loop.",
+            "**Cost is counted in points, not requests.** Add `rateLimit { cost remaining }` to a query while you develop it. Deep nesting multiplies the cost quickly.",
+            "**Every object has a global node ID.** Mutations take these IDs, and REST responses include them as `node_id`, so you can move between the two APIs.",
+            "**Errors can arrive with a 200 status.** A GraphQL response may carry an `errors` array beside partial `data`. Check for it explicitly."
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "The query above returns 25 pull requests, each with its review decision and the CI state of its latest commit. Roughly how many REST calls would the same report take?",
+          "answer": "About 51. One call lists the pull requests. Review state needs a call per pull request, and so does the combined status of each head commit. GraphQL returns the same data in one round trip, which is also one unit of work to reason about when you handle errors and rate limits."
+        }
+      ]
+    },
+    {
+      "heading": "Webhooks: GitHub calls you",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A webhook turns polling inside out. You register a URL and a secret, choose events, and GitHub sends an HTTP POST when one occurs. Three headers on that request matter."
+        },
+        {
+          "type": "table",
+          "head": ["Header", "Contains", "Use it for"],
+          "rows": [
+            ["`X-GitHub-Event`", "The event name, such as `pull_request` or `push`", "Routing to the right handler"],
+            ["`X-GitHub-Delivery`", "A unique ID for this delivery", "Logging, and refusing to process the same delivery twice"],
+            ["`X-Hub-Signature-256`", "The text `sha256=` followed by an HMAC of the raw body", "Proving the request came from GitHub and was not altered"]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "python",
+          "file": "verify_webhook.py",
+          "code": "import hashlib\nimport hmac\n\n\ndef signature_is_valid(secret: str, body: bytes, header: str | None) -> bool:\n    \"\"\"Check the X-Hub-Signature-256 header against the raw request body.\"\"\"\n    if not header or not header.startswith(\"sha256=\"):\n        return False\n    expected = \"sha256=\" + hmac.new(\n        secret.encode(\"utf-8\"), body, hashlib.sha256\n    ).hexdigest()\n    return hmac.compare_digest(expected, header)\n\n\n# The test vector published in GitHub's documentation\nassert signature_is_valid(\n    \"It's a Secret to Everybody\",\n    b\"Hello, World!\",\n    \"sha256=757107ea0eb2509fc211221cce984b8a37570b6d7586c22c46f4379c8b043e17\",\n)",
+          "caption": "Verify first, on the raw bytes, with a constant-time comparison"
+        },
+        {
+          "type": "flow",
+          "caption": "Receive, verify, queue, act",
+          "steps": [
+            {"label": "Event occurs", "note": "A label is added to a pull request"},
+            {"label": "GitHub sends POST", "via": "within seconds", "note": "Headers carry the event, the delivery ID and the signature"},
+            {"label": "Verify and acknowledge", "via": "raw body", "note": "Reject a bad signature. Otherwise answer 2xx at once"},
+            {"label": "Queue", "via": "delivery ID", "note": "Skip IDs you have already seen"},
+            {"label": "Act", "via": "worker", "note": "Call the API with a short-lived installation token"}
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "danger",
+          "title": "Verify before you parse",
+          "text": "Compute the signature over the exact bytes you received, before decoding JSON and before any other logic. Re-serializing the parsed payload changes the bytes and breaks the check. Compare with `hmac.compare_digest`, because an ordinary equality test leaks timing information that helps an attacker guess the signature. An endpoint that skips verification will act on anything anyone sends it."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Answer fast.** GitHub expects a response within about ten seconds and records anything slower as a failure. Acknowledge, then work.",
+            "**Failed deliveries are not retried for you.** Each webhook's settings page lists recent deliveries with the request and the response, and lets you redeliver one. For anything important, also run a periodic reconciliation that asks the API for the current state.",
+            "**Order and uniqueness are not guaranteed.** A redelivery repeats a delivery ID, and two events can arrive out of sequence. Make handlers idempotent and base decisions on the current state, not on the order of arrival."
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Who is acting: tokens, OAuth apps and GitHub Apps",
+      "blocks": [
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Personal access token",
+              "points": [
+                "Acts as you, with a subset of your access",
+                "A fine-grained token can be limited to chosen repositories and permissions, with an expiry date",
+                "Right for your own scripts. Wrong for shared automation, because it leaves when you do"
+              ]
+            },
+            {
+              "title": "OAuth app",
+              "points": [
+                "Acts as whichever user authorized it",
+                "Scopes are broad, and access follows everything that user can reach",
+                "Right for signing users in with GitHub"
+              ]
+            },
+            {
+              "title": "GitHub App",
+              "points": [
+                "Acts as itself, shown with a bot label, or on behalf of a user",
+                "Installed on chosen repositories with fine-grained permissions",
+                "Uses installation tokens that expire after about an hour",
+                "Right for integrations and team automation"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "text": "The `GITHUB_TOKEN` inside a workflow is an installation token too, issued to the Actions app for one job. That is why it disappears when the job ends. It is also why most events it causes do not start new workflow runs: the platform stops a workflow from triggering itself in a loop."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Authority should belong to the role, not the person",
+          "text": "Automation that runs on an individual's token carries that person's authority, shows their name in the audit log, and either stops working or stays dangerously alive when they leave. A GitHub App owned by the organization has its own narrow grant, its own audit trail and no dependence on anyone's employment. That is the difference between an agent with documented, limited authority and someone lending out a signature stamp."
+        }
+      ]
+    },
+    {
+      "heading": "A small bot, end to end",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Take the benchmark bot from the ML lens. Its design is a list of failures, each with a specific answer."
+        },
+        {
+          "type": "table",
+          "head": ["Failure", "What happens without a plan", "Design answer"],
+          "rows": [
+            ["A forged request", "Anyone who finds the URL can launch jobs", "Verify the signature and reject everything else"],
+            ["A slow handler", "GitHub times out and marks the delivery failed", "Acknowledge at once and put the work on a queue"],
+            ["A duplicate delivery", "The same benchmark runs twice", "Record delivery IDs and make the job idempotent"],
+            ["A missed delivery", "A labeled pull request is never benchmarked", "Reconcile on a schedule by listing labeled pull requests"],
+            ["An over-broad or expired credential", "A leak exposes everything, or jobs fail midway", "Mint a fresh installation token per job, with comment permission only"],
+            ["A rate limit", "Requests are refused in a burst", "Back off using the response headers, and send writes one at a time"]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "python",
+          "code": "from http.server import BaseHTTPRequestHandler\n\n\nclass Hook(BaseHTTPRequestHandler):\n    def do_POST(self):\n        length = int(self.headers.get(\"Content-Length\", 0))\n        body = self.rfile.read(length)                 # raw bytes, untouched\n\n        signature = self.headers.get(\"X-Hub-Signature-256\")\n        if not signature_is_valid(SECRET, body, signature):\n            self.send_response(401)\n            self.end_headers()\n            return\n\n        delivery = self.headers.get(\"X-GitHub-Delivery\")\n        if not seen_before(delivery):                  # duplicates are normal\n            jobs.put((self.headers.get(\"X-GitHub-Event\"), delivery, body))\n\n        self.send_response(202)                        # acknowledge now\n        self.end_headers()                             # a worker does the slow part",
+          "caption": "The whole receiving side. `SECRET`, `seen_before` and `jobs` are yours to supply."
+        }
+      ]
+    },
+    {
+      "heading": "When a workflow is the simpler tool",
+      "blocks": [
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "A workflow in Actions",
+              "points": [
+                "No server, no public endpoint, no signature to verify",
+                "Triggered by events in its own repository",
+                "Receives a scoped token automatically",
+                "Starts in tens of seconds and runs for the length of a job",
+                "Choose it when the reaction belongs to one repository"
+              ]
+            },
+            {
+              "title": "A GitHub App with webhooks",
+              "points": [
+                "You run and secure a service",
+                "Receives events from every repository where it is installed",
+                "Keeps state between events and can respond in about a second",
+                "Has its own identity and permissions",
+                "Choose it for automation across repositories, or a tool other people install"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Start with a workflow",
+          "text": "Most ideas that begin as a bot fit in twenty lines of workflow YAML triggered by `issues`, `pull_request` or `schedule`. Build that first. Move to an App when you hit a real limit: too many repositories to copy the workflow into, a need to answer in seconds, or state that must survive between events."
+        }
+      ]
+    },
+    {
+      "heading": "Being a good API citizen",
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "**Send conditional requests.** Save the `ETag` from a response and send it back in `If-None-Match`. An unchanged resource returns 304 with no body, and for authenticated requests it does not count against your primary rate limit.",
+            "**Read the rate limit headers.** `x-ratelimit-remaining` and `x-ratelimit-reset` tell you where you stand. When a response includes `retry-after`, wait that long.",
+            "**Do not burst.** Many concurrent or rapid write requests trigger secondary limits even when the primary budget is fine. Queue writes and send them one at a time.",
+            "**Pin the API version.** Send the `X-GitHub-Api-Version` header so a future default does not change your results.",
+            "**Prefer webhooks to polling**, and reconcile occasionally to catch what was missed."
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# First request: note the ETag in the response headers\ngh api -i 'repos/my-lab/research/pulls?state=open' | grep -i '^etag'\n\n# Later: send it back exactly as received, quotes included\ngh api -i 'repos/my-lab/research/pulls?state=open' -H 'If-None-Match: \"<etag-value>\"'\n# HTTP 304 means nothing changed, and nothing was charged to your limit",
+          "caption": "A conditional request from the command line"
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Make the bot's output usable by everyone",
+          "text": "A bot that posts a screenshot of a chart, or a table where color is the only signal, shuts out people using screen readers and many people with low vision or color blindness. Post results as Markdown tables with text labels, state the conclusion in the first line, and keep comments short enough to follow when read aloud. Update one comment in place where you can, so notifications stay manageable."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Run a GraphQL query against your repository",
+      "browser": [
+        "Open the GraphQL Explorer in the GitHub documentation and sign in.",
+        "Type `query { viewer { login } }` in the editor and run it to confirm you are authenticated.",
+        "Paste the pull request query from this lesson and fill in `owner` and `name` in the variables pane.",
+        "Open the Explorer's documentation pane to browse the fields each type offers."
+      ],
+      "phone": [
+        "The Explorer loads in a mobile browser, but writing a nested query on a phone keyboard is slow. It is workable for running a query you saved earlier.",
+        "GitHub Mobile has no API console. For anything more, use a Codespace terminal with `gh api graphql`."
+      ],
+      "cli": [
+        "`gh api graphql -f query='query { viewer { login } }'` confirms authentication.",
+        "Save the larger query in a file named `open-prs.graphql`.",
+        "`gh api graphql -F owner=OWNER -F name=REPO -f query=\"$(cat open-prs.graphql)\"` runs it with variables.",
+        "Add `--jq` with a filter to turn the JSON into a table.",
+        "Read the `rateLimit` block in the response to see what the query cost."
+      ],
+      "editor": [
+        "Keep queries in `.graphql` files in the repository so they are reviewed like code.",
+        "Run them from the integrated terminal with `gh api graphql`.",
+        "With a coding agent, describe the report you want and ask for the query and its expected cost. Check unfamiliar field names in the Explorer's documentation pane before you rely on the result."
+      ]
+    },
+    {
+      "task": "Create a webhook and inspect a delivery",
+      "browser": [
+        "Open the repository's **Settings**, select **Webhooks**, then **Add webhook**.",
+        "Enter the **Payload URL** of your endpoint, set **Content type** to `application/json`, and enter a long random **Secret**.",
+        "Choose the individual events you need. Fewer events means less to handle and less to expose.",
+        "Save. GitHub sends a `ping` event immediately.",
+        "Open the webhook and select **Recent Deliveries**. Open a delivery to see its headers, its payload and your endpoint's response, and use **Redeliver** to send it again."
+      ],
+      "phone": [
+        "Webhook settings are not in GitHub Mobile as of this writing. The settings page works in a mobile browser with the desktop site.",
+        "Avoid typing a webhook secret on a phone. Checking **Recent Deliveries** to see whether a delivery succeeded is a reasonable phone task."
+      ],
+      "cli": [
+        "`gh api repos/OWNER/REPO/hooks --jq '.[] | [.id, .config.url, .active] | @tsv'` lists the webhooks.",
+        "`gh api repos/OWNER/REPO/hooks/HOOK_ID/deliveries --jq '.[] | [.id, .event, .status_code] | @tsv'` lists recent deliveries and their results.",
+        "`gh api -X POST repos/OWNER/REPO/hooks/HOOK_ID/deliveries/DELIVERY_ID/attempts` redelivers one.",
+        "For local development, the `gh webhook` extension can forward deliveries to a server on your machine. Check its documentation for its current status."
+      ],
+      "editor": [
+        "Write the handler and a unit test for the signature check, using the documented test vector and a tampered copy that must fail.",
+        "Run the handler locally and forward deliveries to it while you develop.",
+        "With a coding agent, ask for the handler and the tests together. Confirm that verification runs on the raw body before any JSON parsing."
+      ]
+    },
+    {
+      "task": "Register a GitHub App for an automation",
+      "browser": [
+        "Open **Settings**, then **Developer settings**, then **GitHub Apps**, and select **New GitHub App**. For a team tool, start from the organization's settings so the organization owns it.",
+        "Give it a name and a homepage URL. Enter the webhook URL and a secret.",
+        "Under permissions, grant the minimum. A bot that comments on pull requests needs read and write on pull requests and nothing else.",
+        "Subscribe to the events it handles, restrict installation to this account, and create the App.",
+        "Generate a private key and store it in a secret manager. Then select **Install App** and choose the repositories."
+      ],
+      "phone": [
+        "Not a phone task. Registration produces a private key file that must go straight into a secret manager. Use a computer."
+      ],
+      "cli": [
+        "There is no `gh` command that registers an App. Create it in the browser.",
+        "At run time your service signs a short-lived JSON Web Token with the private key, then calls `POST /app/installations/INSTALLATION_ID/access_tokens` to receive an installation token.",
+        "Use that token as a bearer token for API calls, and request a new one for each job. Do not cache it for long."
+      ],
+      "editor": [
+        "Keep the App's private key out of the repository and out of `.env` files that might be committed. Load it from a secret manager or an environment secret.",
+        "Never paste the private key into a coding agent's prompt. Ask the agent to write code that reads the key from an environment variable you set yourself."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Verifying the signature against JSON you parsed and then re-serialized.",
+      "fix": "Hash the raw request bytes exactly as received, before any decoding."
+    },
+    {
+      "trap": "Comparing signatures with `==`.",
+      "fix": "Use `hmac.compare_digest`, which takes the same time whether or not the values match."
+    },
+    {
+      "trap": "Doing the real work before responding to the delivery.",
+      "fix": "Acknowledge with a 2xx status immediately and process from a queue. A slow response is recorded as a failed delivery."
+    },
+    {
+      "trap": "Assuming each event arrives exactly once and in order.",
+      "fix": "Record delivery IDs, make handlers idempotent, and read the current state from the API before acting."
+    },
+    {
+      "trap": "Running team automation on one person's classic token with broad scope and no expiry.",
+      "fix": "Use a GitHub App. At minimum use a fine-grained token limited to the repositories and permissions needed, with an expiry date."
+    },
+    {
+      "trap": "Polling an endpoint every few seconds to detect changes.",
+      "fix": "Subscribe to a webhook. Where you must poll, use conditional requests and a sensible interval."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "A weekly report needs, for each of 50 open pull requests, the title, the review decision and the CI state of the latest commit. Which approach makes the fewest requests?",
+      "choices": [
+        "REST, with one extra call per pull request for reviews",
+        "REST with `--paginate`",
+        "One or two GraphQL queries that name those fields",
+        "A webhook subscription for pull request events"
+      ],
+      "answer": 2,
+      "why": "GraphQL lets one query join pull requests, review decisions and commit status. REST needs follow-up calls per pull request, and pagination only helps with the list itself. Webhooks report changes as they happen and do not answer a question about current state."
+    },
+    {
+      "q": "What exactly should a webhook receiver hash to check `X-Hub-Signature-256`?",
+      "choices": [
+        "The raw request body bytes, with the shared secret as the HMAC key",
+        "The parsed JSON, re-serialized with sorted keys",
+        "The delivery ID and the event name",
+        "The request URL and the secret"
+      ],
+      "answer": 0,
+      "why": "GitHub computes an HMAC-SHA256 over the exact bytes it sends. Parsing and re-serializing can change whitespace or key order and produce a different digest. The delivery ID and event name help with routing and deduplication, and they are not part of the signature."
+    },
+    {
+      "q": "A handler runs a 45-second benchmark and then returns 200. What does GitHub record?",
+      "choices": [
+        "A successful delivery, because the status was 200",
+        "A failed delivery, because the response took too long",
+        "A pending delivery that it retries automatically until it succeeds",
+        "Nothing, because long jobs are exempt"
+      ],
+      "answer": 1,
+      "why": "GitHub gives a receiver only a few seconds. The fix is to acknowledge immediately and run the job from a queue. GitHub does not retry failed deliveries for you, so a timeout can mean the event is lost unless you redeliver it or reconcile."
+    },
+    {
+      "q": "Your lab needs a bot that comments on pull requests across 30 repositories and keeps working when students graduate. Which identity fits?",
+      "choices": [
+        "The lab manager's classic personal access token",
+        "A shared machine account whose password is in the wiki",
+        "An OAuth app authorized by each student",
+        "A GitHub App owned by the organization, with pull request permission only"
+      ],
+      "answer": 3,
+      "why": "An App has its own identity, narrow permissions and short-lived tokens, and it does not depend on any one person's account. A personal token or an OAuth authorization carries an individual's access, and ends or lingers with that individual."
+    },
+    {
+      "q": "GitHub redelivers an event your service already processed. How should the service avoid doing the work twice?",
+      "choices": [
+        "Compare the payload's timestamp with the server clock",
+        "Check the `X-GitHub-Delivery` ID against the ones it has already handled",
+        "Reject every request that arrives within a minute of another",
+        "Rely on GitHub never sending duplicates"
+      ],
+      "answer": 1,
+      "why": "A redelivery carries the same delivery ID as the original, so a stored set of handled IDs is a reliable duplicate check. Timing rules reject legitimate events, and duplicates are a normal part of any webhook system."
+    }
+  ],
+  "mission": {
+    "title": "Verify a signature by hand, then ask one GraphQL question",
+    "where": "Your computer and a scratch repository you own. No server is required.",
+    "steps": [
+      "Save the verification function from this lesson as `verify_webhook.py` and run it. The built-in assertion uses the test vector from GitHub's documentation.",
+      "Change one character of the payload in the assertion and run it again. Confirm that it now fails.",
+      "Run `gh api graphql` with a query for `viewer { login }`, then extend it to list your five most recently updated repositories.",
+      "Add `rateLimit { cost remaining }` to the query and note what it cost.",
+      "In a scratch repository, open **Settings**, then **Webhooks**, start adding a webhook and read the event list. Write down the events a benchmark bot would subscribe to, then cancel.",
+      "For one automation you actually want, decide whether it should be a workflow or an App, and write one sentence explaining why."
+    ]
+  },
+  "terms": [
+    {
+      "term": "GraphQL",
+      "def": "A query language for APIs in which the client names the fields it wants and receives exactly that shape from a single endpoint."
+    },
+    {
+      "term": "cursor pagination",
+      "def": "Paging through a GraphQL connection by passing the end cursor of one page as the starting point of the next."
+    },
+    {
+      "term": "webhook",
+      "def": "An HTTP request GitHub sends to a URL you registered when a subscribed event occurs."
+    },
+    {
+      "term": "HMAC signature",
+      "def": "A keyed hash of a message. GitHub computes one over each webhook body with your shared secret, so you can confirm the sender and the content."
+    },
+    {
+      "term": "GitHub App",
+      "def": "An integration with its own identity, installed on chosen repositories with fine-grained permissions."
+    },
+    {
+      "term": "installation access token",
+      "def": "A short-lived token a GitHub App obtains for one installation, limited to that installation's repositories and permissions."
+    },
+    {
+      "term": "idempotent",
+      "def": "Describes an operation that has the same effect whether it runs once or several times, which makes retries and duplicates harmless."
+    },
+    {
+      "term": "conditional request",
+      "def": "A request that carries the ETag from an earlier response, so the server can answer 304 Not Modified when nothing has changed."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh api graphql -f query='query { viewer { login } }'",
+      "does": "Runs a GraphQL query with your current authentication.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api graphql -F owner=OWNER -F name=REPO -f query=\"$(cat open-prs.graphql)\"",
+      "does": "Runs a saved query and passes variables to it.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api rate_limit --jq .resources",
+      "does": "Shows your remaining REST, GraphQL and search budgets and when each resets.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api -i repos/OWNER/REPO",
+      "does": "Prints the response headers as well, including the ETag and the rate limit headers.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api repos/OWNER/REPO/hooks",
+      "does": "Lists the webhooks configured on a repository.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api repos/OWNER/REPO/hooks/HOOK_ID/deliveries",
+      "does": "Lists recent deliveries for one webhook, with their status codes.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api -X POST repos/OWNER/REPO/hooks/HOOK_ID/deliveries/DELIVERY_ID/attempts",
+      "does": "Asks GitHub to redeliver one webhook delivery.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh auth status",
+      "does": "Shows which account and token `gh` is using, and the token's scopes.",
+      "kind": "gh",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: GraphQL API",
+      "url": "https://docs.github.com/en/graphql"
+    },
+    {
+      "label": "GitHub Docs: GraphQL Explorer",
+      "url": "https://docs.github.com/en/graphql/overview/explorer"
+    },
+    {
+      "label": "GitHub Docs: Validating webhook deliveries",
+      "url": "https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries"
+    },
+    {
+      "label": "GitHub Docs: Deciding when to build a GitHub App",
+      "url": "https://docs.github.com/en/apps/creating-github-apps/about-creating-github-apps/deciding-when-to-build-a-github-app"
+    },
+    {
+      "label": "GitHub Docs: Best practices for using the REST API",
+      "url": "https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api"
+    },
+    {
+      "label": "GraphQL: Learn",
+      "url": "https://graphql.org/learn/"
+    }
+  ]
+}

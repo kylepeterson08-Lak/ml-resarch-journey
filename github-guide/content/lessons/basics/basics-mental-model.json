@@ -1,0 +1,433 @@
+{
+  "id": "basics-mental-model",
+  "track": "basics",
+  "title": "Git and GitHub: where your work actually lives",
+  "minutes": 11,
+  "summary": "Git is a tool on your machine that records snapshots of a project. GitHub is a website that hosts a copy and adds collaboration around it. Your work moves through four places, and most confusion disappears once you can name which one you are looking at.",
+  "outcomes": [
+    "Say what Git does and what GitHub adds on top of it",
+    "Name the four places a change can be: working tree, staging area, local repository, remote",
+    "Explain why a commit is a snapshot and why every clone is a full copy of the history",
+    "Read `git status` and tell which place each change is in",
+    "Describe the daily loop from pull to push"
+  ],
+  "lenses": {
+    "everyday": "Think of writing a report at home. The pages spread across your desk are the working tree: messy and in progress. The pages you clip together to file are the staging area. Dropping the clip into your own filing cabinet, dated and labeled, is a commit. Mailing a copy of the cabinet's contents to the office is a push. Git is the filing system at your desk. GitHub is the office where everyone's copies meet, with a front counter for questions and sign-offs. You can file all day at home with no connection to the office at all.",
+    "legal": "Git is a document management system running on your own laptop: every saved version is retained, numbered and attributed. The working tree is the draft open on your screen. The staging area is the set of pages you have pulled for the next filing. A commit is the filed version, stamped with author, time and a unique identifier, and it cannot be quietly altered afterward. GitHub is the shared file room and matter workspace: the hosted copy, plus the review notes, assignments and sign-offs that surround it. Like a complete duplicate file kept offsite, every clone carries the full version history.",
+    "ml": "You are tuning a model. The edited `train.py` and `config.yaml` on disk are the working tree. Choosing which of those edits belong to this experiment is staging. The commit is the frozen record: the exact code and config that produced a run, with an identifier you can paste into your experiment log. Pushing sends that record to GitHub, where a collaborator can pull the same identifier and reproduce the run. Git gives each experiment a permanent, citable code state. GitHub makes that state reachable from the cluster, from a laptop and from a reviewer's browser.",
+    "technical": "Git is a distributed version control system. A repository is a `.git` directory holding an object database of commits plus references such as branches. Each commit stores a full snapshot of the tracked files, metadata, and a pointer to its parent commit. Locally a change passes through the working tree, then the index, also called the staging area, then the repository when you commit. A remote is another copy of the repository, commonly hosted on GitHub, and `git push` and `git fetch` copy commits between the two. GitHub adds accounts, permissions, pull requests, issues and automation around the hosted copy."
+  },
+  "sections": [
+    {
+      "heading": "Two different things with similar names",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "**Git** is software that runs on your computer. It records the history of a folder as a series of snapshots, and it does that with no network connection. **GitHub** is a hosting service. It stores a copy of your Git repository on its servers and wraps that copy in tools for working with other people."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Git",
+              "points": [
+                "A program installed on your machine",
+                "Records history as commits",
+                "Works with no network connection",
+                "Open source, and independent of GitHub"
+              ]
+            },
+            {
+              "title": "GitHub",
+              "points": [
+                "A hosted service you sign in to",
+                "Stores a copy of your repository",
+                "Adds pull requests, issues, reviews and automation",
+                "One of several hosts. GitLab and Bitbucket are others"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "Your internet connection drops for a day. Which of these still work: committing, reading history, creating a branch, opening a pull request?",
+          "answer": "Committing, reading history and creating a branch all work, because they only touch the repository on your disk. Opening a pull request needs GitHub, so it waits. This is the cleanest test for telling the two apart: if it works offline, it is Git."
+        }
+      ]
+    },
+    {
+      "heading": "The four places a change can be",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A change you make travels through four places before a collaborator can see it. Three are on your machine. One is on GitHub. Each move between them is a separate, deliberate command."
+        },
+        {
+          "type": "flow",
+          "caption": "One change, four places, three commands",
+          "steps": [
+            {
+              "label": "Working tree",
+              "note": "Files as they sit on disk right now"
+            },
+            {
+              "label": "Staging area",
+              "via": "git add",
+              "note": "Changes chosen for the next commit"
+            },
+            {
+              "label": "Local repository",
+              "via": "git commit",
+              "note": "Permanent snapshots in the .git folder"
+            },
+            {
+              "label": "Remote",
+              "via": "git push",
+              "note": "The copy on GitHub that others can reach"
+            }
+          ]
+        },
+        {
+          "type": "table",
+          "head": [
+            "Place",
+            "What it holds",
+            "How you look at it"
+          ],
+          "rows": [
+            [
+              "Working tree",
+              "Your files, including edits Git has not recorded",
+              "`git status`, `git diff`"
+            ],
+            [
+              "Staging area",
+              "The changes you picked for the next commit",
+              "`git status`, `git diff --staged`"
+            ],
+            [
+              "Local repository",
+              "Every commit on your machine",
+              "`git log`"
+            ],
+            [
+              "Remote",
+              "The commits GitHub has",
+              "The repository page on github.com"
+            ]
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "git status is the map",
+          "text": "`git status` answers three questions at once: which branch you are on, which changes are staged, and which are not. Run it before and after any command you are unsure of. It is read-only and never changes anything."
+        }
+      ]
+    },
+    {
+      "heading": "A commit is a snapshot",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Each commit records the state of every tracked file at one moment, together with who made it, when, a message saying why, and a pointer to the commit before it. Files that did not change are stored once and reused, so snapshots are cheap. When Git shows you a difference, it is comparing two snapshots."
+        },
+        {
+          "type": "graph",
+          "caption": "History is a chain. Each commit points back to its parent, and the branch name main points at the newest one.",
+          "commits": [
+            {
+              "id": "A",
+              "msg": "Start project"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ],
+              "msg": "Add training script"
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ],
+              "msg": "Add config file"
+            }
+          ],
+          "branches": {
+            "main": "C"
+          },
+          "head": "main"
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Why the identifier matters",
+          "text": "A commit's identifier is computed from its contents and from its parent's identifier. Change one character anywhere in the history and every later identifier changes too. That makes the history tamper-evident, which is why a commit ID works as a precise citation in an audit trail or a methods section."
+        }
+      ]
+    },
+    {
+      "heading": "Every clone is the whole history",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Cloning downloads the whole history. You receive every commit, and Git checks out the latest files for you. Your laptop, a compute cluster and GitHub can each hold a complete copy. The copies do not sync on their own. Nothing leaves your machine until you push, and nothing arrives until you fetch or pull."
+        },
+        {
+          "type": "p",
+          "text": "That independence explains the most common surprise in Git: a commit you made an hour ago is missing from GitHub. It is safe in your local repository. It has not been pushed."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Pull** to bring in what others pushed.",
+            "**Edit** files in the working tree.",
+            "**Review** with `git status` and `git diff`.",
+            "**Stage** the changes that belong together.",
+            "**Commit** with a message that says why.",
+            "**Push** so the remote has it."
+          ],
+          "ordered": true
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Browser and phone edits skip the local places",
+          "text": "When you edit a file on github.com or in the mobile app, the commit is created directly on the remote. There is no working tree or staging area involved, and your laptop does not have that commit until you pull."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "See where your changes are right now",
+      "browser": [
+        "Open the repository on github.com. The file list shows the remote's copy of the default branch. Nothing on your laptop appears here until you push.",
+        "Select the commit count above the file list, shown next to a clock icon, to read the remote's history.",
+        "Compare the newest commit there with the last commit you made locally. If yours is missing, it has not been pushed."
+      ],
+      "phone": [
+        "Open the repository in GitHub Mobile. From the repository screen you can browse the code and the commit list for the selected branch.",
+        "A phone has no working tree or staging area of its own. The app shows the remote, so what you see is what has been pushed.",
+        "If a commit you made on your computer is missing, push it from the computer and refresh the app."
+      ],
+      "cli": [
+        "`git status` shows your branch, staged changes and unstaged changes.",
+        "`git diff` shows unstaged edits line by line. `git diff --staged` shows what the next commit will contain.",
+        "`git log --oneline -5` lists your five most recent local commits.",
+        "`git fetch` followed by `git status` tells you whether your branch is ahead of or behind the remote."
+      ],
+      "editor": [
+        "In VS Code, open the **Source Control** view. **Changes** lists working-tree edits and **Staged Changes** lists the staging area.",
+        "Select a file in either list to see its diff.",
+        "The status bar at the bottom left shows the current branch and, next to it, how many commits are waiting to be pulled and pushed.",
+        "With a coding agent, ask it to run `git status` and summarize where each change is. Verify by opening the Source Control view yourself."
+      ]
+    },
+    {
+      "task": "Move one change through all four places",
+      "browser": [
+        "Open a file on github.com and select the pencil icon to edit it.",
+        "Make a small change and select **Commit changes**.",
+        "Write a message and confirm. On the web, staging, committing and pushing collapse into one step, directly on the remote.",
+        "Your laptop does not have this commit yet. It arrives the next time you pull."
+      ],
+      "phone": [
+        "In GitHub Mobile, open a file and choose the edit option from its menu, if your app version offers it. As of this writing the app can edit and commit single files.",
+        "Otherwise open the file in your phone's browser and select the pencil icon.",
+        "Commit the change. As on the web, the commit lands directly on the remote."
+      ],
+      "cli": [
+        "Edit a file, then run `git status` to see it listed as modified.",
+        "`git add README.md` copies the change into the staging area.",
+        "`git commit -m \"Clarify setup steps\"` records the staged snapshot in your local repository.",
+        "`git push` sends the new commit to the remote.",
+        "`git status` now reports that your branch is up to date with `origin/main`."
+      ],
+      "editor": [
+        "Edit and save a file in VS Code. It appears under **Changes** in the Source Control view.",
+        "Select the plus icon beside the file to stage it.",
+        "Type a message in the box and select **Commit**.",
+        "Select **Sync Changes** to push.",
+        "If an agent made the edit, review the diff in Source Control before you stage anything."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Assuming a commit is on GitHub because you made it. Commits stay on your machine until you push.",
+      "fix": "Run `git status`. If it says your branch is ahead of `origin/main`, push."
+    },
+    {
+      "trap": "Editing a file on github.com, then continuing on the older copy on your laptop.",
+      "fix": "Pull before you start work. A web or phone edit is a commit on the remote that your laptop has not seen."
+    },
+    {
+      "trap": "Treating GitHub as the backup for unfinished work. Uncommitted edits exist in one place only, your working tree.",
+      "fix": "Commit early on a branch and push it. Until a change is committed, Git has no copy to recover."
+    },
+    {
+      "trap": "Saying Git when you mean GitHub, then searching for help with the wrong word.",
+      "fix": "Ask whether the thing works offline. Commits, branches and merges are Git. Pull requests, issues and Actions are GitHub."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "You commit a change on your laptop and close the lid. A collaborator opens the repository on github.com. Do they see your commit?",
+      "choices": [
+        "Yes, commits sync automatically",
+        "No, it stays local until you push",
+        "Yes, after they refresh the page",
+        "Only if they are a repository admin"
+      ],
+      "answer": 1,
+      "why": "A commit lands in your local repository and nowhere else. Nothing leaves your machine until `git push`. Git has no background sync, which surprises people used to shared-document tools."
+    },
+    {
+      "q": "Which command copies a change from the working tree into the staging area?",
+      "choices": [
+        "`git commit`",
+        "`git push`",
+        "`git add`",
+        "`git status`"
+      ],
+      "answer": 2,
+      "why": "`git add` stages. `git commit` then records what is staged, and `git push` sends commits to the remote. `git status` reports and changes nothing."
+    },
+    {
+      "q": "What does a commit store?",
+      "choices": [
+        "A full snapshot of the tracked files, plus author, date, message and parent",
+        "Only the lines that changed since the previous commit",
+        "A copy of the whole folder, including ignored files",
+        "A pointer to file versions kept on GitHub"
+      ],
+      "answer": 0,
+      "why": "Each commit is a complete snapshot of everything Git tracks, with metadata and a pointer to its parent. Git shows differences by comparing snapshots. Thinking of commits as stored line changes is common, and it leads to wrong predictions about merges and reverts."
+    },
+    {
+      "q": "Which of these is a GitHub feature and would not exist in a repository that never left your laptop?",
+      "choices": [
+        "Branches",
+        "Commits",
+        "Merging",
+        "Pull requests"
+      ],
+      "answer": 3,
+      "why": "Branches, commits and merges are part of Git and work offline. A pull request is a GitHub feature built around a branch: a page for discussion, review and checks before merging."
+    },
+    {
+      "q": "You edit a file with the pencil icon on github.com and commit. Where does that commit exist?",
+      "choices": [
+        "On the remote only, until you pull",
+        "In your laptop's staging area",
+        "In both places immediately",
+        "Nowhere until someone approves it"
+      ],
+      "answer": 0,
+      "why": "The web editor commits directly to the repository on GitHub. Your local clone learns about it when you fetch or pull. Starting local work without pulling first is how two copies drift apart."
+    }
+  ],
+  "mission": {
+    "title": "Trace one change through all four places",
+    "where": "Your own repository, with a terminal or an editor, plus github.com in a browser.",
+    "steps": [
+      "Run `git status` in your clone and read every line. Note the branch name and whether anything is modified.",
+      "Change one line in `README.md`. Run `git status` and `git diff` and find your edit in the working tree.",
+      "Stage it with `git add README.md`. Run `git diff --staged` and confirm the same edit now shows there.",
+      "Commit with a message that says why you made the change. Run `git log --oneline -3` and copy the short ID of your commit.",
+      "Before pushing, open the repository on github.com and confirm the commit is not there.",
+      "Push. Refresh the page and find the same short ID in the commit list."
+    ]
+  },
+  "terms": [
+    {
+      "term": "repository",
+      "def": "A project's files plus the complete history of changes to them, stored in a hidden `.git` folder. Often shortened to repo."
+    },
+    {
+      "term": "working tree",
+      "def": "The files as they currently sit on disk, including edits Git has not recorded yet."
+    },
+    {
+      "term": "staging area",
+      "def": "The set of changes selected for the next commit. Git also calls it the index."
+    },
+    {
+      "term": "commit",
+      "def": "A permanent snapshot of the tracked files with an author, a date, a message and a pointer to the previous commit."
+    },
+    {
+      "term": "remote",
+      "def": "Another copy of the repository that yours can exchange commits with, usually the one hosted on GitHub."
+    },
+    {
+      "term": "clone",
+      "def": "A full copy of a repository, with all of its history, made on another machine."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git status",
+      "does": "Shows the current branch and which changes are staged, unstaged or untracked. Changes nothing.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git add <file>",
+      "does": "Copies a file's current changes into the staging area for the next commit.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git commit -m \"message\"",
+      "does": "Records the staged changes as a new snapshot in the local repository.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git push",
+      "does": "Sends local commits on the current branch to the remote, where others can see them.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git log --oneline",
+      "does": "Lists commits on the current branch, one line each, newest first.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git diff",
+      "does": "Shows unstaged edits line by line. Add `--staged` to see what the next commit will contain.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git clone <url>",
+      "does": "Downloads a full copy of a repository, including all history, into a new folder.",
+      "kind": "git",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About Git",
+      "url": "https://docs.github.com/en/get-started/using-git/about-git"
+    },
+    {
+      "label": "GitHub Docs: About GitHub and Git",
+      "url": "https://docs.github.com/en/get-started/start-your-journey/about-github-and-git"
+    },
+    {
+      "label": "Pro Git: What is Git?",
+      "url": "https://git-scm.com/book/en/v2/Getting-Started-What-is-Git%3F"
+    },
+    {
+      "label": "Git reference: git-status",
+      "url": "https://git-scm.com/docs/git-status"
+    }
+  ]
+}

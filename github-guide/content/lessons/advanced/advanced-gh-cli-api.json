@@ -1,0 +1,538 @@
+{
+  "id": "advanced-gh-cli-api",
+  "track": "advanced",
+  "title": "GitHub without the browser: the gh CLI and the REST API",
+  "minutes": 22,
+  "summary": "Everything you click on GitHub is an API call underneath. The `gh` command gives you those calls from a terminal, and the REST API gives them to any script. Once you can ask GitHub questions in code, repetitive work stops being manual.",
+  "outcomes": [
+    "Sign `gh` in and run the everyday pull request, issue and workflow commands",
+    "Call any REST endpoint with `gh api`, including pagination and filtering with `--jq`",
+    "Make an authenticated REST request from Python using only the standard library",
+    "Read rate-limit headers and page through large results",
+    "Choose a fine-grained token over a classic one and scope it narrowly"
+  ],
+  "prereqs": [
+    "basics-pull-requests",
+    "advanced-actions-fundamentals"
+  ],
+  "lenses": {
+    "everyday": "You can order at a restaurant by walking to the counter and pointing at the menu board. Or you can phone the order in: same kitchen, same food, no walking. If you order the same thing every Friday, you can leave a standing instruction. The website is the counter. `gh` is the phone. The API is the kitchen's own order system, which is what both the counter and the phone were talking to all along.",
+    "legal": "A court's records can be searched at the clerk's window or through the electronic filing system. The second is the same docket, queried by a program, returning structured data you can sort, count and reconcile. The API is that electronic access for GitHub: every pull request, review and deployment as a record with fields and timestamps. A token is your filing credential. It identifies you, it should carry only the access the task needs, it should expire, and its use is logged. Evidence pulled this way is repeatable, because the same query returns the same population.",
+    "ml": "Every Monday you want to know which experiment pull requests are still open, which have failing checks, and which have had no activity for two weeks. Clicking through fifteen pages costs ten minutes of your morning. One `gh pr list` with a JSON filter prints the table. A twenty-line Python script against the REST API writes the same table to a file, and a scheduled workflow runs it for you. The data was always there. You have stopped being the integration layer.",
+    "technical": "`gh` is GitHub's official command line client. It wraps common operations in subcommands and exposes everything else through `gh api`, which sends authenticated HTTP requests. The REST API lives at `https://api.github.com`. A request carries an `Authorization: Bearer` header with a token, an `Accept` header of `application/vnd.github+json`, and an `X-GitHub-Api-Version` header naming a dated API version. List endpoints paginate, with the next page's address in the `Link` response header. Responses include rate-limit headers that say how many requests remain."
+  },
+  "sections": [
+    {
+      "heading": "Signing in and the everyday commands",
+      "blocks": [
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "gh auth login          # choose GitHub.com and HTTPS, then sign in through the browser\ngh auth status         # which account is active and what its token may do"
+        },
+        {
+          "type": "p",
+          "text": "`gh` stores a token in your system's credential store and uses it for every command. Inside a repository folder it works out the owner and repository from the `origin` remote, so most commands need no arguments."
+        },
+        {
+          "type": "table",
+          "head": [
+            "Task",
+            "Command"
+          ],
+          "rows": [
+            [
+              "Clone a repository",
+              "`gh repo clone owner/repo`"
+            ],
+            [
+              "Open the current repository in the browser",
+              "`gh repo view --web`"
+            ],
+            [
+              "Open a pull request from the current branch",
+              "`gh pr create --fill`"
+            ],
+            [
+              "List open pull requests",
+              "`gh pr list`"
+            ],
+            [
+              "Check out someone's pull request locally",
+              "`gh pr checkout 42`"
+            ],
+            [
+              "See review and check status for your work",
+              "`gh pr status`"
+            ],
+            [
+              "Approve a pull request",
+              "`gh pr review 42 --approve`"
+            ],
+            [
+              "Squash-merge and delete the branch",
+              "`gh pr merge 42 --squash --delete-branch`"
+            ],
+            [
+              "Create an issue",
+              "`gh issue create --title \"...\" --body \"...\"`"
+            ],
+            [
+              "Follow a workflow run",
+              "`gh run watch`"
+            ],
+            [
+              "Find pull requests waiting for your review",
+              "`gh search prs --review-requested=@me --state=open`"
+            ]
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Every command explains itself",
+          "text": "Add `--help` to any command to see its flags and examples. Add `--web` to most `view` commands to jump to the same thing in the browser. Add `--json` with a list of field names to get structured output, and `--jq` to filter it."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "gh pr list --json number,title,isDraft \\\n  --jq '.[] | select(.isDraft | not) | \"#\\(.number)  \\(.title)\"'",
+          "caption": "Structured output, filtered in place: open pull requests that are not drafts"
+        }
+      ]
+    },
+    {
+      "heading": "gh api: every endpoint, one command",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The named subcommands cover the common cases. For anything else, `gh api` sends a request to any REST endpoint with your credentials attached. The placeholders `{owner}` and `{repo}` are filled in from the current folder."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# Read: the repository's default branch and visibility\ngh api repos/{owner}/{repo} --jq '{default_branch, visibility}'\n\n# Read many: every open pull request title, across all pages\ngh api \"repos/{owner}/{repo}/pulls?state=open&per_page=100\" --paginate --jq '.[].title'\n\n# Write: add a label to issue 12 (sending a field makes the request a POST)\ngh api repos/{owner}/{repo}/issues/12/labels -f \"labels[]=needs-eval\"\n\n# How many requests you have left\ngh api rate_limit --jq '.resources.core'"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`--paginate` follows the `Link` header and fetches every page for you.",
+            "`--jq` filters the JSON with a jq expression. You do not need jq installed separately.",
+            "`-f key=value` adds a text field. `-F key=value` converts numbers and booleans, and reads a file when the value starts with `@`.",
+            "Adding fields switches the method to POST. Use `-X` to choose another, such as `-X PATCH` or `-X DELETE`.",
+            "`gh api graphql -f query='...'` sends a GraphQL query. See [Building on GitHub](#expert-apps-webhooks)."
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "You run `gh api repos/{owner}/{repo}/pulls --jq 'length'` on a repository with 250 open pull requests, and it prints 30. Why?",
+          "answer": "List endpoints return one page at a time, and the default page size is 30. You saw the first page only. Add `per_page=100` to cut the number of requests, and `--paginate` to fetch every page. Any script that counts or audits must paginate, or it will quietly report on a sample."
+        }
+      ]
+    },
+    {
+      "heading": "The REST API from first principles",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "`gh api` hides four things that every REST request needs. When you write your own script, you supply them."
+        },
+        {
+          "type": "table",
+          "head": [
+            "Part",
+            "Value",
+            "Purpose"
+          ],
+          "rows": [
+            [
+              "Base address",
+              "`https://api.github.com`",
+              "Every path hangs off this"
+            ],
+            [
+              "`Authorization` header",
+              "`Bearer` followed by a token",
+              "Says who is asking"
+            ],
+            [
+              "`Accept` header",
+              "`application/vnd.github+json`",
+              "Asks for GitHub's JSON format"
+            ],
+            [
+              "`X-GitHub-Api-Version` header",
+              "A dated version such as `2022-11-28`",
+              "Pins behavior so your script does not change under you"
+            ]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "python",
+          "code": "import json\nimport os\nimport urllib.request\n\nOWNER = \"your-username\"\nREPO = \"your-repo\"\n\nheaders = {\n    \"Accept\": \"application/vnd.github+json\",\n    \"X-GitHub-Api-Version\": \"2022-11-28\",\n    \"User-Agent\": \"list-open-prs-example\",\n}\ntoken = os.environ.get(\"GITHUB_TOKEN\")\nif token:\n    headers[\"Authorization\"] = f\"Bearer {token}\"\n\nurl = f\"https://api.github.com/repos/{OWNER}/{REPO}/pulls?state=open&per_page=100\"\npulls = []\nremaining = \"unknown\"\n\nwhile url:\n    request = urllib.request.Request(url, headers=headers)\n    with urllib.request.urlopen(request, timeout=30) as response:\n        pulls.extend(json.load(response))\n        remaining = response.headers.get(\"x-ratelimit-remaining\", remaining)\n        # The Link header looks like: <https://...&page=2>; rel=\"next\", <...>; rel=\"last\"\n        url = None\n        for part in response.headers.get(\"Link\", \"\").split(\",\"):\n            if 'rel=\"next\"' in part:\n                url = part[part.index(\"<\") + 1 : part.index(\">\")]\n\nfor pr in pulls:\n    print(f\"#{pr['number']:<5} {pr['title']}  ({pr['user']['login']})\")\nprint(f\"{len(pulls)} open pull requests. Requests remaining: {remaining}\")",
+          "file": "list_open_prs.py"
+        },
+        {
+          "type": "list",
+          "items": [
+            "Set `OWNER` and `REPO` to a real repository first. Without a token the script works on public repositories, at a much lower rate limit.",
+            "The token is read from the environment and never written in the file.",
+            "The `while` loop is the pagination: keep requesting until there is no `next` link.",
+            "`x-ratelimit-remaining` reports how close you are to the limit. A well-behaved script checks it and slows down.",
+            "A fuller example, `github-guide/examples/repo_health_check.py` in this repository, uses the same pattern to audit a repository's settings."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Versions move",
+          "text": "The version header takes a date. The value shown here has been current for a long time, but check the REST documentation for the versions supported when you read this. GitHub keeps an older version working for a long overlap after a new one appears."
+        }
+      ]
+    },
+    {
+      "heading": "Tokens: fine-grained first",
+      "blocks": [
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Fine-grained personal access token",
+              "points": [
+                "Limited to the repositories you choose",
+                "Each permission granted separately, as read or write",
+                "Built around expiry dates",
+                "An organization can require approval before it works on its repositories",
+                "The right default"
+              ]
+            },
+            {
+              "title": "Classic personal access token",
+              "points": [
+                "Broad scopes such as `repo` cover every repository you can reach",
+                "Far more powerful than most tasks need",
+                "Can be created with no expiry",
+                "Still needed for a few endpoints; each endpoint's documentation says which token types work"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Create one token per purpose, named for that purpose, with the narrowest repository list and permissions that work.",
+            "Set an expiry. A calendar reminder to renew is cheaper than a forgotten token that lives forever.",
+            "Keep it in a password manager or a secret store. Never in a script, a notebook or a chat message.",
+            "In GitHub Actions you usually need no personal token at all, because `GITHUB_TOKEN` is already there.",
+            "Revoke tokens you no longer use under **Settings**, **Developer settings**, **Personal access tokens**."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Repeatable evidence",
+          "text": "A query is a procedure that can be reperformed. If you need to show that every pull request merged last quarter had an approving review, an API query produces the full population with timestamps, and anyone can run it again and get the same answer. Screenshots of a web page cannot do that. Keep the script and its output together."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "The terminal is an accessibility tool",
+          "text": "For many screen reader users, and for anyone who finds dense web pages tiring, `gh` is the more accessible GitHub. Output is linear text, nothing depends on hovering, and results can be piped into whatever format works for you. Recent versions of `gh` also include settings for screen-reader-friendly prompts and colors. The manual lists them."
+        }
+      ]
+    },
+    {
+      "heading": "Aliases, extensions and scheduled reports",
+      "blocks": [
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# A shortcut for a command you type every day\ngh alias set mine 'pr list --author @me'\ngh mine\n\n# Extensions are extra commands published as repositories\ngh extension browse\ngh extension install OWNER/gh-EXTENSION-NAME"
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "An extension is a program with your token",
+          "text": "Extensions are third-party code that runs as you. Install them only from authors you trust, and read the repository first."
+        },
+        {
+          "type": "p",
+          "text": "The real payoff comes from putting a query on a schedule. A workflow with a `schedule` trigger can run `gh` or a Python script every Monday and write the result to a job summary. On GitHub-hosted runners `gh` is preinstalled, and it reads its credentials from the `GH_TOKEN` environment variable."
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "name: Weekly pull request report\n\non:\n  schedule:\n    - cron: \"0 13 * * 1\"   # Mondays at 13:00 UTC\n  workflow_dispatch:\n\npermissions:\n  contents: read\n  pull-requests: read\n\njobs:\n  report:\n    runs-on: ubuntu-latest\n    steps:\n      - name: List open pull requests in the job summary\n        env:\n          GH_TOKEN: ${{ github.token }}\n          GH_REPO: ${{ github.repository }}\n        run: |\n          echo \"### Open pull requests\" >> \"$GITHUB_STEP_SUMMARY\"\n          gh pr list --json number,title,updatedAt \\\n            --jq '.[] | \"- #\\(.number) \\(.title) (updated \\(.updatedAt[:10]))\"' \\\n            >> \"$GITHUB_STEP_SUMMARY\"",
+          "file": ".github/workflows/weekly-report.yml"
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Install gh, sign in and open a pull request from the terminal",
+      "browser": [
+        "The browser's part here is sign-in. `gh auth login` shows a one-time code and opens github.com so you can approve the device.",
+        "To create a fine-grained token by hand, go to **Settings**, **Developer settings**, **Personal access tokens**, **Fine-grained tokens**, and select **Generate new token**.",
+        "Choose the repositories and the minimum permissions, set an expiry, and copy the token once into a password manager.",
+        "Everything else in this task has a web equivalent you already know. The **New pull request** button does what `gh pr create` does."
+      ],
+      "phone": [
+        "There is no `gh` in GitHub Mobile. The app itself covers the same everyday actions: listing, reviewing and merging pull requests, triaging issues, watching runs.",
+        "For a real terminal on a phone, open a codespace in the mobile browser. `git` and `gh` are preinstalled there and already signed in.",
+        "Approving the `gh auth login` device code is a comfortable phone task: enter the code at the address the terminal shows."
+      ],
+      "cli": [
+        "Install `gh` with your system's package manager, following the instructions at cli.github.com.",
+        "`gh auth login`, choose GitHub.com and HTTPS, and complete the browser sign-in.",
+        "`gh auth status` to confirm the account.",
+        "In a repository: `git switch -c try-gh`, make a commit, and `git push -u origin try-gh`.",
+        "`gh pr create --fill` to open the pull request with the commit message as its title and body.",
+        "`gh pr checks --watch`, then `gh pr merge --squash --delete-branch` when the checks pass."
+      ],
+      "editor": [
+        "VS Code's integrated terminal runs `gh` like any other terminal. In a codespace it is already installed and signed in.",
+        "The GitHub Pull Requests extension covers much of the same ground with buttons. The two work well together.",
+        "Coding agents lean heavily on `gh` to open pull requests and read check results. Knowing the commands lets you read what an agent did in its log.",
+        "Give an agent a token with only the permissions the task needs, never your broad personal token."
+      ]
+    },
+    {
+      "task": "Query the API and save the result",
+      "browser": [
+        "Paste `https://api.github.com/repos/OWNER/REPO` into the address bar, with a public repository's owner and name. The browser shows the raw JSON.",
+        "That works for public data without signing in, within a low rate limit.",
+        "The REST documentation lists every endpoint with its parameters and an example response. Find the endpoint there before writing code."
+      ],
+      "phone": [
+        "The same address works in a mobile browser and returns JSON, which is readable but not pleasant on a small screen.",
+        "For anything beyond a quick look, run the query from a codespace or wait for a computer.",
+        "If a scheduled workflow produces the report, read its job summary in GitHub Mobile under the repository's **Actions**."
+      ],
+      "cli": [
+        "`gh api repos/{owner}/{repo}` inside a repository folder prints its full JSON record.",
+        "Add `--jq '.default_branch'` to extract one field.",
+        "`gh api \"repos/{owner}/{repo}/pulls?state=all&per_page=100\" --paginate --jq '.[] | [.number, .state, .title] | @tsv' > pulls.tsv` saves every pull request as a tab-separated file.",
+        "`gh api rate_limit --jq '.resources.core.remaining'` shows how many requests you have left.",
+        "Run the Python example with `GITHUB_TOKEN=$(gh auth token) python list_open_prs.py` to lend it `gh`'s token for that one command."
+      ],
+      "editor": [
+        "Save the Python example in the workspace and run it from the integrated terminal.",
+        "Set a breakpoint after the first response and inspect the JSON in the debugger. Seeing the real shape of the data beats reading about it.",
+        "In a codespace, `GITHUB_TOKEN` is already set and scoped to that repository.",
+        "Ask a coding agent for a script against a named endpoint, then check three things: it paginates, it reads the token from the environment, and it handles a failed request."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Counting or auditing from the first page of results and treating it as the whole population.",
+      "fix": "Always paginate. Use `--paginate` with `gh api`, or follow the `Link` header in code."
+    },
+    {
+      "trap": "Pasting a token into a script and committing it.",
+      "fix": "Read tokens from the environment. If one is committed, revoke it immediately. Push protection will usually stop the push, but do not count on it."
+    },
+    {
+      "trap": "Using one all-powerful classic token for every script.",
+      "fix": "Create a fine-grained token per purpose, limited to the repositories and permissions that task needs, with an expiry."
+    },
+    {
+      "trap": "Calling the API in a tight loop until requests start failing.",
+      "fix": "Check the rate-limit headers, request 100 items per page, and pause when the remaining count is low."
+    },
+    {
+      "trap": "Running `gh` in the wrong folder and acting on a different repository than you intended.",
+      "fix": "Run `gh repo view` first, or pass `--repo owner/name` explicitly in scripts."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "Inside a clone of `acme/widgets`, what does `gh api repos/{owner}/{repo}/issues` request?",
+      "choices": [
+        "A literal path containing braces, which fails",
+        "The issues of `acme/widgets`, with the placeholders filled from the current repository",
+        "The issues of every repository you own",
+        "Nothing, until you define the two variables"
+      ],
+      "answer": 1,
+      "why": "`gh api` replaces `{owner}` and `{repo}` using the repository in the current folder. That is why the same command works unchanged in any clone."
+    },
+    {
+      "q": "A script requests a repository's pull requests once and reports 30. The repository has 400. What went wrong?",
+      "choices": [
+        "The token lacks permission",
+        "The API version header is missing",
+        "The script read only the first page",
+        "The rate limit cut the response short"
+      ],
+      "answer": 2,
+      "why": "List endpoints paginate, and 30 items is the default page size. The script must follow the `next` link until there is none. A permission problem returns an error, not a short list."
+    },
+    {
+      "q": "Which header tells GitHub who is making a REST request?",
+      "choices": [
+        "`Accept: application/vnd.github+json`",
+        "`X-GitHub-Api-Version`",
+        "`User-Agent`",
+        "`Authorization: Bearer` followed by a token"
+      ],
+      "answer": 3,
+      "why": "The `Authorization` header carries the credential. `Accept` chooses the response format, the version header pins API behavior, and `User-Agent` identifies the client software, not the user."
+    },
+    {
+      "q": "You need a token for a script that reads pull requests from one private repository. Which is the best choice?",
+      "choices": [
+        "A fine-grained token limited to that repository, with read access to pull requests",
+        "A classic token with the `repo` scope",
+        "Your account password",
+        "A classic token with every scope, to be safe"
+      ],
+      "answer": 0,
+      "why": "Least privilege: if the token leaks, the damage is one repository's pull requests, read-only. A classic `repo` token grants full control of every repository you can access."
+    },
+    {
+      "q": "In a GitHub Actions job, how does `gh` usually get its credentials?",
+      "choices": [
+        "A step must run `gh auth login`",
+        "From the `GH_TOKEN` environment variable, typically set to the job's built-in token",
+        "From a personal access token stored in the repository's files",
+        "It needs none, even for private repositories"
+      ],
+      "answer": 1,
+      "why": "`gh` reads `GH_TOKEN`. Setting it to the job's built-in token gives the command exactly the permissions the workflow declared, with nothing to create or rotate. An interactive login cannot work on a runner."
+    }
+  ],
+  "mission": {
+    "title": "Run your Monday report from the terminal",
+    "where": "Your own repository, in a terminal or a codespace.",
+    "steps": [
+      "Install `gh` or open a codespace, then run `gh auth status` and read which account and permissions it reports.",
+      "Open a small pull request entirely from the terminal with `gh pr create --fill`, watch its checks, and merge it.",
+      "Use `gh pr list --state all --json number,title,state` with a `--jq` filter to print one line per pull request.",
+      "Use `gh api` with `--paginate` to save every issue and pull request title to a file.",
+      "Run the Python example against your repository, first without a token and then with one, and compare the remaining-requests numbers.",
+      "Create a fine-grained token limited to this repository with read-only access, use it once, then revoke it.",
+      "Add the weekly report workflow and trigger it with `gh workflow run`. Read the job summary."
+    ]
+  },
+  "terms": [
+    {
+      "term": "gh",
+      "def": "GitHub's official command line client. It wraps common tasks in subcommands and reaches everything else through `gh api`."
+    },
+    {
+      "term": "REST API",
+      "def": "GitHub's HTTP interface. Each resource has an address, and you read or change it with requests that return JSON."
+    },
+    {
+      "term": "endpoint",
+      "def": "One address pattern in the API together with an HTTP method, such as GET on a repository's pull requests."
+    },
+    {
+      "term": "personal access token",
+      "def": "A string that authenticates API requests as you, with a set of permissions and, ideally, an expiry date."
+    },
+    {
+      "term": "fine-grained token",
+      "def": "A personal access token restricted to chosen repositories and individually granted permissions."
+    },
+    {
+      "term": "pagination",
+      "def": "Returning a long list in pages. The response's `Link` header gives the address of the next page."
+    },
+    {
+      "term": "rate limit",
+      "def": "The number of API requests an identity may make in a time window. Response headers report how many remain."
+    },
+    {
+      "term": "jq expression",
+      "def": "A small filter language for JSON. `gh` accepts one with `--jq` to select and reshape output."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh auth login",
+      "does": "Signs `gh` in to GitHub through the browser and stores the token in the system credential store.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh auth status",
+      "does": "Shows which account `gh` is using and what its token can do.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr create --fill",
+      "does": "Opens a pull request from the current branch, using commit messages for the title and body.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh pr checkout <number>",
+      "does": "Fetches a pull request's branch and switches to it, including pull requests from forks.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr merge --squash --delete-branch",
+      "does": "Squash-merges the current branch's pull request and deletes the branch.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh api <path> --paginate --jq '<filter>'",
+      "does": "Calls any REST endpoint, follows every page, and filters the JSON.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api rate_limit",
+      "does": "Shows your request limits and how many remain in the current window.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh alias set <name> '<command>'",
+      "does": "Defines a shortcut for a longer `gh` command.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh auth token",
+      "does": "Prints the token `gh` is using. Treat the output as a secret.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh search prs --review-requested=@me --state=open",
+      "does": "Finds open pull requests across GitHub that are waiting for your review.",
+      "kind": "gh",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub CLI manual",
+      "url": "https://cli.github.com/manual/"
+    },
+    {
+      "label": "GitHub CLI manual: gh api",
+      "url": "https://cli.github.com/manual/gh_api"
+    },
+    {
+      "label": "GitHub Docs: REST API",
+      "url": "https://docs.github.com/en/rest"
+    },
+    {
+      "label": "GitHub Docs: Managing your personal access tokens",
+      "url": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens"
+    },
+    {
+      "label": "Python documentation: urllib.request",
+      "url": "https://docs.python.org/3/library/urllib.request.html"
+    }
+  ]
+}

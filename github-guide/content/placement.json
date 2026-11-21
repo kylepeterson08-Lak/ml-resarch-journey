@@ -1,0 +1,101 @@
+{
+  "intro": "Eight questions, two per track, about a minute each. Answer what you know and choose **Not sure** for the rest. The guide suggests the first track where a question gets past you. Nothing is graded and you can retake it.",
+  "questions": [
+    {
+      "track": "basics",
+      "q": "You edit a file and run `git commit -m \"Update\"`. Git answers that there is nothing to commit. What is the usual reason?",
+      "choices": [
+        "The change was never staged with `git add`",
+        "You have to push before you can commit",
+        "The commit message is too short",
+        "The file is too large for Git"
+      ],
+      "answer": 0,
+      "why": "A commit records what is in the staging area, not what is in your working tree. Until you stage the change with `git add`, or use `git commit -a` for tracked files, the commit has nothing to record."
+    },
+    {
+      "track": "basics",
+      "q": "What does `git pull` do?",
+      "choices": [
+        "Uploads your commits to GitHub",
+        "Opens a pull request",
+        "Downloads new commits and merges them into your current branch",
+        "Throws away your local changes"
+      ],
+      "answer": 2,
+      "why": "Pull is fetch followed by merge. It downloads what the remote has and integrates it into the branch you are on. A pull request is a GitHub feature with a similar name and a different job."
+    },
+    {
+      "track": "intermediate",
+      "q": "Two people change different lines, far apart, in the same file on different branches. What happens when the branches merge?",
+      "choices": [
+        "A conflict, because the same file changed twice",
+        "Git combines both changes on its own",
+        "The later commit replaces the earlier one",
+        "Git asks which whole file to keep"
+      ],
+      "answer": 1,
+      "why": "Git merges regions of lines, not whole files. A conflict needs both sides to change the same or adjacent lines in different ways."
+    },
+    {
+      "track": "intermediate",
+      "q": "You pushed a commit that broke something, and teammates have already pulled it. Which undo is safe?",
+      "choices": [
+        "`git reset --hard HEAD~1`, then force-push",
+        "`git commit --amend`, then push",
+        "Delete the branch on GitHub and push it again",
+        "`git revert` the commit, then push"
+      ],
+      "answer": 3,
+      "why": "Revert adds a new commit that applies the opposite change, so everyone's history stays valid. Reset and amend rewrite history other people already have, which forces them to repair their clones."
+    },
+    {
+      "track": "advanced",
+      "q": "In a GitHub Actions workflow, how do jobs and steps relate?",
+      "choices": [
+        "A job is a list of steps that run in order on one runner",
+        "A step contains several jobs",
+        "They are two names for the same thing",
+        "Steps run in parallel and jobs run in order"
+      ],
+      "answer": 0,
+      "why": "A workflow has jobs. Each job gets a fresh runner and executes its steps in order. Jobs run in parallel unless one declares that it needs another."
+    },
+    {
+      "track": "advanced",
+      "q": "After a rebase you must overwrite a branch you already pushed. Which push will refuse if a teammate pushed commits you have not seen?",
+      "choices": [
+        "`git push --force`",
+        "`git push --all`",
+        "`git push --force-with-lease`",
+        "`git push -u origin HEAD`"
+      ],
+      "answer": 2,
+      "why": "`--force-with-lease` overwrites only if the remote branch is still where your last fetch saw it. Plain `--force` overwrites whatever is there, including work you never saw."
+    },
+    {
+      "track": "expert",
+      "q": "You change the message of a commit from three commits back. Why do the ids of the later commits change too?",
+      "choices": [
+        "Git renumbers commits so they stay in order",
+        "GitHub issues new ids when you push",
+        "Each commit's id is a hash that covers its parent's id",
+        "The timestamps are refreshed"
+      ],
+      "answer": 2,
+      "why": "A commit's id is a hash of its content, and that content includes the id of its parent. Change one commit and every descendant must be rewritten with a new id. That chain is what makes history tamper-evident."
+    },
+    {
+      "track": "expert",
+      "q": "A workflow step runs `echo \"${{ github.event.pull_request.title }}\"` inside a `run:` script. What is the risk?",
+      "choices": [
+        "None. GitHub sanitizes titles before the workflow sees them",
+        "Script injection: the title is pasted into the script before the shell runs it",
+        "The title will be masked as a secret in the log",
+        "The step only fails on pull requests from forks"
+      ],
+      "answer": 1,
+      "why": "The expression is replaced with the raw title before the shell starts, so a title containing shell syntax runs as code. Pass untrusted values through an environment variable and quote the variable instead."
+    }
+  ]
+}

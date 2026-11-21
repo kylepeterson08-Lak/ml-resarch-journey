@@ -1,0 +1,505 @@
+{
+  "id": "intermediate-merge-strategies",
+  "track": "intermediate",
+  "title": "Merge, squash or rebase: three ways to land work",
+  "minutes": 16,
+  "summary": "A pull request can land three ways. A merge commit keeps every commit and the shape of the branch. A squash turns the branch into one commit. A rebase replays your commits on top of the base. The code ends up the same either way. The history does not.",
+  "outcomes": [
+    "Tell a fast-forward from a merge commit by looking at a commit graph",
+    "Choose between a merge commit, a squash and a rebase for a given pull request",
+    "Update your branch with a rebase and push it safely with `--force-with-lease`",
+    "Explain why you never rebase a branch other people are using",
+    "Find the repository settings that allow or forbid each merge method"
+  ],
+  "prereqs": ["basics-branches", "basics-pull-requests", "intermediate-merge-conflicts"],
+  "lenses": {
+    "everyday": "You spent a week improving a recipe in your own notebook. There are three ways to put it in the family binder. Staple in the whole notebook, every scribble included, with a cover sheet that says when you added it. Copy the final recipe onto one clean card and file that. Or rewrite each of your notes in order onto fresh pages at the end of the binder, as if you had started from today's binder. Dinner tastes the same all three ways. What differs is how much of the path to the recipe the binder keeps.",
+    "legal": "A negotiated agreement can enter the file three ways. Keep every interim redline in the document management system, with a closing memo recording when the drafts were reconciled. File only the execution version as one entry, and leave the negotiation history in the correspondence folder. Or conform each interim redline to the current form so the drafts read in sequence against today's template. In accounting terms, a squash is the single adjusting journal entry, and the pull request is the workpaper that supports it. Nothing is destroyed. You are choosing how much detail the main record carries and where the rest is kept.",
+    "ml": "Your branch `exp/cosine-lr` has fourteen commits: `try warmup`, `fix typo`, `revert that`, `final`, `final for real`. With a merge commit, all fourteen land on `main` plus one commit that joins them. With a squash, `main` gains one commit, `Add cosine LR schedule with warmup`, so when validation accuracy drops next month, bisecting `main` steps through whole experiments and never through half-finished ones. With a rebase, your commits are replayed on top of the latest `main`, so the experiment is tested against the newest data loader before it lands, and the history stays a straight line.",
+    "technical": "A fast-forward moves the base branch pointer forward to the tip of your branch. It is possible only when the base has no commits your branch lacks, and it creates no new commit. A merge commit has two parents and joins two lines of history. A squash creates one new commit on the base with a single parent, holding the combined change of the whole branch. A rebase creates a new commit for each original commit, each with a new parent and therefore a new hash. After a squash or a rebase, the original commits are not ancestors of the base branch, which is why Git may report the old branch as unmerged."
+  },
+  "sections": [
+    {
+      "heading": "Two shapes a merge can take",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "When you bring one branch into another, Git has two possible outcomes. If the base branch has not moved since you branched, Git can slide the base pointer forward to your latest commit. That is a **fast-forward**, and it creates nothing new. If both branches have new commits, Git creates a **merge commit** with two parents to join them."
+        },
+        {
+          "type": "graph",
+          "caption": "Before a fast-forward. main has not moved since feature branched at B, so merging feature moves the main pointer from B to D. No commit is created.",
+          "commits": [
+            {"id": "A", "msg": "Start project"},
+            {"id": "B", "parents": ["A"], "msg": "Add training loop"},
+            {"id": "C", "parents": ["B"], "msg": "Add evaluation script"},
+            {"id": "D", "parents": ["C"], "msg": "Report accuracy"}
+          ],
+          "branches": {"main": "B", "feature": "D"},
+          "head": "main"
+        },
+        {
+          "type": "graph",
+          "caption": "A merge commit. main gained C while feature gained D and E, so M joins the two lines and has two parents.",
+          "commits": [
+            {"id": "A", "msg": "Start project"},
+            {"id": "B", "parents": ["A"], "msg": "Add training loop"},
+            {"id": "C", "parents": ["B"], "msg": "Fix data loader"},
+            {"id": "D", "parents": ["B"], "msg": "Add evaluation script"},
+            {"id": "E", "parents": ["D"], "msg": "Report accuracy"},
+            {"id": "M", "parents": ["C", "E"], "msg": "Merge feature into main"}
+          ],
+          "branches": {"main": "M", "feature": "E"},
+          "head": "main",
+          "highlight": ["M"]
+        },
+        {
+          "type": "reveal",
+          "prompt": "On `main` you run `git merge feature`. `main` has no new commits since `feature` branched off. How many new commits does the merge create?",
+          "answer": "None. Git fast-forwards: it moves `main` to the tip of `feature`. To force a merge commit anyway, use `git merge --no-ff feature`. The **Create a merge commit** option on a pull request always behaves that way, so every merged pull request leaves a visible join in the history."
+        }
+      ]
+    },
+    {
+      "heading": "Three options on every pull request",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The merge box on a pull request offers up to three methods. All three put the same final code on the base branch. They differ in what the base branch's history looks like afterward. The pictures below start from the same place: `main` at C, and a `feature` branch with commits D and E."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Create a merge commit",
+              "points": [
+                "Keeps D and E exactly as you wrote them",
+                "Adds a merge commit with two parents",
+                "History shows the branch and the moment it joined",
+                "Undoing the whole change means reverting the merge commit"
+              ]
+            },
+            {
+              "title": "Squash and merge",
+              "points": [
+                "Combines D and E into one new commit",
+                "The base branch gains one commit per pull request",
+                "The individual commits stay visible on the pull request page",
+                "Undoing the change is one ordinary revert"
+              ]
+            },
+            {
+              "title": "Rebase and merge",
+              "points": [
+                "Replays D and E on top of the base as new commits",
+                "No merge commit, so history is a straight line",
+                "Each replayed commit gets a new hash",
+                "Only offered when the replay has no conflicts"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "graph",
+          "caption": "After Squash and merge. S holds the combined change of D and E and has one parent, C. D and E are not part of main's history.",
+          "commits": [
+            {"id": "A"},
+            {"id": "B", "parents": ["A"]},
+            {"id": "C", "parents": ["B"], "msg": "Fix data loader"},
+            {"id": "D", "parents": ["B"], "msg": "Add evaluation script"},
+            {"id": "E", "parents": ["D"], "msg": "Report accuracy"},
+            {"id": "S", "parents": ["C"], "msg": "Add evaluation with accuracy report (#12)"}
+          ],
+          "branches": {"main": "S", "feature": "E"},
+          "head": "main",
+          "highlight": ["S"]
+        },
+        {
+          "type": "graph",
+          "caption": "After Rebase and merge. D' and E' are new commits that carry the same changes as D and E on top of C. The originals are left behind.",
+          "commits": [
+            {"id": "A"},
+            {"id": "B", "parents": ["A"]},
+            {"id": "C", "parents": ["B"], "msg": "Fix data loader"},
+            {"id": "D", "parents": ["B"], "msg": "Add evaluation script", "ghost": true},
+            {"id": "E", "parents": ["D"], "msg": "Report accuracy", "ghost": true},
+            {"id": "D'", "parents": ["C"], "msg": "Add evaluation script"},
+            {"id": "E'", "parents": ["D'"], "msg": "Report accuracy"}
+          ],
+          "branches": {"main": "E'"},
+          "head": "main",
+          "highlight": ["D'", "E'"]
+        },
+        {
+          "type": "table",
+          "caption": "The three methods side by side",
+          "head": ["Method", "New commits on the base", "Shape", "Fits when"],
+          "rows": [
+            ["Create a merge commit", "All of yours plus one merge commit", "Branch and join", "The individual commits tell a story worth keeping"],
+            ["Squash and merge", "One", "Straight line", "The branch is one logical change with messy steps"],
+            ["Rebase and merge", "One for each original commit", "Straight line", "Each commit is clean and stands on its own"]
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "A squash message is worth a minute",
+          "text": "For a squash, GitHub proposes a message built from the pull request title and the commit messages. Edit it before you confirm. That one message is what `git log` on `main` shows for the whole change."
+        }
+      ]
+    },
+    {
+      "heading": "Choosing a method",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "No method is correct everywhere. Choose by asking what a reader of `main` will need a year from now."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Squash** when the branch is one idea and the steps were exploratory. Most feature and experiment branches fit. The base branch then reads as a list of finished changes, one per pull request.",
+            "**Merge commit** when the separate commits matter: a long-running branch, several authors, or steps you may need to revert one at a time.",
+            "**Rebase** when you have curated every commit and want each one on the base without a merge commit.",
+            "**One method per repository** beats the perfect method per pull request. A uniform history takes less effort to search, bisect and audit."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Squashing does not erase the record",
+          "text": "After a squash the base branch shows one commit, and the pull request still holds every original commit, every review comment and every check result. That is the relationship between a summary journal entry and its supporting workpapers. If your work is subject to change-control or audit requirements, decide the merge method once, write it down, and enforce it in settings so the record is uniform."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "A straight history reads better aloud",
+          "text": "`git log --graph` draws branches with slashes, bars and asterisks, which a screen reader announces character by character. A linear history can be read with plain `git log --oneline`, one commit per line from top to bottom. That is one practical argument for squash or rebase on a team that includes screen reader users."
+        }
+      ]
+    },
+    {
+      "heading": "Rebasing your own branch to catch up",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The same replay works on your machine. When `main` has moved and your branch is behind, `git rebase origin/main` lifts your commits off the old base and replays them on the new one. Your branch then looks as if you had started from today's `main`."
+        },
+        {
+          "type": "graph",
+          "caption": "After rebasing feature onto main. D and E are replaced by D' and E', which sit on top of C. The old commits stay in your reflog for a while.",
+          "commits": [
+            {"id": "A"},
+            {"id": "B", "parents": ["A"]},
+            {"id": "C", "parents": ["B"], "msg": "Fix data loader"},
+            {"id": "D", "parents": ["B"], "msg": "Add evaluation script", "ghost": true},
+            {"id": "E", "parents": ["D"], "msg": "Report accuracy", "ghost": true},
+            {"id": "D'", "parents": ["C"], "msg": "Add evaluation script"},
+            {"id": "E'", "parents": ["D'"], "msg": "Report accuracy"}
+          ],
+          "branches": {"main": "C", "feature": "E'"},
+          "head": "feature"
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git switch feature/add-eval\ngit fetch origin\ngit rebase origin/main          # replay your commits on the latest main\n\n# if a commit conflicts: edit the file, then\ngit add <file>\ngit rebase --continue           # or: git rebase --abort to return to the start\n\ngit push --force-with-lease     # the branch was rewritten, so a plain push is refused",
+          "caption": "Updating a branch that only you use"
+        },
+        {
+          "type": "callout",
+          "kind": "danger",
+          "title": "Never rebase a branch other people use",
+          "text": "A rebase replaces commits with new copies. Anyone who already has the old commits now disagrees with the remote about what the branch contains, and their next pull produces duplicates and conflicts. Rebase only commits that live on your machine or on a branch that you alone push to. On a shared branch, update with a merge."
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Why the lease matters",
+          "text": "`git push --force` overwrites the remote branch with whatever you have. `git push --force-with-lease` first checks that the remote branch is still where your last fetch saw it, and refuses if someone else has pushed since. Make the second one your habit."
+        },
+        {
+          "type": "reveal",
+          "prompt": "You rebased a branch you had already pushed. A plain `git push` is rejected, and Git suggests `git pull`. Should you pull?",
+          "answer": "No. Pulling merges the old copies of your commits back into the rebased ones, and the branch ends up containing every change twice. The remote holds commits you deliberately replaced, so the remote has to be overwritten: `git push --force-with-lease`."
+        }
+      ]
+    },
+    {
+      "heading": "Settings that decide the menu",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A repository's owner chooses which of the three methods the merge box offers. In **Settings**, under **General**, the **Pull Requests** section has a checkbox for each: **Allow merge commits**, **Allow squash merging** and **Allow rebase merging**. Untick the ones you do not want and they disappear from every pull request."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Automatically delete head branches** removes a pull request's branch after it merges, which keeps the branch list short.",
+            "**Always suggest updating pull request branches** shows the **Update branch** button whenever a pull request is behind its base.",
+            "A rule that requires linear history on a protected branch blocks merge commits there, whatever the checkboxes say. See [Guardrails](#advanced-branch-protection).",
+            "A common setup for a small research repository is squash only, with head branches deleted automatically."
+          ]
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Land a pull request with the method you choose",
+      "browser": [
+        "Open the pull request and scroll to the merge box at the bottom of the **Conversation** tab.",
+        "Select the arrow beside the green merge button to open the list of methods.",
+        "Choose **Create a merge commit**, **Squash and merge** or **Rebase and merge**. Only the methods the repository allows are listed.",
+        "For a merge commit or a squash, edit the proposed commit message so it describes the whole change.",
+        "Confirm with the green button, then select **Delete branch**."
+      ],
+      "phone": [
+        "Open the pull request in GitHub Mobile and go to the merge control at the bottom of the screen.",
+        "As of this writing the app lets you merge, choose among the methods the repository allows, and edit the commit message.",
+        "If you do not see the method you need, open the same pull request in your phone's browser and use the merge box there.",
+        "Delete the branch after merging if the app offers it. Otherwise the repository setting that deletes head branches covers it."
+      ],
+      "cli": [
+        "`gh pr merge 42 --squash --delete-branch` lands pull request 42 as one commit and removes the branch. Use `--merge` or `--rebase` for the other methods.",
+        "Run `gh pr merge 42` with no method flag to be asked interactively.",
+        "`git switch main` then `git pull` to bring the result to your machine.",
+        "`git log --oneline -5` to see what the method left on `main`."
+      ],
+      "editor": [
+        "With the GitHub Pull Requests extension in VS Code, open the pull request from the GitHub view.",
+        "On the pull request's description page, pick a method from the selector beside the merge button, then merge.",
+        "Switch to `main` and sync from the Source Control view.",
+        "With a coding agent, ask it to merge through `gh` with a named method, and only after checks pass. Then read `git log --oneline -5` on `main` yourself to confirm what landed."
+      ]
+    },
+    {
+      "task": "Bring your branch up to date with the base branch",
+      "browser": [
+        "Open the pull request. If the branch is behind its base, the merge box offers **Update branch**.",
+        "Open the menu on that button and choose **Update with merge commit** or **Update with rebase**.",
+        "Choose the merge commit if anyone else works on the branch. Choose the rebase only if the branch is yours alone.",
+        "After a rebase update, run `git pull --rebase` on your machine before you commit again, because the branch on GitHub now holds new copies of your commits."
+      ],
+      "phone": [
+        "As of this writing the mobile app may not show an update control on every pull request.",
+        "Open the pull request in your phone's browser, find **Update branch** in the merge box, and choose the merge or the rebase option from its menu.",
+        "If the update reports conflicts, resolve them as described in [Merge conflicts](#intermediate-merge-conflicts)."
+      ],
+      "cli": [
+        "`git switch feature/add-eval` then `git fetch origin`.",
+        "If the branch is yours alone, `git rebase origin/main`. If others use it, `git merge origin/main`.",
+        "Resolve any conflict, `git add` the file, and continue with `git rebase --continue` or `git commit`.",
+        "After a rebase, `git push --force-with-lease`. After a merge, a plain `git push`."
+      ],
+      "editor": [
+        "In VS Code, open the built-in terminal and run `git fetch origin`, then `git rebase origin/main` or `git merge origin/main`.",
+        "If a commit conflicts, the Source Control view lists the files. Resolve them in the editor, stage them, and continue with `git rebase --continue`.",
+        "After a rebase, push from the terminal with `git push --force-with-lease`.",
+        "With a coding agent, say which kind of update you want and that it must use `--force-with-lease`, never `--force`. Check `git status` and the pull request's commit list afterward."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Rebasing a branch a teammate has also pulled. Their copy still has the old commits, and their next pull doubles every change.",
+      "fix": "On shared branches, update with `git merge origin/main`. If a rebase is truly needed, agree on it first and have everyone re-sync to the new branch afterward."
+    },
+    {
+      "trap": "Reaching for `git push --force` out of habit. If a teammate pushed a minute ago, their commits vanish from the remote.",
+      "fix": "Use `git push --force-with-lease` every time. It refuses when the remote has moved since your last fetch."
+    },
+    {
+      "trap": "Running `git pull` when a push is rejected after a rebase. The old and new copies of your commits get merged together.",
+      "fix": "After a rebase the remote must be replaced, so push with `--force-with-lease`. Pull only when the remote has work you do not have."
+    },
+    {
+      "trap": "After a squash merge, `git branch -d feature` says the branch is not fully merged, and you assume the merge failed.",
+      "fix": "The squash commit is new, so Git cannot find your old commits in `main`. Confirm the pull request shows as merged, then delete the branch with `git branch -D feature`."
+    },
+    {
+      "trap": "Committing more work on a branch after its pull request was squashed. The next pull request shows the old commits again and conflicts with itself.",
+      "fix": "Start each new piece of work from a fresh branch off the updated `main`."
+    }
+  ],
+  "lab": "lab-merge-strategies",
+  "quiz": [
+    {
+      "q": "`main` is at commit B. `feature` branched from B and has commits C and D. Nobody has touched `main`. You run `git merge feature` on `main`. What does the history look like?",
+      "choices": [
+        "A new merge commit with parents B and D",
+        "`main` now points at D and no new commit exists",
+        "C and D are copied onto `main` with new hashes",
+        "One new commit that combines C and D"
+      ],
+      "answer": 1,
+      "why": "With no new commits on `main`, Git fast-forwards: it moves the `main` pointer to D. A merge commit appears only when both sides have new commits, or when you ask for one with `--no-ff`."
+    },
+    {
+      "q": "A pull request with six commits lands through **Squash and merge**. What does the base branch gain?",
+      "choices": [
+        "Six commits and a merge commit",
+        "Six commits with new hashes",
+        "One commit with one parent",
+        "One merge commit with two parents"
+      ],
+      "answer": 2,
+      "why": "A squash combines the whole branch into one ordinary commit on the base. Six commits with new hashes describes a rebase, and a two-parent commit describes a merge commit."
+    },
+    {
+      "q": "Why do rebased commits have different hashes from the originals?",
+      "choices": [
+        "Git assigns a random hash each time a commit is written",
+        "A commit's hash covers its parent, so a new parent means a new commit",
+        "Rebasing recompresses the files",
+        "The author date is reset to today"
+      ],
+      "answer": 1,
+      "why": "A commit's hash is computed from its content, its metadata and its parent's hash. Replaying a commit onto a different parent produces a different commit, even when the change is identical. The author date is kept, so that is not the cause."
+    },
+    {
+      "q": "What does `git push --force-with-lease` check before it overwrites the remote branch?",
+      "choices": [
+        "That you are the repository owner",
+        "That the pull request has been approved",
+        "That the remote branch is still where your last fetch saw it",
+        "That your branch has no merge commits"
+      ],
+      "answer": 2,
+      "why": "The lease is your last known position of the remote branch. If someone has pushed since then, the remote has moved and the push is refused, so you cannot silently delete their commits. Plain `--force` makes no such check."
+    },
+    {
+      "q": "Your team wants `main` to show exactly one commit per pull request. Which repository setup gets that?",
+      "choices": [
+        "Allow only squash merging",
+        "Allow only rebase merging",
+        "Allow only merge commits",
+        "Require linear history and allow every method"
+      ],
+      "answer": 0,
+      "why": "Squash is the only method that always yields one commit per pull request. Rebase merging also keeps history linear but adds one commit for each original commit, so a linear-history rule alone does not give you one per pull request."
+    }
+  ],
+  "mission": {
+    "title": "Land the same kind of change three ways and compare",
+    "where": "Your own repository, using scratch files in a `practice/` folder.",
+    "steps": [
+      "In **Settings**, **General**, **Pull Requests**, note which merge methods are allowed and turn all three on for now.",
+      "Create three branches, `practice/merge`, `practice/squash` and `practice/rebase`. On each, make two small commits to its own file under `practice/`.",
+      "Open a pull request for each branch. Land the first with **Create a merge commit**, the second with **Squash and merge** and the third with **Rebase and merge**.",
+      "Open the commit list for `main`, or run `git log --oneline --graph -12`, and point to the merge commit, the squash commit and the two replayed commits.",
+      "Locally, run `git branch -d practice/squash`. Read the warning, explain to yourself why Git says it, then delete the branch with `-D`.",
+      "Choose the method you want as your default and untick the others in settings."
+    ]
+  },
+  "terms": [
+    {
+      "term": "fast-forward",
+      "def": "A merge where the base branch has no new commits, so Git moves its pointer forward to the other branch's tip and creates nothing new."
+    },
+    {
+      "term": "squash merge",
+      "def": "Landing a branch as one new commit that contains the combined change of all its commits."
+    },
+    {
+      "term": "rebase",
+      "def": "Replaying commits one by one on top of a different base commit. Each replayed commit is a new commit with a new hash."
+    },
+    {
+      "term": "linear history",
+      "def": "A history with no merge commits, where every commit has exactly one parent and the log reads as a straight line."
+    },
+    {
+      "term": "force push",
+      "def": "A push that replaces the remote branch with your version instead of adding to it. Needed after rewriting commits, and dangerous on shared branches."
+    },
+    {
+      "term": "force-with-lease",
+      "def": "A force push that first checks the remote branch has not moved since your last fetch, and refuses if it has."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git merge --ff-only <branch>",
+      "does": "Merges only if a fast-forward is possible, and otherwise stops without changing anything.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git merge --no-ff <branch>",
+      "does": "Creates a merge commit even when a fast-forward would be possible.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git merge --squash <branch>",
+      "does": "Stages the combined change of a branch without committing, so you can record it as one commit.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git rebase origin/main",
+      "does": "Replays your branch's commits on top of the latest fetched `main`. Rewrites your branch's history.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git rebase --abort",
+      "does": "Stops a rebase in progress and returns the branch to where it started.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git pull --rebase",
+      "does": "Fetches, then replays your unpushed local commits on top of what the remote has, which avoids a merge commit.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git push --force-with-lease",
+      "does": "Overwrites the remote branch only if it has not moved since your last fetch.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git push --force",
+      "does": "Overwrites the remote branch unconditionally. Can delete other people's pushed commits.",
+      "kind": "git",
+      "risk": "danger"
+    },
+    {
+      "cmd": "gh pr merge <number> --squash --delete-branch",
+      "does": "Lands a pull request as one commit and deletes its branch. Swap in `--merge` or `--rebase` for the other methods.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git log --oneline --graph",
+      "does": "Draws the commit history with its branch and merge structure.",
+      "kind": "git",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About merge methods on GitHub",
+      "url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/about-merge-methods-on-github"
+    },
+    {
+      "label": "GitHub Docs: About pull request merges",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/about-pull-request-merges"
+    },
+    {
+      "label": "Git reference: git-rebase",
+      "url": "https://git-scm.com/docs/git-rebase"
+    },
+    {
+      "label": "Git reference: git-merge",
+      "url": "https://git-scm.com/docs/git-merge"
+    },
+    {
+      "label": "GitHub CLI manual: gh pr merge",
+      "url": "https://cli.github.com/manual/gh_pr_merge"
+    }
+  ]
+}

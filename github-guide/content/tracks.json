@@ -1,0 +1,165 @@
+{
+  "site": {
+    "title": "GitHub Inside Out",
+    "tagline": "An unofficial field guide in four tracks",
+    "version": "1.0.0",
+    "reviewed": "November 2026",
+    "disclaimer": "Independent learning material. Not affiliated with or endorsed by GitHub. Legal and tax notes are general information, not advice for your situation."
+  },
+  "lenses": [
+    {
+      "id": "everyday",
+      "label": "Everyday",
+      "blurb": "Save points, shared documents, photocopies."
+    },
+    {
+      "id": "legal",
+      "label": "Legal & tax",
+      "blurb": "Redlines, audit trails, chain of custody, workpapers."
+    },
+    {
+      "id": "ml",
+      "label": "ML research",
+      "blurb": "Notebooks, datasets, experiments, reproducibility."
+    },
+    {
+      "id": "technical",
+      "label": "Technical",
+      "blurb": "Exact mechanics, minimal metaphor."
+    }
+  ],
+  "tools": [
+    {
+      "id": "browser",
+      "label": "Browser",
+      "blurb": "github.com on a computer"
+    },
+    {
+      "id": "phone",
+      "label": "Phone",
+      "blurb": "GitHub Mobile or a mobile browser"
+    },
+    {
+      "id": "cli",
+      "label": "Command line",
+      "blurb": "git and gh in a terminal"
+    },
+    {
+      "id": "editor",
+      "label": "Editor & AI",
+      "blurb": "VS Code, Codespaces, coding agents"
+    }
+  ],
+  "tracks": [
+    {
+      "id": "basics",
+      "letter": "B",
+      "title": "Basics",
+      "subtitle": "Foundations",
+      "promise": "Build the mental model and the daily loop: commit, branch, sync, pull request.",
+      "audience": "You have an account and a repository. The vocabulary is still fuzzy in places.",
+      "lessons": [
+        "basics-mental-model",
+        "basics-repo-tour",
+        "basics-commits",
+        "basics-branches",
+        "basics-remotes",
+        "basics-pull-requests",
+        "basics-markdown",
+        "basics-undo"
+      ]
+    },
+    {
+      "id": "intermediate",
+      "letter": "I",
+      "title": "Intermediate",
+      "subtitle": "Collaboration",
+      "promise": "Work with other people without stepping on toes: conflicts, review, planning, undo.",
+      "audience": "You can commit, push and pull. Branching with others and merge conflicts still feel risky.",
+      "lessons": [
+        "intermediate-merge-conflicts",
+        "intermediate-merge-strategies",
+        "intermediate-code-review",
+        "intermediate-issues-projects",
+        "intermediate-forks-open-source",
+        "intermediate-undo-toolkit",
+        "intermediate-ignore-lfs",
+        "intermediate-navigation-search",
+        "intermediate-pages-releases"
+      ]
+    },
+    {
+      "id": "advanced",
+      "letter": "A",
+      "title": "Advanced",
+      "subtitle": "Automation and guardrails",
+      "promise": "Make the right thing the easy thing: Actions, protection rules, security, history surgery.",
+      "audience": "You are comfortable with branches and pull requests. You want the machine to do the checking.",
+      "lessons": [
+        "advanced-actions-fundamentals",
+        "advanced-ci-pipelines",
+        "advanced-branch-protection",
+        "advanced-secrets-environments",
+        "advanced-security-features",
+        "advanced-history-surgery",
+        "advanced-gh-cli-api",
+        "advanced-codespaces-ai",
+        "advanced-research-repro"
+      ]
+    },
+    {
+      "id": "expert",
+      "letter": "E",
+      "title": "Expert",
+      "subtitle": "Internals, scale and governance",
+      "promise": "Know how it works underneath and how to run it for a team, an organization or a research group.",
+      "audience": "You automate confidently. You want the internals, the failure modes and the rules of the road.",
+      "lessons": [
+        "expert-git-internals",
+        "expert-actions-architecture",
+        "expert-supply-chain",
+        "expert-org-governance",
+        "expert-scale-monorepos",
+        "expert-apps-webhooks",
+        "expert-incident-response",
+        "expert-law-tax-access"
+      ]
+    }
+  ],
+  "lessonTitles": {
+    "basics-mental-model": "Git and GitHub: where your work actually lives",
+    "basics-repo-tour": "Reading a repository page",
+    "basics-commits": "Commits: snapshots with a signature",
+    "basics-branches": "Branches: parallel lines of work",
+    "basics-remotes": "Remotes: clone, fetch, pull, push",
+    "basics-pull-requests": "Your first pull request, start to finish",
+    "basics-markdown": "Markdown and READMEs that render well",
+    "basics-undo": "The safety net: three undos you can trust",
+    "intermediate-merge-conflicts": "Merge conflicts: reading and resolving them calmly",
+    "intermediate-merge-strategies": "Merge, squash or rebase: three ways to land work",
+    "intermediate-code-review": "Pull request craft and code review",
+    "intermediate-issues-projects": "Issues, labels, milestones and Projects",
+    "intermediate-forks-open-source": "Forks and contributing to other people's projects",
+    "intermediate-undo-toolkit": "The full undo toolkit: reset, revert, stash, reflog",
+    "intermediate-ignore-lfs": "What stays out: .gitignore, .gitattributes and large files",
+    "intermediate-navigation-search": "Finding anything: search, shortcuts and notifications",
+    "intermediate-pages-releases": "Publishing: tags, releases and GitHub Pages",
+    "advanced-actions-fundamentals": "GitHub Actions: workflows, jobs, steps, runners",
+    "advanced-ci-pipelines": "CI in practice: tests, matrices, caching, required checks",
+    "advanced-branch-protection": "Guardrails: branch protection, rulesets and CODEOWNERS",
+    "advanced-secrets-environments": "Secrets, variables, environments and deployments",
+    "advanced-security-features": "The Security tab: Dependabot, secret scanning, code scanning",
+    "advanced-history-surgery": "History surgery: interactive rebase, cherry-pick, bisect",
+    "advanced-gh-cli-api": "GitHub without the browser: the gh CLI and the REST API",
+    "advanced-codespaces-ai": "Codespaces, dev containers and AI coding agents",
+    "advanced-research-repro": "Reproducible research repositories",
+    "expert-git-internals": "Git internals: objects, refs and packfiles",
+    "expert-actions-architecture": "Actions at scale: reuse, hardening and cost",
+    "expert-supply-chain": "Supply-chain integrity: signing, attestations, pinning",
+    "expert-org-governance": "Organizations, roles, audit logs and policy",
+    "expert-scale-monorepos": "Big repositories: partial clone, sparse checkout, worktrees",
+    "expert-apps-webhooks": "Building on GitHub: GraphQL, webhooks and GitHub Apps",
+    "expert-incident-response": "Incident response: leaked secrets and lost commits",
+    "expert-law-tax-access": "The non-code layer: licensing, employment, tax, privacy, accessibility"
+  }
+}

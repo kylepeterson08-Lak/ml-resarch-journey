@@ -1,0 +1,559 @@
+{
+  "id": "basics-remotes",
+  "track": "basics",
+  "title": "Remotes: clone, fetch, pull, push",
+  "minutes": 15,
+  "summary": "Your repository and the one on GitHub are separate copies that talk only when you tell them to. Fetch downloads, pull downloads and merges, push uploads. A rejected push means the remote has commits you lack, and the fix is to pull first.",
+  "outcomes": [
+    "Explain what origin is and what a remote-tracking branch such as origin/main records",
+    "Choose between fetch and pull and say what each one changes",
+    "Publish a new branch and set its upstream",
+    "Recover from a rejected push without forcing",
+    "Set up authentication over HTTPS or SSH"
+  ],
+  "prereqs": [
+    "basics-branches"
+  ],
+  "lenses": {
+    "everyday": "You keep a recipe binder at home, and the family keeps a shared binder at your parents' house. They are separate binders. Calling to ask what is new is a fetch: you learn what changed, and your own binder is untouched. Copying the new recipes into your binder is a pull. Driving over to add your recipes to the shared binder is a push. If your sister added pages since your last visit, you cannot slot yours in as if hers were not there. You copy hers first, check that the two sets fit together, and then add yours.",
+    "legal": "Your working file and the firm's central file are two copies that must be reconciled deliberately. Fetch is checking the central docket for new entries without altering your own file. Pull is bringing those entries into your file and reconciling them with your drafts. Push is filing your versions into the central record. The clerk will not accept a filing that ignores entries made since you last checked: you must first take in the intervening filings and conform yours to them. That refusal protects the record. Authentication is the credential check at the file room door, and for Git it uses a key or a token in place of your account password.",
+    "ml": "You develop on a laptop, train on a cluster, and keep the shared copy on GitHub. Three clones, one remote. You push a commit from the laptop. On the cluster you fetch and see that `origin/main` has moved ahead of the cluster's `main`. Pull brings the code up to date before the job starts. If a collaborator pushed a data-loader fix while you were editing, your push is rejected until you pull their fix and combine it with your work. Pulling before every training run costs seconds. A two-day job launched on stale code costs the two days.",
+    "technical": "A remote is a named URL for another copy of the repository. `origin` is the default name given to the source of a clone. `git fetch` downloads new objects and updates remote-tracking references such as `origin/main`, which record where the remote's branches were at the last fetch. It never touches your local branches or working tree. `git pull` runs a fetch and then merges or rebases the upstream branch into the current branch. `git push` uploads your commits and asks the remote to move its branch. The remote accepts only if the update is a fast-forward, meaning your branch already contains everything the remote's branch has."
+  },
+  "sections": [
+    {
+      "heading": "Two copies, connected by name",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "When you clone a repository, Git downloads the full history and remembers where it came from under the name `origin`. From then on there are two repositories: yours and the remote. They do not sync on their own."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git clone https://github.com/OWNER/REPO.git\ncd REPO\ngit remote -v\n# origin  https://github.com/OWNER/REPO.git (fetch)\n# origin  https://github.com/OWNER/REPO.git (push)",
+          "caption": "A clone knows its source as origin"
+        },
+        {
+          "type": "p",
+          "text": "Your clone also keeps a third kind of branch, the **remote-tracking branch**. `origin/main` is your local record of where `main` was on the remote *the last time you fetched*. It is a snapshot of the remote's state, and it can be out of date."
+        },
+        {
+          "type": "graph",
+          "caption": "You committed C locally. origin/main still marks B, the last state you saw on GitHub. Your branch is ahead by one commit, and a push would move the remote to C.",
+          "commits": [
+            {
+              "id": "A"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ]
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ],
+              "msg": "Your new commit"
+            }
+          ],
+          "branches": {
+            "origin/main": "B",
+            "main": "C"
+          },
+          "head": "main"
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Reading ahead and behind",
+          "text": "`git status` compares your branch with its remote-tracking branch. *Ahead by 2* means you have two commits to push. *Behind by 3* means the remote had three commits you lack at the last fetch. *Diverged* means both. Fetch first, so the comparison is current."
+        }
+      ]
+    },
+    {
+      "heading": "Fetch, pull, push",
+      "blocks": [
+        {
+          "type": "table",
+          "head": [
+            "Command",
+            "Downloads",
+            "Changes your branch",
+            "Uploads"
+          ],
+          "rows": [
+            [
+              "`git fetch`",
+              "Yes",
+              "No",
+              "No"
+            ],
+            [
+              "`git pull`",
+              "Yes",
+              "Yes, it merges the remote's commits in",
+              "No"
+            ],
+            [
+              "`git push`",
+              "No",
+              "No",
+              "Yes"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Fetch is always safe: it updates `origin/main` and leaves your work alone. Pull is a fetch followed by a merge of the fetched commits into the branch you are on. Push sends your commits and asks the remote to move its branch to match yours."
+        },
+        {
+          "type": "flow",
+          "caption": "The round trip between the two copies",
+          "steps": [
+            {
+              "label": "Remote on GitHub"
+            },
+            {
+              "label": "origin/main",
+              "via": "git fetch",
+              "note": "Your record of the remote's state"
+            },
+            {
+              "label": "Your branch",
+              "via": "git merge",
+              "note": "Fetch plus this step is git pull"
+            },
+            {
+              "label": "Remote on GitHub",
+              "via": "git push",
+              "note": "Your commits become visible to everyone"
+            }
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "You run `git fetch`, and `git status` then says your branch is behind `origin/main` by 2 commits. Have your files changed?",
+          "answer": "No. Fetch downloaded the two commits, moved `origin/main`, and stopped there. Your branch, your staging area and your files are exactly as they were. You can inspect the incoming work with `git log main..origin/main` or `git diff main origin/main`, then run `git pull` when you are ready."
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Pull with a plan",
+          "text": "When your branch and the remote have both moved, `git pull` has to combine them. By default it merges. Some teams prefer rebasing so that history stays linear. Either is fine for now. Git may ask you to choose a default the first time, and `git config --global pull.rebase false` selects merging. The trade-offs are in [Merge, squash or rebase](#intermediate-merge-strategies)."
+        }
+      ]
+    },
+    {
+      "heading": "Publishing a new branch",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A branch you create locally has no counterpart on GitHub until you push it. The first push has to say where it goes."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git switch -c feature/add-eval\n# ...commit your work...\ngit push -u origin feature/add-eval"
+        },
+        {
+          "type": "p",
+          "text": "`-u` sets the **upstream**. It links your local branch to `origin/feature/add-eval`. After that, plain `git push` and `git pull` on this branch know where to go, and `git status` can report ahead and behind."
+        }
+      ]
+    },
+    {
+      "heading": "When a push is rejected",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Sooner or later you will see this."
+        },
+        {
+          "type": "code",
+          "lang": "text",
+          "code": "To https://github.com/OWNER/REPO.git\n ! [rejected]        main -> main (fetch first)\nerror: failed to push some refs to 'https://github.com/OWNER/REPO.git'\nhint: Updates were rejected because the remote contains work that you do\nhint: not have locally.",
+          "caption": "A non-fast-forward rejection"
+        },
+        {
+          "type": "p",
+          "text": "Nothing is wrong with your commits. Someone pushed to the same branch after your last fetch. It may have been you, from another device or the web editor. The remote refuses because accepting your push would discard those commits."
+        },
+        {
+          "type": "graph",
+          "caption": "After a fetch. The remote has C, you have D, and both were built on B. The push is refused until your branch contains C.",
+          "commits": [
+            {
+              "id": "A"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ]
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ],
+              "msg": "Their commit"
+            },
+            {
+              "id": "D",
+              "parents": [
+                "B"
+              ],
+              "msg": "Your commit"
+            }
+          ],
+          "branches": {
+            "origin/main": "C",
+            "main": "D"
+          },
+          "head": "main",
+          "highlight": [
+            "B"
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Run `git pull` to fetch C and merge it with your work. Resolve conflicts if Git reports any.",
+            "Run your tests or your script. Combined work can break even when nothing conflicted.",
+            "Run `git push` again. It succeeds because your branch now contains everything the remote has."
+          ],
+          "ordered": true
+        },
+        {
+          "type": "callout",
+          "kind": "danger",
+          "title": "Do not reach for force",
+          "text": "`git push --force` makes the remote match your branch by throwing away the commits you do not have. On a shared branch that deletes other people's work. A rejected push is solved by pulling. Forcing has legitimate uses on your own branches, covered in [History surgery](#advanced-history-surgery)."
+        }
+      ]
+    },
+    {
+      "heading": "Proving who you are",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "GitHub must know who is pushing. Your account password does not work for Git operations over HTTPS. You authenticate with a token or a key, and a helper stores it so you are not asked every time."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "HTTPS",
+              "points": [
+                "Works through most firewalls and proxies",
+                "`gh auth login` or Git Credential Manager signs you in through the browser and stores a token",
+                "The shortest route on a new machine",
+                "Remote URLs start with `https://github.com/`"
+              ]
+            },
+            {
+              "title": "SSH",
+              "points": [
+                "Uses a key pair. The private key stays on your machine and the public key goes in your GitHub settings",
+                "No token to renew once it is set up",
+                "Protect the private key with a passphrase",
+                "Remote URLs start with `git@github.com:`"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Signing in on the website is a separate matter. Turn on two-factor authentication there. GitHub supports authenticator apps, security keys and passkeys, and a passkey can replace the password and the second factor in one step."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Credentials are personal",
+          "text": "A token or SSH key acts as you. Commits and pushes made with it are attributed to your account in the audit trail. Do not share keys between people, do not email tokens, and remove a key from your GitHub settings when a machine is retired or lost."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Get the latest work from GitHub",
+      "browser": [
+        "The browser always shows the remote, so there is nothing to pull.",
+        "To bring one branch up to date with another on GitHub, open a pull request between them and merge it.",
+        "To check what your laptop is missing, open the commit list and compare the newest commit with `git log` on your machine."
+      ],
+      "phone": [
+        "GitHub Mobile shows the remote directly. Pull down on the screen to refresh and load the newest commits and comments.",
+        "There is no local clone on the phone to update, so fetch and pull do not apply.",
+        "If you edit on the phone, remember to pull on your computer before you continue there."
+      ],
+      "cli": [
+        "`git fetch` to download new commits and update `origin/main`.",
+        "`git status` to see whether you are ahead, behind or diverged.",
+        "`git log --oneline main..origin/main` to preview what would come in.",
+        "`git pull` to merge the incoming commits into your current branch."
+      ],
+      "editor": [
+        "In VS Code, select the circular arrows in the status bar, labeled **Synchronize Changes**, to pull and then push.",
+        "To pull without pushing, open the **...** menu in the Source Control view and choose **Pull**.",
+        "Choose **Fetch** from the same menu to update the ahead and behind counts without changing your files.",
+        "In a codespace, pull at the start of each session. Before a coding agent starts work, have it fetch and report whether the branch is behind."
+      ]
+    },
+    {
+      "task": "Publish a new local branch",
+      "browser": [
+        "A branch made on your laptop cannot be published from the browser. Push it from the command line or your editor.",
+        "After the push, the repository page on github.com shows a banner for the new branch with a **Compare & pull request** button."
+      ],
+      "phone": [
+        "A phone cannot publish a branch that exists only on your laptop.",
+        "Once you push from a computer, the branch appears in GitHub Mobile's branch list after a refresh."
+      ],
+      "cli": [
+        "`git switch feature/add-eval` to be on the branch.",
+        "`git push -u origin feature/add-eval` to create it on GitHub and set the upstream.",
+        "`git status` now reports that the branch is up to date with `origin/feature/add-eval`.",
+        "From here on, `git push` with no arguments is enough."
+      ],
+      "editor": [
+        "In VS Code's Source Control view, select **Publish Branch**.",
+        "If asked, choose `origin` as the remote.",
+        "The status bar shows the sync control once the upstream is set.",
+        "If a coding agent pushes for you, check which branch name it used. Agents sometimes push to a branch of their own naming."
+      ]
+    },
+    {
+      "task": "Sign in so Git can push",
+      "browser": [
+        "On github.com, open **Settings**, then **Password and authentication**, to turn on two-factor authentication and add a passkey.",
+        "To use SSH, open **Settings**, then **SSH and GPG keys**, select **New SSH key**, and paste your public key.",
+        "The browser itself needs nothing more. These settings protect the account your Git credentials act for."
+      ],
+      "phone": [
+        "Install GitHub Mobile and sign in. The app can act as a second factor by asking you to approve sign-ins on other devices.",
+        "Account security settings are more complete on the web. In your phone's browser, go to github.com, **Settings**, then **Password and authentication**.",
+        "Git on the command line is not part of the phone app, so there are no tokens or keys to set up there."
+      ],
+      "cli": [
+        "Install the GitHub CLI and run `gh auth login`.",
+        "Choose **GitHub.com**, then **HTTPS**, and answer yes when asked whether to authenticate Git with your GitHub credentials.",
+        "Complete the sign-in in the browser window that opens.",
+        "`gh auth status` confirms the account and that Git operations are configured.",
+        "For SSH: run `ssh-keygen -t ed25519 -C \"your noreply address\"`, add the public key in your GitHub settings, then test with `ssh -T git@github.com`."
+      ],
+      "editor": [
+        "In VS Code, the first push or pull opens a prompt to sign in with GitHub. Approve it in the browser.",
+        "VS Code stores the credential and reuses it for later Git operations.",
+        "In a codespace you are already signed in, with access scoped to the repository the codespace was created from.",
+        "Give a coding agent the narrowest access that lets it do the job. Do not paste a personal token into a chat."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Treating `origin/main` as live. It updates only when you fetch.",
+      "fix": "Run `git fetch` before you compare, branch, or decide you are up to date."
+    },
+    {
+      "trap": "Forcing a rejected push. It overwrites the commits you did not have.",
+      "fix": "Pull, test, then push. Reserve force for your own unshared branches."
+    },
+    {
+      "trap": "Typing your GitHub account password when Git prompts over HTTPS. It is refused.",
+      "fix": "Run `gh auth login`, or use Git Credential Manager, so a token is supplied for you."
+    },
+    {
+      "trap": "Starting work on a second device without pulling. Your branch forks from stale history.",
+      "fix": "Begin every session with `git pull`, or at least `git fetch` and `git status`."
+    },
+    {
+      "trap": "Pushing a new branch without `-u`, then wondering why `git pull` asks which branch to use.",
+      "fix": "Use `git push -u origin <branch>` the first time. It sets the upstream for later commands."
+    }
+  ],
+  "lab": "lab-remote-sync",
+  "quiz": [
+    {
+      "q": "What does `git fetch` change?",
+      "choices": [
+        "Your working files",
+        "Your current branch",
+        "Your remote-tracking branches, such as `origin/main`",
+        "The repository on GitHub"
+      ],
+      "answer": 2,
+      "why": "Fetch downloads new commits and moves the remote-tracking branches to match the remote. Your own branches and files stay as they were. Pull is the command that goes on to change your branch."
+    },
+    {
+      "q": "Your push is rejected with a message that the remote contains work you do not have locally. What is the right next step?",
+      "choices": [
+        "`git push --force`",
+        "`git pull`, check the result, then push again",
+        "Delete your local commits and clone again",
+        "Wait a few minutes and retry"
+      ],
+      "answer": 1,
+      "why": "The remote has commits your branch lacks. Pulling brings them in and combines them with yours, after which the push is a fast-forward and succeeds. Forcing would delete those remote commits, and waiting changes nothing."
+    },
+    {
+      "q": "What does the `-u` in `git push -u origin feature/add-eval` do?",
+      "choices": [
+        "Records the remote branch as the upstream of your local branch, so later pushes and pulls need no arguments",
+        "Uploads every local branch",
+        "Forces the push through",
+        "Updates your local branch from the remote before pushing"
+      ],
+      "answer": 0,
+      "why": "`-u` is short for `--set-upstream`. It links the local branch to the remote one, which is what lets plain `git push`, `git pull` and the ahead and behind counts work. It does not force anything and it pushes only the branch you named."
+    },
+    {
+      "q": "`git status` says your branch is ahead of `origin/main` by 2 commits. What does that mean?",
+      "choices": [
+        "GitHub has two commits you lack",
+        "Two files are modified",
+        "Two pushes failed",
+        "You have two local commits that were not on the remote at your last fetch"
+      ],
+      "answer": 3,
+      "why": "Ahead counts commits on your branch that its remote-tracking branch does not have. They are waiting to be pushed. The reverse situation, where the remote has commits you lack, is reported as behind."
+    },
+    {
+      "q": "Git asks for a password when you push over HTTPS. What should be supplied?",
+      "choices": [
+        "Your GitHub account password",
+        "A token, normally stored for you by `gh auth login` or a credential manager",
+        "Your email address",
+        "Your two-factor code"
+      ],
+      "answer": 1,
+      "why": "GitHub does not accept account passwords for Git operations. A token takes the password's place, and a credential helper stores it so you are not prompted again. Your two-factor code is for signing in on the website."
+    }
+  ],
+  "mission": {
+    "title": "Watch ahead, behind and a rejected push happen",
+    "where": "Your own repository, using a computer plus the web editor or your phone.",
+    "steps": [
+      "On your computer, run `git fetch` and `git status`. Confirm you are up to date with `origin/main`.",
+      "On github.com or your phone, edit `README.md` with the pencil icon and commit directly to `main`.",
+      "Back on the computer, run `git status`. It still says up to date. Now run `git fetch` and `git status` again, and read the difference.",
+      "Without pulling, make a local commit that changes a different file, and try `git push`. Read the rejection message in full.",
+      "Run `git pull`. Read the merge result, then run `git log --oneline --graph -5`.",
+      "Push again and confirm on GitHub that both changes are present."
+    ]
+  },
+  "terms": [
+    {
+      "term": "origin",
+      "def": "The default name Git gives the remote you cloned from. It is a nickname for a URL."
+    },
+    {
+      "term": "remote-tracking branch",
+      "def": "A local, read-only record such as `origin/main` of where a remote's branch pointed at your last fetch."
+    },
+    {
+      "term": "upstream",
+      "def": "The remote branch your local branch is linked to. Plain `git push`, `git pull` and the ahead and behind counts use it."
+    },
+    {
+      "term": "fetch",
+      "def": "To download new commits from a remote and update remote-tracking branches, without changing your own branches or files."
+    },
+    {
+      "term": "pull",
+      "def": "To fetch and then merge the upstream branch into your current branch."
+    },
+    {
+      "term": "push",
+      "def": "To upload your commits and ask the remote to move its branch to match yours."
+    },
+    {
+      "term": "fast-forward",
+      "def": "A branch update that only moves the pointer ahead along existing history. A remote accepts a normal push only when it is a fast-forward."
+    },
+    {
+      "term": "personal access token",
+      "def": "A generated credential that stands in for your password when Git or a script talks to GitHub, with limited permissions and an expiry date."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git remote -v",
+      "does": "Lists your remotes with the URLs used to fetch and push.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git fetch",
+      "does": "Downloads new commits and updates remote-tracking branches. Your branches and files do not change.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git pull",
+      "does": "Fetches, then merges the upstream branch into your current branch.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git push -u origin <branch>",
+      "does": "Publishes a branch to GitHub and sets it as the upstream for later pushes and pulls.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git log --oneline main..origin/main",
+      "does": "Lists commits the remote has that your `main` lacks, as of the last fetch.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git push --force",
+      "does": "Overwrites the remote branch with yours, discarding remote commits you do not have.",
+      "kind": "git",
+      "risk": "danger"
+    },
+    {
+      "cmd": "gh auth login",
+      "does": "Signs the GitHub CLI in through your browser and can configure Git to use the same credential.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "ssh -T git@github.com",
+      "does": "Tests whether GitHub recognizes your SSH key.",
+      "kind": "shell",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About remote repositories",
+      "url": "https://docs.github.com/en/get-started/git-basics/about-remote-repositories"
+    },
+    {
+      "label": "GitHub Docs: Getting changes from a remote repository",
+      "url": "https://docs.github.com/en/get-started/using-git/getting-changes-from-a-remote-repository"
+    },
+    {
+      "label": "GitHub Docs: Dealing with non-fast-forward errors",
+      "url": "https://docs.github.com/en/get-started/using-git/dealing-with-non-fast-forward-errors"
+    },
+    {
+      "label": "GitHub Docs: Authentication",
+      "url": "https://docs.github.com/en/authentication"
+    },
+    {
+      "label": "GitHub CLI manual: gh auth login",
+      "url": "https://cli.github.com/manual/gh_auth_login"
+    },
+    {
+      "label": "Git reference: git-fetch",
+      "url": "https://git-scm.com/docs/git-fetch"
+    }
+  ]
+}

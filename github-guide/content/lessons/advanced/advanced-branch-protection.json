@@ -1,0 +1,496 @@
+{
+  "id": "advanced-branch-protection",
+  "track": "advanced",
+  "title": "Guardrails: branch protection, rulesets and CODEOWNERS",
+  "minutes": 20,
+  "summary": "Rules turn team agreements into things the platform enforces. A ruleset can require a pull request, passing checks and a second pair of eyes before anything reaches `main`, and it can stop force pushes and deletions outright.",
+  "outcomes": [
+    "Explain how rulesets and classic branch protection rules differ and where you will meet each",
+    "Build a ruleset that requires a pull request and passing checks on the default branch",
+    "Write a CODEOWNERS file and predict who is asked to review a given change",
+    "Choose rules that help a solo developer without locking them out",
+    "Describe what auto-merge and a merge queue do once rules are in place"
+  ],
+  "prereqs": [
+    "intermediate-code-review",
+    "advanced-ci-pipelines"
+  ],
+  "lenses": {
+    "everyday": "A shared apartment has a few house rules written on the door: nobody repaints a common room without asking, the last person out locks up, nobody throws away someone else's food. The rules are not about distrust. They exist because everyone is tired sometimes, and a rule you cannot forget protects the household from an ordinary bad day. Branch rules do that for a repository. The lock on `main` is on for everyone, including the person who installed it.",
+    "legal": "Segregation of duties means the person who prepares a wire is not the person who releases it. A ruleset encodes the same control for code: the author of a change cannot be its only approver, the change must pass defined tests, and the record of who approved it is kept automatically. A bypass list is your documented exception process, with named roles, visible to everyone, and every use recorded. CODEOWNERS is the authority matrix, mapping each area of the codebase to the people whose sign-off is required. Design the control for a normal bad day.",
+    "ml": "Your `main` branch is where the paper's numbers come from. One Friday someone force-pushes a rebased branch over it, and the commit behind Table 2 is gone from the history everyone pulls. With a ruleset, that push is rejected. Changes to `main` arrive by pull request, the smoke test must pass, and changes under `configs/` or `src/eval/` automatically request review from whoever owns the evaluation protocol. Nobody has to remember the rules at 2 a.m. before a deadline, which is when they matter.",
+    "technical": "A ruleset is a named list of rules applied to branches or tags that match a pattern, with an enforcement status and a bypass list. Several rulesets can target the same branch. Their rules combine, and the strictest version of each applies. Classic branch protection rules are the older mechanism: one rule per branch name pattern, configured under Branches. Both can require pull requests, approvals and status checks, and can block force pushes and deletions. A CODEOWNERS file maps path patterns to users or teams, and the last matching pattern in the file decides the owners."
+  },
+  "sections": [
+    {
+      "heading": "Two systems, one purpose",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "GitHub has two ways to protect a branch, and you will meet both. **Classic branch protection rules** came first. **Rulesets** are newer and more flexible, and they are where new capabilities arrive. The two can coexist on one repository. When both apply to a branch, both are enforced."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Rulesets",
+              "points": [
+                "Found under **Settings**, **Rules**, **Rulesets**",
+                "Several can apply to one branch, and their rules add up",
+                "Can target tags as well as branches",
+                "Anyone with read access can see which rules are active",
+                "Can be set to **Disabled** without being deleted",
+                "Organizations can apply one ruleset to many repositories, depending on plan"
+              ]
+            },
+            {
+              "title": "Classic branch protection",
+              "points": [
+                "Found under **Settings**, **Branches**",
+                "One rule per branch name pattern",
+                "Branches only",
+                "Details visible to administrators",
+                "Fully supported and common in older repositories",
+                "Configured one repository at a time"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Plan matters for private repositories",
+          "text": "On public repositories these protections are available on every plan. On private repositories availability depends on your plan. If a setting described here is missing or greyed out, check the plan before assuming you did something wrong."
+        }
+      ]
+    },
+    {
+      "heading": "The rules worth knowing",
+      "blocks": [
+        {
+          "type": "table",
+          "head": [
+            "Rule",
+            "What it enforces",
+            "Why you want it"
+          ],
+          "rows": [
+            [
+              "Require a pull request before merging",
+              "No direct pushes; changes arrive through a pull request",
+              "Every change gets a discussion page and a place for checks"
+            ],
+            [
+              "Required approvals",
+              "A set number of approving reviews from people other than the author",
+              "A second person has read it"
+            ],
+            [
+              "Dismiss stale approvals",
+              "New commits cancel earlier approvals",
+              "Nobody approves version one and merges version two"
+            ],
+            [
+              "Require review from Code Owners",
+              "An owner of each changed path must approve",
+              "The right second person has read it"
+            ],
+            [
+              "Require status checks to pass",
+              "Named checks must succeed on the latest commit",
+              "CI becomes a gate that cannot be skipped"
+            ],
+            [
+              "Require conversation resolution",
+              "Every review thread must be resolved",
+              "Comments cannot be merged past"
+            ],
+            [
+              "Require signed commits",
+              "Each commit carries a verified signature",
+              "Authorship is cryptographically attested"
+            ],
+            [
+              "Require linear history",
+              "No merge commits; squash or rebase only",
+              "History reads as one line"
+            ],
+            [
+              "Block force pushes",
+              "History on the branch cannot be rewritten",
+              "Published commits stay published"
+            ],
+            [
+              "Restrict deletions",
+              "The branch cannot be deleted",
+              "Nobody removes `main` by accident"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "A **bypass list** names the roles, teams or apps allowed to skip a ruleset. Keep it short. A bypass is an exception process, and an exception everyone can use is no rule at all. Classic rules have a matching switch, **Do not allow bypassing the above settings**, which holds administrators to the rules too."
+        },
+        {
+          "type": "reveal",
+          "prompt": "You are the only person on a repository. You require one approving review on `main` and open a pull request. Can you merge it?",
+          "answer": "No. GitHub does not let authors approve their own pull requests, so a solo developer who requires an approval has locked themselves out, unless they bypass the rule. Require a pull request with zero approvals instead. You keep the checks and the record without needing a second person."
+        }
+      ]
+    },
+    {
+      "heading": "CODEOWNERS: who must look at what",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A `CODEOWNERS` file maps paths to people. When a pull request changes a matching file, GitHub requests a review from the owners automatically. Combined with the **Require review from Code Owners** rule, their approval becomes mandatory."
+        },
+        {
+          "type": "code",
+          "lang": "text",
+          "code": "# Each line: a path pattern, then one or more owners.\n# The LAST matching line wins, so general rules go first.\n\n*                       @lead-author\n\n/configs/               @lead-author @eval-owner\n/src/eval/              @eval-owner\n*.ipynb                 @your-org/notebook-reviewers\n\n# Protect the files that protect everything else.\n/.github/workflows/     @lead-author\n/.github/CODEOWNERS     @lead-author",
+          "file": ".github/CODEOWNERS"
+        },
+        {
+          "type": "list",
+          "items": [
+            "GitHub looks for the file in `.github/`, then the repository root, then `docs/`, and uses the first one it finds.",
+            "Patterns follow `.gitignore` style, with exceptions. Negation with `!` and character ranges in square brackets do not work here.",
+            "Order matters. For a change to `src/eval/metrics.py`, the `/src/eval/` line overrides the `*` line because it comes later. Only `@eval-owner` is requested.",
+            "Owners need write access to the repository. A team is written as `@org/team-name`.",
+            "The file that counts is the one on the pull request's **base** branch. Editing CODEOWNERS in a pull request does not change who reviews that pull request.",
+            "Draft pull requests do not request code owner reviews until they are marked ready."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Protect the file that protects everything else",
+          "text": "Give `CODEOWNERS` itself and the `.github/workflows/` folder an owner, as the last two lines of the example do. Otherwise the quickest way around an owner is to edit them out of the file, and the quickest way around a required check is to edit the workflow that runs it."
+        }
+      ]
+    },
+    {
+      "heading": "A setup for one person, and what changes with a team",
+      "blocks": [
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Solo repository",
+              "points": [
+                "Require a pull request, with zero required approvals",
+                "Require your CI gate check",
+                "Block force pushes and restrict deletions on `main`",
+                "No bypass for yourself, so the habit holds",
+                "Turn on auto-merge, so a passing pull request lands without waiting for you"
+              ]
+            },
+            {
+              "title": "Small team or lab",
+              "points": [
+                "Everything in the solo list",
+                "One required approval, with stale approvals dismissed",
+                "Code owner review for evaluation code, configs and workflows",
+                "Require conversation resolution",
+                "Bypass limited to one or two administrators, for emergencies"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "flow",
+          "steps": [
+            {
+              "label": "Push to a branch",
+              "note": "Direct pushes to main are refused"
+            },
+            {
+              "label": "Pull request",
+              "via": "open",
+              "note": "Owners are requested automatically"
+            },
+            {
+              "label": "Checks and reviews",
+              "via": "wait for",
+              "note": "Every requirement in every ruleset"
+            },
+            {
+              "label": "Merge",
+              "via": "all met",
+              "note": "By you, or by auto-merge"
+            }
+          ],
+          "caption": "The only road to main once the rules are on"
+        },
+        {
+          "type": "p",
+          "text": "**Auto-merge** is a button on a pull request that says: merge this as soon as every requirement is met. You allow the feature once in repository settings, then enable it per pull request. A **merge queue** goes further for busy branches. Pull requests line up, and each is tested together with the ones ahead of it before it lands, so `main` is not broken by two changes that passed separately. Queue availability depends on plan and account type, and workflows that feed required checks must also trigger on the `merge_group` event."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Controls, exceptions and evidence",
+          "text": "A rule nobody can bypass fails the first time production is down and the only approver is asleep. A rule everyone can bypass is decoration. Design the middle: a short bypass list, a stated reason each time it is used, and a periodic look at how often that happened. That is the structure of any override process in a control framework, and the platform keeps the log for you."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Rules reduce what you must hold in your head",
+          "text": "Guardrails help everyone, and they help most when working memory, fatigue or interruptions are part of your day. A branch that refuses a mistaken push removes a whole class of things to remember. Say so when you propose rules to a team: the purpose is to carry less in your head."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Protect the default branch with a ruleset",
+      "browser": [
+        "Open **Settings**, then **Rules**, then **Rulesets**.",
+        "Select **New ruleset**, then **New branch ruleset**, and give it a name such as `protect-main`.",
+        "Under the target branches, add the default branch.",
+        "Turn on **Restrict deletions**, **Block force pushes** and **Require a pull request before merging**. Set required approvals to match your team size, zero if you work alone.",
+        "Turn on **Require status checks to pass** and add your CI gate check by name.",
+        "Set **Enforcement status** to **Active** and select **Create**.",
+        "Test it: try to commit straight to `main`. The attempt should be refused with a message that names the rule."
+      ],
+      "phone": [
+        "Rulesets cannot be created or edited in GitHub Mobile as of this writing.",
+        "The mobile browser can do it on the desktop site, but the form is long. Prefer a computer for creating rules.",
+        "What the phone is good for afterward: approving pull requests, watching required checks, and merging once they pass."
+      ],
+      "cli": [
+        "`gh ruleset list` to see existing rulesets.",
+        "`gh ruleset view` to choose one and read its rules.",
+        "`gh ruleset check main` to list every rule that applies to `main`, from any ruleset.",
+        "Rulesets can be created with `gh api` by sending JSON to the repository's rulesets endpoint. Build one in the browser first, export it from the ruleset's menu, and use that file as your template.",
+        "Verify from the terminal: a direct `git push origin main` with a new commit should now be rejected."
+      ],
+      "editor": [
+        "Rules live in settings, so the editor's part is to work with them: commit to a branch, never to `main`.",
+        "When a push is rejected, VS Code shows the remote's message in the Git output panel. Read it, because it names the rule.",
+        "Use the GitHub Pull Requests extension to open the pull request and watch the required checks.",
+        "Tell a coding agent the rule up front: work on a branch and open a pull request. An agent that tries to push to a protected branch will be refused, which is the guardrail working."
+      ]
+    },
+    {
+      "task": "Add a CODEOWNERS file",
+      "browser": [
+        "Select **Add file**, then **Create new file**, and name it `.github/CODEOWNERS`.",
+        "Add a default line first, then more specific lines below it.",
+        "Commit on a branch and open a pull request.",
+        "After merging, open the file on GitHub. Syntax errors and unknown owners are flagged on the file's page.",
+        "Open a new pull request that touches an owned path and confirm the owner is requested automatically.",
+        "In your ruleset's pull request rule, turn on **Require review from Code Owners** if their approval should be mandatory."
+      ],
+      "phone": [
+        "In GitHub Mobile or the mobile browser, create or edit `.github/CODEOWNERS` like any other text file. It is short enough to type.",
+        "Commit to a branch and open a pull request from the app.",
+        "Check the result on a later pull request: the requested reviewers should include the owner."
+      ],
+      "cli": [
+        "`mkdir -p .github` and create `.github/CODEOWNERS` in your editor.",
+        "`git add .github/CODEOWNERS`, `git commit -m \"Add code owners\"`, push, and `gh pr create --fill`.",
+        "After merging, check for syntax problems with `gh api repos/{owner}/{repo}/codeowners/errors`.",
+        "`gh pr view --json reviewRequests` on a new pull request to confirm who was asked."
+      ],
+      "editor": [
+        "Create `.github/CODEOWNERS` in the workspace. It is a plain text file.",
+        "Keep general patterns at the top and specific ones below, with a comment line explaining each group.",
+        "Commit, push and open a pull request.",
+        "If an agent drafts the file, check that every owner exists and has write access, and that it did not use `!` negation, which CODEOWNERS does not support."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Requiring an approval on a repository where you are the only contributor. You cannot approve your own pull request, so nothing can merge.",
+      "fix": "Require a pull request with zero approvals, plus status checks. Add approvals when a second person joins."
+    },
+    {
+      "trap": "Putting the catch-all `*` line at the bottom of CODEOWNERS. It matches everything and, being last, overrides every specific line above it.",
+      "fix": "Put `*` first and specific paths after it. The last match wins."
+    },
+    {
+      "trap": "Adding yourself to the bypass list for convenience, then bypassing every time.",
+      "fix": "Leave yourself off, or review how often bypass is used. A rule you always skip is not a rule."
+    },
+    {
+      "trap": "Requiring a status check by a name that later changes or stops reporting. Every pull request is then blocked.",
+      "fix": "Require one stable gate job, and update the ruleset in step with any change that renames a job."
+    },
+    {
+      "trap": "Assuming rules on `main` also protect release tags.",
+      "fix": "Create a tag ruleset for patterns such as `v*` that restricts updates and deletions, so a published version cannot be moved."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "Two rulesets apply to `main`. One requires one approval. The other requires two. How many approvals does a pull request need?",
+      "choices": [
+        "One, because the first ruleset created wins",
+        "Two, because the strictest requirement applies",
+        "Three, because the requirements add together",
+        "None, because conflicting rulesets cancel out"
+      ],
+      "answer": 1,
+      "why": "Rulesets layer. When several apply, their rules are combined and the most restrictive version of each rule is enforced. They do not sum, and creation order does not matter."
+    },
+    {
+      "q": "A CODEOWNERS file has `* @lead-author` on line 1 and `/src/eval/ @eval-owner` on line 2. Who is requested for a change to `src/eval/metrics.py`?",
+      "choices": [
+        "`@lead-author` only, because `*` matches everything",
+        "Both `@lead-author` and `@eval-owner`",
+        "`@eval-owner` only, because the last matching pattern wins",
+        "Nobody, because the patterns conflict"
+      ],
+      "answer": 2,
+      "why": "CODEOWNERS does not merge matches. The last line that matches a file decides its owners. To require both people, list both on the specific line."
+    },
+    {
+      "q": "You work alone and want every change to `main` to pass CI and leave a pull request record. Which setup works?",
+      "choices": [
+        "Require a pull request with one approval",
+        "Lock `main` so nobody can push or merge",
+        "Add yourself to the bypass list and push directly",
+        "Require a pull request with zero approvals, plus required status checks"
+      ],
+      "answer": 3,
+      "why": "You cannot approve your own pull request, so requiring an approval locks a solo developer out. Zero approvals with required checks keeps the gate and the record. Bypassing by default throws both away."
+    },
+    {
+      "q": "A pull request edits `.github/CODEOWNERS` to remove an owner and also changes that owner's files. Whose review does GitHub request?",
+      "choices": [
+        "The owners listed in the CODEOWNERS file on the base branch",
+        "The owners listed in the pull request's new version of the file",
+        "Nobody, until the file is merged",
+        "The repository administrators"
+      ],
+      "answer": 0,
+      "why": "Ownership is read from the base branch, so a pull request cannot edit its own reviewers away. This is also why the CODEOWNERS file itself should have an owner."
+    },
+    {
+      "q": "What does enabling auto-merge on a pull request do?",
+      "choices": [
+        "Merges immediately, skipping the rules",
+        "Approves the pull request on your behalf",
+        "Merges automatically once all required reviews and checks are satisfied",
+        "Rebases the branch every time `main` changes"
+      ],
+      "answer": 2,
+      "why": "Auto-merge waits for the requirements and then merges with the method you chose. It never bypasses a rule. If a required check fails, the pull request stays open."
+    }
+  ],
+  "mission": {
+    "title": "Put guardrails on your own main branch",
+    "where": "Your own repository. A ruleset can be disabled or deleted at any time, so this is fully reversible.",
+    "steps": [
+      "Create a branch ruleset named `protect-main` that targets your default branch. Turn on restrict deletions, block force pushes and require a pull request with zero approvals.",
+      "From a terminal or the web editor, try to commit directly to `main`. Read the refusal and note which rule it names.",
+      "Make the same change on a branch and merge it through a pull request.",
+      "Add `.github/CODEOWNERS` with a `*` line naming you and a specific line for `.github/workflows/`. Merge it by pull request.",
+      "If you finished the CI lesson, add your gate check as a required status check and confirm a pull request waits for it.",
+      "Run `gh ruleset check main`, or open **Insights** under **Rules** in settings, and read which rules applied to your recent pushes."
+    ]
+  },
+  "terms": [
+    {
+      "term": "ruleset",
+      "def": "A named collection of rules applied to branches or tags that match a pattern, with an enforcement status and an optional bypass list."
+    },
+    {
+      "term": "branch protection rule",
+      "def": "The classic mechanism for protecting a branch name pattern, configured under Branches in repository settings."
+    },
+    {
+      "term": "bypass list",
+      "def": "The roles, teams or apps allowed to skip a ruleset's rules. Each use of bypass is recorded."
+    },
+    {
+      "term": "CODEOWNERS",
+      "def": "A file that maps path patterns to the users or teams responsible for them. Owners are requested for review automatically."
+    },
+    {
+      "term": "required approval",
+      "def": "An approving review from someone other than the author that must exist before a pull request can merge."
+    },
+    {
+      "term": "stale approval",
+      "def": "An approval given before newer commits were pushed. A rule can dismiss it so the new commits must be reviewed."
+    },
+    {
+      "term": "auto-merge",
+      "def": "A per-pull-request setting that merges automatically once every required review and check has passed."
+    },
+    {
+      "term": "merge queue",
+      "def": "A line of approved pull requests that are tested together, in order, before merging, which keeps the target branch passing."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh ruleset list",
+      "does": "Lists the rulesets defined for the repository and its organization.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh ruleset check <branch>",
+      "does": "Shows every rule that would apply to a branch, combined across rulesets.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh ruleset view",
+      "does": "Opens a picker and prints one ruleset's rules, targets and bypass list.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr merge --auto --squash",
+      "does": "Enables auto-merge on the current pull request, using a squash merge once the requirements pass.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh pr view --json reviewRequests",
+      "does": "Prints who has been asked to review the current pull request, including code owners.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api repos/{owner}/{repo}/codeowners/errors",
+      "does": "Reports syntax errors and unknown owners in the repository's CODEOWNERS file.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr review --approve",
+      "does": "Submits an approving review on a pull request you did not author.",
+      "kind": "gh",
+      "risk": "caution"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About rulesets",
+      "url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets"
+    },
+    {
+      "label": "GitHub Docs: About protected branches",
+      "url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches"
+    },
+    {
+      "label": "GitHub Docs: About code owners",
+      "url": "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners"
+    },
+    {
+      "label": "GitHub Docs: Automatically merging a pull request",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/automatically-merging-a-pull-request"
+    },
+    {
+      "label": "GitHub Docs: Managing a merge queue",
+      "url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue"
+    }
+  ]
+}

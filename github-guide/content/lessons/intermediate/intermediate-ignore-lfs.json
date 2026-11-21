@@ -1,0 +1,499 @@
+{
+  "id": "intermediate-ignore-lfs",
+  "track": "intermediate",
+  "title": "What stays out: .gitignore, .gitattributes and large files",
+  "minutes": 17,
+  "summary": "A repository should hold what people wrote and what is needed to rebuild the rest. Use .gitignore to keep generated files, data and secrets out, .gitattributes to tell Git how to treat the files that stay in, and Git LFS or external storage for anything too large for ordinary Git.",
+  "outcomes": [
+    "Write `.gitignore` patterns for files, folders, wildcards and exceptions",
+    "Stop tracking a file that was committed before it was ignored",
+    "Use `.gitattributes` to normalize line endings and mark binary or generated files",
+    "Explain why large files hurt a repository and where GitHub's size limits are",
+    "Choose between Git LFS, DVC, external storage and release assets for data and checkpoints",
+    "Keep notebook outputs and secrets out of commits"
+  ],
+  "prereqs": ["basics-commits", "basics-remotes"],
+  "lenses": {
+    "everyday": "You are packing for a move. Not everything goes in the labeled boxes. You do not box the trash, or groceries you can buy again, and the piano travels separately with a specialist. A list taped by the door says what not to pack, so nobody has to decide box by box. That list is `.gitignore`. Stickers such as \"fragile\" and \"this side up\" tell the movers how to handle the boxes that do go. Those are `.gitattributes`. For the piano, the inventory holds a claim ticket that says where it is and how to get it. That ticket is a Git LFS pointer.",
+    "legal": "A matter file has a filing policy: what belongs in the official record and what does not. Final work product goes in. Duplicate printouts, scratch notes and convenience copies stay out, and the policy is written once so nobody decides ad hoc. That is `.gitignore`. Some material must never enter a public filing at all, such as a client's Social Security number, and redaction after filing is costly and incomplete because copies already exist. Credentials in a repository are the same problem. An oversized exhibit is lodged separately and the binder holds a slip sheet that refers to it. That slip sheet is a Git LFS pointer. `.gitattributes` are the formatting rules that make every party's copy paginate identically.",
+    "ml": "A training repository holds code, configs and a few tiny test fixtures. Everything else stays out. `data/` is 40 GB. `checkpoints/` fills with `.pt` files. `wandb/`, `__pycache__/` and `.ipynb_checkpoints/` are generated. `.env` holds API keys. All of them are listed in `.gitignore`. Weights worth sharing go to Git LFS, a DVC remote, a model hub or a release asset, with the config and commit hash that produced them recorded alongside. Notebook outputs are stripped before every commit, so a diff shows the three lines of code you changed and never megabytes of embedded images.",
+    "technical": "`.gitignore` lists patterns for untracked paths that Git should not offer to add. It has no effect on files that are already tracked. Patterns are matched relative to the file's own directory, later lines override earlier ones, `!` negates a pattern, and a trailing slash matches directories only. `.gitattributes` assigns attributes to paths: `text` and `eol` control line endings, `binary` turns off text handling, `diff` and `merge` choose drivers, and `filter=lfs` hands the file to Git LFS. Git keeps every version of every file in history and binary files compress poorly, so each revision of a large file adds roughly its full size to every clone. LFS stores a small pointer in Git and the content on a separate server."
+  },
+  "sections": [
+    {
+      "heading": "What belongs in a repository",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A useful test: if a file can be regenerated from what is already in the repository, leave it out. Commit the recipe and the list of ingredients. Leave out the cake."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Commit",
+              "points": [
+                "Source code and tests",
+                "Configuration files and small fixtures",
+                "Documentation",
+                "Dependency lists and lock files",
+                "`.gitignore` and `.gitattributes` themselves"
+              ]
+            },
+            {
+              "title": "Keep out",
+              "points": [
+                "Generated files, caches and build output",
+                "Datasets and model checkpoints",
+                "Secrets, tokens and `.env` files",
+                "Virtual environments",
+                "Editor and operating system clutter"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Leaving things out is what keeps a clone fast, a diff readable and a secret private."
+        }
+      ]
+    },
+    {
+      "heading": "How .gitignore patterns work",
+      "blocks": [
+        {
+          "type": "code",
+          "lang": "gitignore",
+          "file": ".gitignore",
+          "code": "# Python\n__pycache__/\n*.py[cod]\n.venv/\n\n# Notebooks\n.ipynb_checkpoints/\n\n# Data and model files\n/data/*\n!/data/README.md\ncheckpoints/\n*.pt\n\n# Experiment tracking output\nwandb/\nruns/\n\n# Secrets\n.env",
+          "caption": "A starting point for a Python ML project"
+        },
+        {
+          "type": "table",
+          "caption": "Reading the patterns",
+          "head": ["Pattern", "Matches"],
+          "rows": [
+            ["`*.pt`", "Any file ending in `.pt`, in any folder"],
+            ["`checkpoints/`", "Any folder named `checkpoints`, and everything inside it"],
+            ["`/data/*`", "Everything directly inside the top-level `data` folder only"],
+            ["`!/data/README.md`", "An exception: keep this one file even though the line above ignores it"],
+            ["`**/logs/*.txt`", "Text files in any `logs` folder at any depth"]
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "`.gitignore` contains the line `data/`. You add `!data/README.md` on the next line. Is the README tracked now?",
+          "answer": "No. When a whole directory is ignored, Git does not look inside it, so the exception is never seen. Ignore the contents instead with `data/*`, then add `!data/README.md`. The folder itself stays visible and the one file is allowed through."
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Ask Git which rule is responsible",
+          "text": "`git check-ignore -v path/to/file` prints the file, the line number and the pattern that cause a path to be ignored. It settles most arguments with a `.gitignore` in seconds."
+        },
+        {
+          "type": "p",
+          "text": "Personal clutter, such as `.DS_Store` or your editor's settings folder, belongs in a global ignore file on your own machine. Every project of yours benefits, and the shared `.gitignore` stays about the project."
+        }
+      ]
+    },
+    {
+      "heading": "When the file is already tracked",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "`.gitignore` only stops untracked files from being added. A file that was committed before you ignored it stays tracked, and Git keeps recording changes to it. You have to tell Git to stop tracking it."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "echo \"checkpoints/\" >> .gitignore\ngit rm -r --cached checkpoints/     # stop tracking, keep the files on disk\ngit add .gitignore\ngit commit -m \"Stop tracking checkpoints\"",
+          "caption": "Untracking a folder without deleting it from your machine"
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Untracked from now on is not removed from history",
+          "text": "After this commit the file is absent from new snapshots. Every earlier commit still contains it. For a large file that means the clone is still large. For a secret it means the secret is still exposed, and the only real fix is to revoke it. Rewriting history is covered in [Incident response](#expert-incident-response)."
+        }
+      ]
+    },
+    {
+      "heading": ".gitattributes: how Git treats what stays",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "`.gitattributes` uses the same pattern syntax and attaches handling instructions to the files that match."
+        },
+        {
+          "type": "code",
+          "lang": "gitignore",
+          "file": ".gitattributes",
+          "code": "# Store text with LF line endings, whatever the author's operating system\n* text=auto\n*.sh text eol=lf\n\n# Never try to diff or merge these as text\n*.png binary\n\n# Leave notebooks out of the repository's language statistics\n*.ipynb linguist-detectable=false\n\n# Collapse generated files in pull request diffs\ndocs/api/** linguist-generated\n\n# Send model weights to Git LFS\n*.pt filter=lfs diff=lfs merge=lfs -text",
+          "caption": "Common attributes for a research repository"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`* text=auto` stores text files with LF line endings in the repository and converts on checkout where the platform needs it. Without it, authors on Windows and macOS can produce diffs that touch every line.",
+            "`binary` tells Git not to attempt a line diff or a text merge.",
+            "The `linguist` attributes change how GitHub counts languages and displays diffs. They do not affect Git itself.",
+            "The `filter=lfs` line is written for you by `git lfs track`."
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Why large files are different",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Git keeps every version of every file forever, and every clone downloads all of it. Text compresses well and changes a few lines at a time. A 400 MB checkpoint does neither, so ten versions of it add about 4 GB to every clone. GitHub warns when you push a file over 50 MB and blocks any file over 100 MB. Files added through the browser have a lower limit."
+        },
+        {
+          "type": "table",
+          "caption": "Where large files can live instead",
+          "head": ["Option", "How it works", "Fits"],
+          "rows": [
+            ["Git LFS", "Git stores a small pointer. The content lives on an LFS server and downloads on checkout", "A moderate number of large files that should travel with the code"],
+            ["DVC", "A small `.dvc` file is committed. The data lives in storage you configure", "Datasets and model versions, especially with pipelines"],
+            ["External storage", "Files stay in a bucket, a lab server or a model hub. The repository records the location and a checksum", "Very large or sensitive data"],
+            ["Release assets", "Files are attached to a tagged release instead of the history", "A final checkpoint or results file tied to a version"]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git lfs install                 # once per machine\ngit lfs track \"*.pt\"            # writes a rule into .gitattributes\ngit add .gitattributes\ngit add checkpoints/best.pt\ngit commit -m \"Add best checkpoint via LFS\"\ngit lfs ls-files                # confirm the file is managed by LFS\ngit push",
+          "caption": "Setting up Git LFS for checkpoint files"
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "LFS storage is metered",
+          "text": "Git LFS storage and download bandwidth are measured against an allowance that depends on your plan, and every clone or automated run that downloads LFS files counts. Check the current terms in the documentation before you put a training set there."
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "A rejected push cannot be fixed with a new commit",
+          "text": "If a push is refused because of a file over the limit, deleting the file in another commit does not help. The commit that added it is still among the commits you are pushing. Remove the file from that commit itself: amend it if it is the latest, or rewrite the unpushed commits. Practice the decision in [this drill](#drill-huge-file)."
+        }
+      ]
+    },
+    {
+      "heading": "Notebooks and secrets",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A notebook file is JSON that stores your code and its outputs together. Outputs include images, tables of data and long logs. Committing them makes diffs unreadable, causes merge conflicts in machine-written text, and can publish rows of data you never meant to share."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "pip install nbstripout\nnbstripout --install            # in the repository: strip outputs on every git add\n\n# or pair each notebook with a plain script and review that instead\npip install jupytext\njupytext --set-formats ipynb,py:percent analysis.ipynb",
+          "caption": "Two ways to keep notebook diffs readable"
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Outputs can carry confidential data",
+          "text": "A notebook that printed five rows of a client file or a participant table has those rows embedded in it. Pushing it discloses them, and removing them later does not recall the copies. Stripping outputs before a commit is a confidentiality control as much as a tidiness habit. This is general information, not legal advice."
+        },
+        {
+          "type": "p",
+          "text": "Secrets follow the same rule with higher stakes. Keep keys and tokens in a `.env` file that is ignored, and commit a `.env.example` with placeholder values so others know which variables to set. If a real secret is ever committed, treat it as compromised and revoke it. Ignoring the file afterward protects nothing. See [The Security tab](#advanced-security-features)."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Add a .gitignore and stop tracking a file that slipped in",
+      "browser": [
+        "On the repository page, select **Add file**, then **Create new file**, and name it `.gitignore`.",
+        "A template chooser appears beside the name field. Pick a template such as Python.",
+        "Add your own lines, such as `/data/*`, `checkpoints/` and `.env`, and commit the file.",
+        "To remove a file that should never have been committed, open it, open the menu at the top right of the file view, choose **Delete file**, and commit.",
+        "Remember that the file remains in earlier commits."
+      ],
+      "phone": [
+        "As of this writing GitHub Mobile can edit an existing file and commit the change. Open `.gitignore` in the app and add your lines.",
+        "To create the file in the first place, use your phone's browser: **Add file**, then **Create new file**.",
+        "Deleting a tracked file works from the file view in the mobile browser."
+      ],
+      "cli": [
+        "Create or edit `.gitignore` and add the patterns.",
+        "`git rm -r --cached checkpoints/` to stop tracking a folder while keeping it on disk. For one file, leave out the `-r`.",
+        "`git status` should show the files as deleted in the staging area, and the folder should no longer appear under untracked files.",
+        "`git add .gitignore` then `git commit -m \"Stop tracking checkpoints\"`.",
+        "`git check-ignore -v checkpoints/best.pt` to confirm which rule now covers it."
+      ],
+      "editor": [
+        "In VS Code's Source Control view, right-click an untracked file and choose **Add to .gitignore**.",
+        "Ignored files appear dimmed in the Explorer, which makes a wrong pattern visible at a glance.",
+        "For a file that is already tracked, run `git rm --cached` with its path in the built-in terminal, then commit.",
+        "A coding agent can draft a `.gitignore` for your stack. Ask it to list tracked files that match the new patterns with `git ls-files -ci --exclude-standard`, and tell it not to delete anything from disk. Run `git status` before you commit."
+      ]
+    },
+    {
+      "task": "Track large files with Git LFS",
+      "browser": [
+        "LFS needs the `git lfs` client, so it cannot be set up from github.com.",
+        "Once a file is tracked by LFS and pushed, its page on GitHub notes that it is stored with Git LFS.",
+        "Do not upload large binaries through the browser as a workaround. They would go into ordinary Git history."
+      ],
+      "phone": [
+        "Setting up LFS is not practical on a phone. Use a computer or a Codespace.",
+        "You can still browse a repository that uses LFS from the app or the mobile browser."
+      ],
+      "cli": [
+        "`git lfs install` once on each machine.",
+        "`git lfs track \"*.pt\"` to add the rule to `.gitattributes`.",
+        "`git add .gitattributes` so that collaborators get the same rule.",
+        "`git add` the large file and `git commit`.",
+        "`git lfs ls-files` to confirm the file is listed, then `git push`."
+      ],
+      "editor": [
+        "Run the same commands in the editor's built-in terminal. Check `git lfs version` first, since not every environment has the client installed.",
+        "Commit and push from the Source Control view as usual. The filter runs automatically.",
+        "With a coding agent, ask it to confirm the result with `git lfs ls-files` and to show that `git show HEAD:checkpoints/best.pt` prints a short text pointer."
+      ]
+    },
+    {
+      "task": "Keep notebook outputs out of commits",
+      "browser": [
+        "github.com cannot strip outputs for you. Clear them in the notebook application before you upload or commit.",
+        "After pushing, open the notebook on GitHub and confirm that the cells show no results."
+      ],
+      "phone": [
+        "There is no way to strip outputs from the mobile app. Review the notebook on GitHub and, if outputs are present, fix it from a computer."
+      ],
+      "cli": [
+        "`pip install nbstripout` in the project's environment.",
+        "`nbstripout --install` inside the repository. From now on outputs are removed whenever you `git add` a notebook, and your working copy keeps them.",
+        "`nbstripout --status` to confirm the filter is active.",
+        "Each collaborator runs the install once in their own clone."
+      ],
+      "editor": [
+        "In VS Code's notebook toolbar, use the command that clears all outputs before you stage the file.",
+        "With `nbstripout` installed in the repository, the filter applies whichever editor you commit from.",
+        "Check the staged diff in the Source Control view. It should show code changes only."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Adding a file to `.gitignore` after it was committed and expecting Git to forget it.",
+      "fix": "Run `git rm --cached` on the file and commit. `.gitignore` only affects files that are not yet tracked."
+    },
+    {
+      "trap": "Deleting a large file in a new commit to get past a rejected push. The push is rejected again.",
+      "fix": "Remove the file from the commit that introduced it, by amending or rewriting the unpushed commits. Then ignore it."
+    },
+    {
+      "trap": "Running `git add .` in a project folder full of data and outputs.",
+      "fix": "Write the `.gitignore` first, and read `git status` before every commit."
+    },
+    {
+      "trap": "A pattern that is too broad. `data` with no slashes also ignores `src/data/`, your data loading code.",
+      "fix": "Anchor patterns with a leading slash, such as `/data/`, and check surprises with `git status --ignored`."
+    },
+    {
+      "trap": "Tracking a file type with LFS after files of that type were already committed the normal way. The old versions stay in ordinary history.",
+      "fix": "Set up LFS before the first large commit. Converting existing history needs `git lfs migrate`, which rewrites commits."
+    },
+    {
+      "trap": "Forgetting to commit `.gitattributes`. Your clone uses LFS and a teammate's clone commits the raw binary.",
+      "fix": "Commit `.gitattributes` in the same commit as the first tracked file."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "`results.csv` is tracked. You add `results.csv` to `.gitignore` and commit. What happens to future changes to the file?",
+      "choices": [
+        "Git ignores them",
+        "Git deletes the file from disk",
+        "Git keeps tracking them until you run `git rm --cached results.csv`",
+        "Git moves the file to LFS"
+      ],
+      "answer": 2,
+      "why": "Ignore rules apply only to untracked files. A tracked file stays tracked whatever `.gitignore` says. `git rm --cached` removes it from the index and leaves your copy on disk, after which the ignore rule takes effect."
+    },
+    {
+      "q": "Which pair of lines ignores every `.pt` file except `tests/fixtures/tiny.pt`?",
+      "choices": [
+        "`!tests/fixtures/tiny.pt` then `*.pt`",
+        "`*.pt` then `!tests/fixtures/tiny.pt`",
+        "`*.pt` then `tests/fixtures/tiny.pt`",
+        "`tests/fixtures/` then `!*.pt`"
+      ],
+      "answer": 1,
+      "why": "Later lines override earlier ones, so the exception has to come after the general rule, and it needs the `!` prefix. With the order reversed, `*.pt` has the last word and the fixture is ignored again."
+    },
+    {
+      "q": "For a file tracked by Git LFS, what does the Git repository itself store?",
+      "choices": [
+        "A small text pointer with the file's hash and size",
+        "The full file, compressed",
+        "Nothing at all",
+        "A link to a release asset"
+      ],
+      "answer": 0,
+      "why": "LFS replaces the file in Git with a pointer of a few lines. The content is uploaded to LFS storage and fetched when someone checks out a commit that needs it. That is why the history stays small."
+    },
+    {
+      "q": "Your push is rejected because a 180 MB file was added three commits ago. You delete the file, commit and push again. What happens?",
+      "choices": [
+        "The push succeeds because the file is gone",
+        "GitHub converts the file to LFS automatically",
+        "Only the last commit is pushed",
+        "The push is rejected again because the earlier commit still contains the file"
+      ],
+      "answer": 3,
+      "why": "A push sends every commit the remote lacks, including the one that added the file, and the limit is checked against all of them. The file has to be removed from that commit, which is safe to do because none of these commits have been shared."
+    },
+    {
+      "q": "What does `* text=auto` in `.gitattributes` do?",
+      "choices": [
+        "Marks every file as binary",
+        "Stores text files with LF line endings in the repository, converting on checkout where needed",
+        "Runs a formatter on every commit",
+        "Sends all text files to LFS"
+      ],
+      "answer": 1,
+      "why": "It asks Git to detect text files and normalize their line endings in the repository, so authors on different operating systems do not produce diffs that touch every line. It does not format code and has nothing to do with LFS."
+    }
+  ],
+  "mission": {
+    "title": "Give your repository a hygiene pass",
+    "where": "Your own repository, in one pull request titled `Repository hygiene`.",
+    "steps": [
+      "Run `git status --ignored`, or browse the repository on GitHub, and list anything that is generated, large or private.",
+      "Create or extend `.gitignore` from the Python template. Add `/data/*`, `!/data/README.md`, `checkpoints/` and `.env`.",
+      "Write `data/README.md` saying where the data comes from and how to get it. Confirm that it is tracked and the rest of `data/` is not.",
+      "Add `.gitattributes` with the line `* text=auto`.",
+      "Stop tracking anything that slipped in earlier with `git rm --cached`, and check a path with `git check-ignore -v`.",
+      "If you use notebooks, run `nbstripout --install` and commit one notebook. Confirm that its diff contains no outputs.",
+      "Open the pull request, read the diff, and merge."
+    ]
+  },
+  "terms": [
+    {
+      "term": ".gitignore",
+      "def": "A file of patterns naming untracked paths that Git should leave out of `git status` and `git add`."
+    },
+    {
+      "term": ".gitattributes",
+      "def": "A file that attaches handling rules to paths, such as line-ending normalization, binary treatment or the LFS filter."
+    },
+    {
+      "term": "glob pattern",
+      "def": "A pattern with wildcards, such as `*.pt` or `data/*`, that matches file paths by shape instead of by exact name."
+    },
+    {
+      "term": "Git LFS",
+      "def": "Git Large File Storage. An extension that keeps a small pointer in the repository and stores the large file's content on a separate server."
+    },
+    {
+      "term": "pointer file",
+      "def": "The few lines of text that Git LFS commits in place of a large file, holding its hash and size."
+    },
+    {
+      "term": "line-ending normalization",
+      "def": "Storing text files with one line-ending style in the repository so that different operating systems do not create spurious diffs."
+    },
+    {
+      "term": "global ignore file",
+      "def": "A personal ignore file on your own machine that applies to every repository, used for editor and operating system clutter."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git check-ignore -v <path>",
+      "does": "Shows which ignore rule, in which file and line, causes a path to be ignored.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git status --ignored",
+      "does": "Lists ignored files alongside the usual status, so you can see what your patterns catch.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git rm --cached <file>",
+      "does": "Stops tracking a file and leaves your copy on disk. Earlier commits still contain it.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git ls-files -ci --exclude-standard",
+      "does": "Lists tracked files that match your ignore patterns, which are the candidates for `git rm --cached`.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git config --global core.excludesFile ~/.gitignore_global",
+      "does": "Sets a personal ignore file that applies to all your repositories.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git lfs install",
+      "does": "Enables Git LFS for your user account on this machine. Run it once.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git lfs track \"*.pt\"",
+      "does": "Adds a rule to `.gitattributes` so that matching files are stored with LFS from now on.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git lfs ls-files",
+      "does": "Lists the files in the current commit that are stored with LFS.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "nbstripout --install",
+      "does": "Sets up a filter in this repository that strips notebook outputs whenever a notebook is staged.",
+      "kind": "shell",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git lfs migrate import --include=\"*.pt\"",
+      "does": "Converts existing history so that matching files use LFS. Rewrites commits, so coordinate before using it on a shared branch.",
+      "kind": "git",
+      "risk": "danger"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: Ignoring files",
+      "url": "https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files"
+    },
+    {
+      "label": "GitHub Docs: About large files on GitHub",
+      "url": "https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github"
+    },
+    {
+      "label": "GitHub Docs: About Git Large File Storage",
+      "url": "https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-git-large-file-storage"
+    },
+    {
+      "label": "Git reference: gitignore",
+      "url": "https://git-scm.com/docs/gitignore"
+    },
+    {
+      "label": "Git reference: gitattributes",
+      "url": "https://git-scm.com/docs/gitattributes"
+    },
+    {
+      "label": "Git LFS project site",
+      "url": "https://git-lfs.com/"
+    }
+  ]
+}

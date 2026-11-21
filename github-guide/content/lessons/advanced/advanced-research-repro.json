@@ -1,0 +1,544 @@
+{
+  "id": "advanced-research-repro",
+  "track": "advanced",
+  "title": "Reproducible research repositories",
+  "minutes": 23,
+  "summary": "A result is reproducible when someone else can get from your repository to your number. That takes the code, the configuration with its seed, a pinned environment and a pointer to the exact data, all under version control or recorded beside it.",
+  "outcomes": [
+    "Lay out a research repository so code, configs, data pointers and results have obvious homes",
+    "Pin an environment tightly enough to rebuild it next year",
+    "Record the commit, config and seed behind every reported number",
+    "Version data and model files without putting them in Git",
+    "Make the repository citable with `CITATION.cff` and an archived release",
+    "Add a CI smoke test that proves the pipeline still runs end to end"
+  ],
+  "prereqs": [
+    "intermediate-ignore-lfs",
+    "intermediate-pages-releases",
+    "advanced-ci-pipelines"
+  ],
+  "lenses": {
+    "everyday": "A family recipe card that says a handful of flour and bake until done works only for the person who wrote it. A recipe someone else can follow names the flour, the weight, the oven temperature, the pan and the time, and says which shop the unusual ingredient came from. A reproducible repository is the second kind of recipe. Everything a stranger needs to bake the same cake is written down, and nothing depends on what happens to be in your cupboard.",
+    "legal": "Audit workpapers exist so that an experienced reviewer with no prior connection to the engagement can understand what was done and reperform it. Each figure in the return ties to a schedule, each schedule ties to source documents, and the file shows who prepared and who reviewed. A research repository should meet that standard. Every number in the paper ties to a commit, a configuration file and a dataset version. The tag is the tick mark. The archived release is the retained file. A claim that cannot be traced back to its support is, for practical purposes, unsupported.",
+    "ml": "Table 2 says 76.4 percent. Six months later a reviewer asks for one more ablation, and you cannot get 76.4 again. Was it the commit before the loader refactor? The config with label smoothing? The dataset before deduplication? A different framework build? Reproducibility is having those four answers written down at the moment the number was produced: commit hash, config file, data checksum, locked environment. With them, rerunning is a command. Without them, it is archaeology.",
+    "technical": "A result is a function of code, configuration, data, environment and randomness. Git versions the first two directly. Data and model weights are too large for Git, so the repository stores pointers: checksums, DVC files or LFS pointers that identify exact content held elsewhere. The environment is pinned with a lock file or a container image digest. Seeds are configuration. Each run records the commit hash and whether the working tree was clean. An annotated tag marks the commit behind published numbers, and a release archived with a DOI makes that state citable."
+  },
+  "sections": [
+    {
+      "heading": "The five ingredients of a result",
+      "blocks": [
+        {
+          "type": "table",
+          "head": [
+            "Ingredient",
+            "Where it lives",
+            "How you pin it"
+          ],
+          "rows": [
+            [
+              "Code",
+              "Git",
+              "A commit hash, marked with a tag"
+            ],
+            [
+              "Configuration",
+              "Git, in `configs/`",
+              "One file per experiment, committed"
+            ],
+            [
+              "Data",
+              "Outside Git",
+              "A checksum, or a DVC or LFS pointer, committed"
+            ],
+            [
+              "Environment",
+              "Git, as a lock file or Dockerfile",
+              "Exact versions and hashes, or an image digest"
+            ],
+            [
+              "Randomness",
+              "Configuration",
+              "A seed in the config file, logged with the run"
+            ]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Miss any one and the result becomes a story about a number instead of a way to produce it. The rest of this lesson takes them in turn."
+        },
+        {
+          "type": "reveal",
+          "prompt": "You fixed every seed, committed your config and tagged the commit. A colleague reruns on a different GPU and gets 76.1 where you got 76.4. Is your repository broken?",
+          "answer": "Not necessarily. Seeds control the random number generators, but some GPU operations are nondeterministic, and different hardware or library builds can shift floating-point results slightly. Reproducible within a stated tolerance is the realistic goal. Report the variation across several seeds, record the hardware and library versions, and say what agreement a reader should expect."
+        }
+      ]
+    },
+    {
+      "heading": "A layout that explains itself",
+      "blocks": [
+        {
+          "type": "code",
+          "lang": "text",
+          "code": "project/\n  README.md              what this is, how to install, how to reproduce Table 2\n  LICENSE\n  CITATION.cff           how to cite this repository\n  pyproject.toml         package metadata\n  requirements.in        the packages you import directly\n  requirements.txt       generated: every package, pinned and hashed\n  configs/\n    baseline.yaml        one file per experiment, seed included\n    smoke.yaml           tiny settings for the CI smoke test\n  src/project/           importable code: data, models, training, evaluation\n  scripts/\n    train.py             entry points that take --config\n    evaluate.py\n  notebooks/             exploration only, paired with .py files\n  data/\n    README.md            where the data comes from and how to fetch it\n    SHA256SUMS           checksums of the exact files used\n  results/\n    table2.csv           small result files that back the paper\n  tests/\n  .github/workflows/     CI, including the smoke test"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Scripts take a config file, not twenty flags.** The config that produced a result is then a single committed file.",
+            "**Raw data and checkpoints are ignored by Git.** `data/README.md` and the checksum file are tracked, so the repository says exactly which bytes it expects.",
+            "**Small results are tracked.** A CSV of final metrics is tiny and is the evidence for a table. Commit it with the code that made it.",
+            "**Notebooks explore, scripts produce.** A number in the paper should come from a script that runs start to finish, not from cells executed in an order nobody remembers."
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "Pinning the environment",
+      "blocks": [
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "Lock file with hashes",
+              "points": [
+                "`requirements.txt` generated from a short input file",
+                "Every package, direct or indirect, at an exact version with a hash",
+                "Installation fails if anything differs",
+                "A good default for pure Python projects"
+              ]
+            },
+            {
+              "title": "Conda environment file",
+              "points": [
+                "`environment.yml` naming Python and the packages",
+                "Handles libraries that are not Python packages",
+                "Export only what you asked for, to keep it portable",
+                "Common where compiled scientific packages matter"
+              ]
+            },
+            {
+              "title": "Container image",
+              "points": [
+                "A `Dockerfile` or a dev container",
+                "Pins the operating system layer as well",
+                "Reference the base image by digest for exactness",
+                "The strongest guarantee and the heaviest to carry"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# requirements.in lists only what you import directly, e.g. torch, numpy, pyyaml, pytest\npython -m pip install pip-tools\npip-compile --generate-hashes requirements.in      # writes requirements.txt\npython -m pip install --require-hashes -r requirements.txt",
+          "caption": "A hashed lock file with pip-tools"
+        },
+        {
+          "type": "p",
+          "text": "Other tools produce the same kind of file. What matters is the property: installing from it next year gives the same packages as today, or fails loudly. Write down what the lock file cannot hold: the Python version, the operating system, and for GPU work the driver and CUDA versions."
+        }
+      ]
+    },
+    {
+      "heading": "Recording what produced a number",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The cheapest reproducibility habit is to make every run write down its own provenance. A few lines at the start of a training script do it."
+        },
+        {
+          "type": "code",
+          "lang": "python",
+          "code": "import json\nimport platform\nimport subprocess\nimport sys\nfrom pathlib import Path\n\n\ndef git(*args: str) -> str:\n    result = subprocess.run([\"git\", *args], capture_output=True, text=True, check=True)\n    return result.stdout.strip()\n\n\ndef record_run(config_path: str, seed: int, out_dir: str) -> dict:\n    # Write the facts needed to rerun this experiment next to its outputs.\n    info = {\n        \"commit\": git(\"rev-parse\", \"HEAD\"),\n        \"dirty\": bool(git(\"status\", \"--porcelain\")),\n        \"config\": config_path,\n        \"seed\": seed,\n        \"python\": sys.version.split()[0],\n        \"platform\": platform.platform(),\n        \"command\": \" \".join(sys.argv),\n    }\n    Path(out_dir).mkdir(parents=True, exist_ok=True)\n    Path(out_dir, \"run.json\").write_text(json.dumps(info, indent=2))\n    if info[\"dirty\"]:\n        print(\"WARNING: uncommitted changes. This run cannot be tied to a commit.\")\n    return info",
+          "file": "src/project/provenance.py"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`dirty` being true means the code that ran is not the code in any commit. Treat results from a dirty tree as exploratory.",
+            "Set the seed for every library that has one, and keep the seed in the config file, not in the code.",
+            "Keep `run.json` with the metrics. A metrics file without its provenance is the 76.4 problem again."
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git tag -a paper-v1 -m \"Code and configs for all results in the v1 submission\"\ngit push origin paper-v1",
+          "caption": "Mark the commit behind published numbers"
+        },
+        {
+          "type": "p",
+          "text": "A tag is a name for one commit. Put that name in the paper. A reader who checks out `paper-v1` is looking at exactly what you ran."
+        }
+      ]
+    },
+    {
+      "heading": "Data, models and notebooks",
+      "blocks": [
+        {
+          "type": "table",
+          "head": [
+            "Approach",
+            "How it works",
+            "Fits when"
+          ],
+          "rows": [
+            [
+              "Checksums",
+              "Commit a `SHA256SUMS` file. A script downloads the data and verifies it",
+              "The data is public and stable"
+            ],
+            [
+              "DVC",
+              "Small `.dvc` pointer files in Git, with the data in a remote store you configure",
+              "Data changes over time and you need its history"
+            ],
+            [
+              "Git LFS",
+              "Pointer files in Git, with the content in LFS storage",
+              "A few moderately large binaries that belong with the code"
+            ],
+            [
+              "Model hub or archive",
+              "Weights published elsewhere, with the exact identifier recorded in the repository",
+              "You are sharing trained models with other people"
+            ]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# Record exactly which files you used\nsha256sum data/raw/*.csv > data/SHA256SUMS\n\n# Anyone can verify that theirs match\nsha256sum -c data/SHA256SUMS"
+        },
+        {
+          "type": "p",
+          "text": "Notebooks are JSON files with their outputs embedded, which makes diffs unreadable and merges painful. Three tools help. **jupytext** pairs each notebook with a plain `.py` file that diffs cleanly. **nbstripout** removes outputs at commit time through a Git filter. **nbdime** gives notebook-aware diffs and merges."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "jupytext --set-formats ipynb,py:percent notebooks/explore.ipynb   # pair with a .py file\nnbstripout --install                                             # strip outputs on commit, this repository only\nnbdime config-git --enable                                       # notebook-aware git diff and merge"
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Outputs can leak",
+          "text": "Notebook outputs can contain rows of data, file paths, names and sometimes credentials printed while debugging. Stripping outputs before commit is a privacy control as much as a tidiness one. If the dataset includes personal data, assume any rendered cell output is that data."
+        }
+      ]
+    },
+    {
+      "heading": "Citable, licensed and continuously checked",
+      "blocks": [
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "cff-version: 1.2.0\nmessage: \"If you use this software, please cite it as below.\"\ntitle: \"Warmup schedules for small-data fine-tuning\"\nauthors:\n  - family-names: \"Lastname\"\n    given-names: \"Firstname\"\nversion: \"1.0.0\"\ndate-released: \"2026-11-21\"\nurl: \"https://github.com/your-username/your-repo\"\nlicense: \"MIT\"",
+          "file": "CITATION.cff"
+        },
+        {
+          "type": "list",
+          "items": [
+            "With `CITATION.cff` in the root of the default branch, GitHub adds a **Cite this repository** link to the About sidebar, with ready-made APA and BibTeX entries.",
+            "A release can be archived by a service such as Zenodo, which assigns a DOI to that exact snapshot. Turn on the integration before you publish the release.",
+            "A **model card** and a **dataset card**, as README sections or separate files, state the intended use, training data, evaluation and known limitations.",
+            "Tag, release, archive, cite: that is the chain from a number in a PDF to the bytes that produced it."
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "name: Smoke test\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\njobs:\n  smoke:\n    runs-on: ubuntu-latest\n    timeout-minutes: 15\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-python@v7\n        with:\n          python-version: \"3.12\"\n          cache: pip\n      - name: Install the locked environment\n        run: |\n          python -m pip install --require-hashes -r requirements.txt\n          python -m pip install --no-deps -e .\n      - name: Unit tests\n        run: python -m pytest tests -q\n      - name: One tiny end-to-end training run\n        run: python scripts/train.py --config configs/smoke.yaml\n      - name: Keep the provenance file\n        uses: actions/upload-artifact@v7\n        with:\n          name: smoke-run\n          path: outputs/smoke/run.json",
+          "file": ".github/workflows/smoke.yml",
+          "caption": "A smoke test proves the whole pipeline still runs from a clean checkout"
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Code, data and weights can carry different terms",
+          "text": "A repository's `LICENSE` file usually covers the code. Datasets often come with their own terms, sometimes restricting commercial use or redistribution. Trained weights may be licensed separately again, and can be affected by the terms of the data they were trained on. State each one explicitly in the README. This is general information. For decisions that matter, read the actual terms and get advice. See [The non-code layer](#expert-law-tax-access)."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Reproducible also means usable by more people",
+          "text": "A one-command reproduction path helps anyone who cannot spend an afternoon debugging an environment, including people managing limited energy or working with assistive technology. Write the README steps as a numbered list of commands to copy, give figures text descriptions, and publish result tables as CSV as well as images."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Make a repository citable and mark a result",
+      "browser": [
+        "Select **Add file**, then **Create new file**, and name it `CITATION.cff`. GitHub may offer to insert an example for this file name.",
+        "Fill in the title, authors, version and release date, and commit through a pull request.",
+        "After merging, find **Cite this repository** in the About sidebar and check the generated citation.",
+        "Go to **Releases** and select **Draft a new release**. Create a tag such as `paper-v1` on the commit behind your results, and write what the release reproduces.",
+        "If you use an archive service for DOIs, connect the repository there before publishing the release. Then publish."
+      ],
+      "phone": [
+        "`CITATION.cff` is a short text file. Creating it in GitHub Mobile or the mobile browser is reasonable.",
+        "Commit to a branch and open a pull request from the app.",
+        "Create the tag and the release in the mobile browser, where the full release form is available. Check that the tag points at the right commit before publishing.",
+        "Connecting an archive service is a one-time setup better done on a computer."
+      ],
+      "cli": [
+        "Create `CITATION.cff` in your editor, commit it on a branch, and merge by pull request.",
+        "`git switch main` and `git pull` to get the merged state.",
+        "`git tag -a paper-v1 <commit> -m \"Results for the v1 submission\"`, naming the commit that produced the numbers.",
+        "`git push origin paper-v1` to publish the tag.",
+        "`gh release create paper-v1 --title \"Paper v1\" --notes \"Reproduces Tables 1 to 3.\"` to publish a release from it.",
+        "`git describe --tags` in any later checkout tells you where you are relative to that tag."
+      ],
+      "editor": [
+        "Create `CITATION.cff` in VS Code. A YAML extension catches indentation mistakes.",
+        "Commit, push and open the pull request from the editor.",
+        "Create the tag from the Source Control menu or the integrated terminal, and push it.",
+        "A coding agent can draft the file and the release notes. Verify the author names, the release date, and above all that the tag points at the commit whose outputs match the paper."
+      ]
+    },
+    {
+      "task": "Pin the environment and prove it in CI",
+      "browser": [
+        "Lock files are generated by a tool, not written by hand, so the browser's part is review.",
+        "In the pull request that adds or updates `requirements.txt`, read which packages changed version under **Files changed**.",
+        "Add the smoke workflow with **Add file** under `.github/workflows/`, and open a pull request.",
+        "Watch the smoke check run. Open its artifact to see the recorded `run.json`."
+      ],
+      "phone": [
+        "Generating a lock file needs a terminal, so this is not a GitHub Mobile task.",
+        "Reviewing is: open the pull request in the app, look at which package versions changed, and check that the smoke test passed.",
+        "A codespace in the mobile browser can run `pip-compile` if you must do it away from a computer."
+      ],
+      "cli": [
+        "List your direct dependencies in `requirements.in`.",
+        "`pip-compile --generate-hashes requirements.in` to write `requirements.txt`.",
+        "`python -m venv .venv`, activate it, and run `python -m pip install --require-hashes -r requirements.txt` to confirm it installs from scratch.",
+        "Run the tests and the smoke config locally.",
+        "Commit both files with the smoke workflow and open a pull request.",
+        "`gh pr checks --watch` to confirm CI can rebuild the environment too."
+      ],
+      "editor": [
+        "Open the repository in a codespace or dev container, so the lock file is generated in the environment everyone will use.",
+        "Run `pip-compile` in the integrated terminal and review the diff in the Source Control view.",
+        "Commit the input file and the lock file together.",
+        "If an agent updates dependencies, check that it regenerated the lock file with the tool and did not edit versions or hashes by hand."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Writing `pip install torch numpy` in the README as the environment. Next year those commands install different versions.",
+      "fix": "Commit a lock file with exact versions and hashes, or a container definition, and install from that."
+    },
+    {
+      "trap": "Producing paper numbers from a working tree with uncommitted changes.",
+      "fix": "Commit first. Have the training script record the commit and warn loudly, or refuse to run, when the tree is dirty."
+    },
+    {
+      "trap": "Committing datasets or checkpoints directly to Git. The repository becomes huge, and GitHub rejects files over its size limit.",
+      "fix": "Keep large files outside Git and commit pointers: checksums, DVC files or LFS pointers."
+    },
+    {
+      "trap": "Tagging the release after more commits have landed, so the tag does not match what was run.",
+      "fix": "Take the commit hash from the run's `run.json` and tag that exact commit."
+    },
+    {
+      "trap": "Assuming the repository's code license also covers the dataset and the weights.",
+      "fix": "State the terms for code, data and models separately in the README, and check the dataset's own license."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "Which of these does Git version well on its own?",
+      "choices": [
+        "A 4 GB checkpoint file",
+        "A YAML config file with the seed and hyperparameters",
+        "The contents of a remote dataset bucket",
+        "The versions of the packages installed in your environment"
+      ],
+      "answer": 1,
+      "why": "Small text files are exactly what Git is for. Large binaries need pointers to external storage, a remote bucket is not in the repository at all, and installed packages are only pinned if you commit a lock file that describes them."
+    },
+    {
+      "q": "Your training script logs `\"dirty\": true` for the run that produced your best result. What does that mean for reproducibility?",
+      "choices": [
+        "Nothing; it is a cosmetic flag",
+        "The run used a GPU",
+        "The code that ran included uncommitted changes, so no commit matches it exactly",
+        "The dataset was modified"
+      ],
+      "answer": 2,
+      "why": "A dirty tree means the working files differed from the commit. Checking out that commit later gives different code from what actually ran. Commit before producing results you intend to report."
+    },
+    {
+      "q": "What does `pip install --require-hashes -r requirements.txt` do when a downloaded file does not match its recorded hash?",
+      "choices": [
+        "Fails the installation",
+        "Installs it with a warning",
+        "Downloads the newest version in its place",
+        "Skips that package and continues"
+      ],
+      "answer": 0,
+      "why": "Hash checking is all or nothing. A mismatch means the file is not the one you locked, through a changed release or through tampering, and pip refuses to continue. Failing loudly is the property you want."
+    },
+    {
+      "q": "What does adding a `CITATION.cff` file to the repository root do on GitHub?",
+      "choices": [
+        "Assigns the repository a DOI",
+        "Makes the repository public",
+        "Registers a copyright",
+        "Adds a **Cite this repository** link with formatted citations"
+      ],
+      "answer": 3,
+      "why": "GitHub reads the file and offers APA and BibTeX citations in the About sidebar. A DOI comes from an archive service that snapshots a release. The file changes nothing about visibility or legal status."
+    },
+    {
+      "q": "Why run a tiny end-to-end training job in CI when the unit tests already pass?",
+      "choices": [
+        "To produce the paper's final numbers",
+        "To measure GPU performance",
+        "To confirm the full pipeline, from locked install to written outputs, still runs from a clean checkout",
+        "Because CI requires at least two jobs"
+      ],
+      "answer": 2,
+      "why": "Unit tests check pieces. The smoke run checks that the pieces still fit together: the environment installs, the config parses, data loads, a step runs, outputs are written. It catches the breakage that otherwise appears when someone starts a long run."
+    }
+  ],
+  "mission": {
+    "title": "Make one result reproducible end to end",
+    "where": "Your own research repository, or a small practice project with a script that prints a number.",
+    "steps": [
+      "Create the layout: a `configs/` folder, a `scripts/` entry point that takes `--config`, and a `data/README.md` that says where the data comes from.",
+      "Generate a hashed lock file and install from it in a fresh virtual environment or a codespace.",
+      "Add the provenance function and call it at the start of your script. Run once and read the `run.json` it writes.",
+      "Commit, confirm `dirty` is false on the next run, and mark that commit with an annotated tag.",
+      "Add `CITATION.cff` and check the **Cite this repository** link.",
+      "Add the smoke workflow with a tiny config and get it passing on a pull request.",
+      "Ask someone else, or yourself in a new codespace, to reproduce the number using only the README."
+    ]
+  },
+  "terms": [
+    {
+      "term": "reproducibility",
+      "def": "The ability of someone else to obtain the same result from the same code, data, configuration and environment."
+    },
+    {
+      "term": "lock file",
+      "def": "A generated file listing every dependency at an exact version, often with hashes, so an environment can be rebuilt identically."
+    },
+    {
+      "term": "provenance",
+      "def": "The recorded origin of a result: which commit, configuration, data version, seed and environment produced it."
+    },
+    {
+      "term": "checksum",
+      "def": "A short fingerprint computed from a file's contents. If the file changes by one byte, the checksum changes."
+    },
+    {
+      "term": "DVC",
+      "def": "Data Version Control, a tool that tracks large data files with small pointer files in Git and stores the content elsewhere."
+    },
+    {
+      "term": "CITATION.cff",
+      "def": "A plain-text file in a standard format that tells people, and GitHub, how to cite a repository."
+    },
+    {
+      "term": "DOI",
+      "def": "A digital object identifier: a permanent reference to a specific archived item, such as one release of a repository."
+    },
+    {
+      "term": "smoke test",
+      "def": "A fast end-to-end run on tiny inputs that checks the whole pipeline still executes, without judging the quality of the result."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "pip-compile --generate-hashes requirements.in",
+      "does": "Resolves the listed dependencies and writes a fully pinned, hashed `requirements.txt`.",
+      "kind": "shell",
+      "risk": "safe"
+    },
+    {
+      "cmd": "python -m pip install --require-hashes -r requirements.txt",
+      "does": "Installs exactly the locked packages and fails if any file differs from its recorded hash.",
+      "kind": "shell",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git rev-parse HEAD",
+      "does": "Prints the full hash of the commit you have checked out. Log it with every run.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git status --porcelain",
+      "does": "Prints one line per changed file and nothing when the tree is clean, which a script can test directly.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git tag -a <name> <commit> -m \"<message>\"",
+      "does": "Creates an annotated tag naming the exact commit behind a result.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "sha256sum -c data/SHA256SUMS",
+      "does": "Verifies that local data files match the recorded checksums.",
+      "kind": "shell",
+      "risk": "safe"
+    },
+    {
+      "cmd": "nbstripout --install",
+      "does": "Sets up a Git filter in this repository that removes notebook outputs when you commit.",
+      "kind": "shell",
+      "risk": "caution"
+    },
+    {
+      "cmd": "jupytext --set-formats ipynb,py:percent <notebook>",
+      "does": "Pairs a notebook with a plain Python file that stays in sync and diffs cleanly.",
+      "kind": "shell",
+      "risk": "safe"
+    },
+    {
+      "cmd": "dvc add <path>",
+      "does": "Starts tracking a data file with DVC, creating a small pointer file for Git and ignoring the data itself.",
+      "kind": "shell",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh release create <tag> --generate-notes",
+      "does": "Publishes a GitHub release for a tag, with notes generated from merged pull requests.",
+      "kind": "gh",
+      "risk": "caution"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About CITATION files",
+      "url": "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-citation-files"
+    },
+    {
+      "label": "GitHub Docs: Referencing and citing content",
+      "url": "https://docs.github.com/en/repositories/archiving-a-github-repository/referencing-and-citing-content"
+    },
+    {
+      "label": "Citation File Format",
+      "url": "https://citation-file-format.github.io/"
+    },
+    {
+      "label": "DVC documentation",
+      "url": "https://dvc.org/doc"
+    },
+    {
+      "label": "Jupytext documentation",
+      "url": "https://jupytext.readthedocs.io/"
+    },
+    {
+      "label": "nbdime documentation",
+      "url": "https://nbdime.readthedocs.io/"
+    }
+  ]
+}

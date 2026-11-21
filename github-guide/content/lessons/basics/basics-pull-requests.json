@@ -1,0 +1,485 @@
+{
+  "id": "basics-pull-requests",
+  "track": "basics",
+  "title": "Your first pull request, start to finish",
+  "minutes": 15,
+  "summary": "A pull request is a proposal to merge one branch into another, with a page around it for discussion, review and automated checks. The branch holds the work. The pull request holds the conversation and the decision to accept it.",
+  "outcomes": [
+    "Describe what a pull request is and how it differs from the branch it points at",
+    "Run the full loop: branch, commit, push, open, review, merge, clean up",
+    "Write a title and description a reviewer can act on",
+    "Use a draft pull request and a closing keyword",
+    "Explain why pull requests are worth using when you work alone"
+  ],
+  "prereqs": [
+    "basics-branches",
+    "basics-remotes"
+  ],
+  "lenses": {
+    "everyday": "You want to rearrange the shared kitchen. You do not start moving cabinets. You sketch the new layout, pin it to the fridge with a note saying what changes and why, and ask the household to look. People scribble comments. You adjust the sketch. Someone checks that the fridge still fits. When everyone is satisfied, the change is made, and the note goes in a drawer as the record of what was decided. The sketch is your branch. The note on the fridge, with its comments and the final yes, is the pull request.",
+    "legal": "A pull request is a transmittal memo attached to a redline. The redline is the branch: the exact proposed changes against the current version. The memo is the description: what changed, why, and what the reviewer should check. Reviewers leave review notes on specific lines, the preparer clears them, and an approver signs off. Automated checks play the role of a cite-check or a tie-out. On merge, the proposed changes become part of the controlling version, and the memo, the notes and the sign-off are retained with it. Months later, anyone can open the record and see who proposed the change, who approved it, and on what basis.",
+    "ml": "You add an evaluation script on the branch `feature/add-eval`. Opening a pull request into `main` puts the diff in front of your collaborator with a description: the metric you added, the command to run it, and the baseline number you got. Automated checks run the unit tests on the branch. Your collaborator notices that the script evaluates on the training split and comments on that line. You push a fix to the same branch and the pull request updates itself. After approval you merge. The pull request stays in the project as the record of why the evaluation code looks the way it does.",
+    "technical": "A pull request is a GitHub object that references a head branch and a base branch. GitHub computes the diff between the head and its merge base with the base branch, and keeps it current as either branch moves. The pull request carries a title, a description, comments, reviews, and the status of checks reported against the head commit. The branch and its commits live in Git. The pull request lives only on GitHub. Merging creates the result on the base branch by a merge commit, a squash or a rebase, then marks the pull request as merged. Pushing more commits to the head branch updates an open pull request automatically."
+  },
+  "sections": [
+    {
+      "heading": "What a pull request is",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The name is historical: you are requesting that someone pull your changes into their branch. In practice a pull request is a page that says three things. Here is a branch. I propose merging it into that branch. Please look."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "The branch",
+              "points": [
+                "Lives in Git",
+                "Holds the commits",
+                "Exists on your machine and on GitHub",
+                "Can exist with no pull request at all"
+              ]
+            },
+            {
+              "title": "The pull request",
+              "points": [
+                "Lives only on GitHub",
+                "Holds the title, description, comments, reviews and check results",
+                "Points at a branch and updates when the branch does",
+                "Stays as a permanent record after merging"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Two branch names to know",
+          "text": "The **base** branch is where the changes will land, usually `main`. The **head** branch, which GitHub also calls the compare branch, is the one with your new commits. A pull request always reads *merge head into base*."
+        }
+      ]
+    },
+    {
+      "heading": "The loop",
+      "blocks": [
+        {
+          "type": "flow",
+          "caption": "One change, start to finish",
+          "steps": [
+            {
+              "label": "Branch",
+              "note": "From an up-to-date main"
+            },
+            {
+              "label": "Commit",
+              "via": "edit",
+              "note": "Small steps"
+            },
+            {
+              "label": "Push",
+              "via": "git push -u"
+            },
+            {
+              "label": "Open pull request",
+              "via": "describe",
+              "note": "What, why, how to check"
+            },
+            {
+              "label": "Review and checks",
+              "note": "Push fixes to the same branch"
+            },
+            {
+              "label": "Merge and clean up",
+              "note": "Delete the branch, pull main"
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Branch** from an up-to-date `main`.",
+            "**Commit** your work in small steps.",
+            "**Push** the branch to GitHub.",
+            "**Open** the pull request and describe the change.",
+            "**Review.** Read your own diff first, then respond to comments. New commits pushed to the branch appear in the pull request automatically.",
+            "**Merge** when reviews and checks are satisfied.",
+            "**Clean up.** Delete the branch on GitHub, switch to `main` locally, pull, and delete the local branch."
+          ],
+          "ordered": true
+        },
+        {
+          "type": "graph",
+          "caption": "After merging with a merge commit. C and D came from the feature branch. M joins them to main and links back to the pull request.",
+          "commits": [
+            {
+              "id": "A"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ]
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ],
+              "msg": "Add eval script"
+            },
+            {
+              "id": "D",
+              "parents": [
+                "C"
+              ],
+              "msg": "Evaluate on validation split"
+            },
+            {
+              "id": "M",
+              "parents": [
+                "B",
+                "D"
+              ],
+              "msg": "Merge pull request #14"
+            }
+          ],
+          "branches": {
+            "main": "M"
+          },
+          "head": "main",
+          "highlight": [
+            "M"
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "Your pull request is open and a reviewer asks for a change. Do you need to close it and open a new one?",
+          "answer": "No. Commit the fix on the same branch and push. The pull request tracks the branch, so the new commit appears in it within seconds, the checks run again, and the reviewer sees the update. One pull request can absorb any number of follow-up commits."
+        }
+      ]
+    },
+    {
+      "heading": "Writing the description",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The reviewer has not been inside your head. A good description saves them from reconstructing your reasoning from the diff."
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "## What\nAdd `eval.py` to compute top-1 accuracy on the validation split.\n\n## Why\nWe had no repeatable way to compare checkpoints. Closes #12.\n\n## How to check\n`python eval.py --checkpoint runs/baseline.pt` should print 71.3 on the small config.\n\n## Notes\nEvaluation on the test split is left out on purpose for now.",
+          "caption": "A description a reviewer can act on"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Title.** Name the change the way you would a commit subject, such as `Add validation accuracy script`. A title like `Update` tells the reviewer nothing.",
+            "**What and why.** One or two sentences each.",
+            "**How to check.** The command to run or the page to open.",
+            "**Scope.** Say what you left out on purpose, so nobody reviews for it.",
+            "**Screenshots** for anything visual, with alt text."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Closing keywords",
+          "text": "Write `Closes #12`, `Fixes #12` or `Resolves #12` in the description. When the pull request merges into the default branch, GitHub closes issue 12 and links the two. The issue then shows which change resolved it."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Small pull requests include more reviewers",
+          "text": "A 60-line diff with a clear description can be reviewed in one sitting, on a phone, with a screen reader, or by someone with limited focus time that day. A 2,000-line diff shuts out most reviewers before they start. Splitting work into small pull requests is the most effective way to get useful review."
+        }
+      ]
+    },
+    {
+      "heading": "Drafts, reviews and checks",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Open a **draft** pull request when you want early feedback, or want the checks to run before the work is finished. A draft cannot be merged. Select **Ready for review** when it is done."
+        },
+        {
+          "type": "p",
+          "text": "On the **Files changed** tab, reviewers comment on lines and finish with one of three verdicts: **Comment**, **Approve** or **Request changes**. Automated checks, if the repository has any, report pass or fail in the merge box at the bottom of the **Conversation** tab. Reviewing has its own lesson: [Pull request craft and code review](#intermediate-code-review)."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "The record outlives the change",
+          "text": "A merged pull request shows who proposed a change, who reviewed it, what was discussed, which checks passed, and when it was accepted. That is an audit trail produced as a side effect of ordinary work. It is also permanent and, in a public repository, public. Keep comments professional and keep confidential details out."
+        }
+      ]
+    },
+    {
+      "heading": "Why bother when you work alone",
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "**A checkpoint.** Reading your own diff on the pull request page catches mistakes you skim past in an editor.",
+            "**Checks.** Automated tests run on the branch before anything touches `main`.",
+            "**A searchable history.** Each pull request groups related commits under one title and explanation.",
+            "**Practice.** The loop becomes habit before you need it on a team.",
+            "**A second reader on demand.** You can ask a collaborator, or an AI reviewer, to look at one pull request without handing them the whole project."
+          ]
+        },
+        {
+          "type": "p",
+          "text": "You can merge your own pull request. No approval is required unless the repository's rules demand one."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Open a pull request",
+      "browser": [
+        "Push your branch. On the repository page, GitHub shows a banner for recently pushed branches. Select **Compare & pull request**.",
+        "If the banner is gone, open the **Pull requests** tab and select **New pull request**, then choose your branch as the compare branch.",
+        "Check that **base** is `main` and **compare** is your branch.",
+        "Write the title and description. Add `Closes #12` if the change resolves an issue.",
+        "Select **Create pull request**, or open the menu on that button and choose **Create draft pull request**."
+      ],
+      "phone": [
+        "In GitHub Mobile, open the repository and go to **Pull Requests**.",
+        "Use the create option, shown as a plus icon as of this writing, and pick the base and head branches.",
+        "Write the title and description, then create the pull request.",
+        "If your app version does not offer creation, open github.com in the phone's browser and use **Compare & pull request**. The form works on a small screen."
+      ],
+      "cli": [
+        "`git push -u origin feature/add-eval` to publish the branch.",
+        "`gh pr create --fill` to open a pull request that uses your commit messages for the title and body.",
+        "Or `gh pr create --title \"Add validation accuracy script\" --body \"Closes #12\"` to write them yourself.",
+        "Add `--draft` to open it as a draft.",
+        "`gh pr view --web` to open the new pull request in your browser."
+      ],
+      "editor": [
+        "In VS Code with the GitHub Pull Requests extension, publish the branch, then select the **Create Pull Request** icon in the Source Control view.",
+        "Confirm the base and compare branches, edit the title and description, and select **Create**.",
+        "The pull request then appears in the GitHub view, where you can read comments and check status.",
+        "A coding agent can open the pull request for you. Read its description for accuracy and remove claims it cannot support, such as tests it did not run."
+      ]
+    },
+    {
+      "task": "Merge and clean up",
+      "browser": [
+        "On the pull request's **Conversation** tab, scroll to the merge box and confirm that the checks have passed.",
+        "Select **Merge pull request**, then **Confirm merge**.",
+        "Select **Delete branch**.",
+        "On your computer, switch to `main` and pull so your local copy has the merge."
+      ],
+      "phone": [
+        "In GitHub Mobile, open the pull request and scroll to the merge section.",
+        "Select the merge button, review the method and message, and confirm.",
+        "Delete the branch when the app offers it.",
+        "Pull on your computer the next time you work there."
+      ],
+      "cli": [
+        "`gh pr checks` to see whether the checks passed.",
+        "`gh pr merge --merge --delete-branch` to merge with a merge commit and delete the branch on GitHub and locally.",
+        "`git switch main` if you are not already there, then `git pull`.",
+        "`git log --oneline -3` to see the merge at the top of `main`."
+      ],
+      "editor": [
+        "Open the pull request from the GitHub view in VS Code.",
+        "Use the merge control on the pull request's description page, choose the method, and confirm.",
+        "Accept the offer to delete the branch, then switch to `main`.",
+        "Select **Synchronize Changes** in the status bar to pull the merge."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Doing the work on `main` and then looking for a way to open a pull request. With no separate branch there is nothing to compare.",
+      "fix": "Always branch first. One branch per change, one pull request per branch. If the commits are already on your local `main`, work through the [wrong branch drill](#drill-wrong-branch)."
+    },
+    {
+      "trap": "One giant pull request holding a week of unrelated work.",
+      "fix": "Split by purpose. Several small pull requests are reviewed faster and are safer to undo."
+    },
+    {
+      "trap": "An empty description. The reviewer has to guess intent from the diff.",
+      "fix": "State what, why and how to check. Three sentences are enough."
+    },
+    {
+      "trap": "Forgetting to pull `main` after merging on GitHub, then branching from the old `main`.",
+      "fix": "After every merge: `git switch main`, `git pull`, then create the next branch."
+    },
+    {
+      "trap": "Writing `Closes #12` in a comment and expecting the issue to close.",
+      "fix": "Put the keyword in the pull request description or in a commit message. Comments do not link issues."
+    }
+  ],
+  "lab": "lab-pr-flow",
+  "quiz": [
+    {
+      "q": "Where does a pull request live?",
+      "choices": [
+        "In your local Git repository",
+        "On GitHub, pointing at a branch",
+        "In the commit history",
+        "In the staging area"
+      ],
+      "answer": 1,
+      "why": "A pull request is a GitHub object, and Git itself stores nothing about it. It references a branch that exists on GitHub. The commits are in Git, and the conversation around them is on GitHub."
+    },
+    {
+      "q": "A reviewer requests a change on your open pull request. What do you do?",
+      "choices": [
+        "Close it and open a new one",
+        "Email them the corrected file",
+        "Commit the fix on the same branch and push",
+        "Edit the diff inside the pull request description"
+      ],
+      "answer": 2,
+      "why": "The pull request follows its head branch. A new commit pushed to that branch shows up in the pull request, re-runs the checks, and keeps the whole discussion in one place. Closing and reopening would scatter the history."
+    },
+    {
+      "q": "What does `Closes #12` in a pull request description do?",
+      "choices": [
+        "Closes issue 12 when the pull request merges into the default branch",
+        "Closes the pull request after 12 days",
+        "Closes issue 12 immediately",
+        "Nothing, unless a reviewer approves the keyword"
+      ],
+      "answer": 0,
+      "why": "A closing keyword links the pull request to the issue and closes the issue at merge time, when the target is the default branch. Until the merge, the issue stays open and shows the linked pull request."
+    },
+    {
+      "q": "When is a draft pull request the right choice?",
+      "choices": [
+        "When the work is finished and urgent",
+        "When you want to hide the code from collaborators",
+        "When the branch has conflicts",
+        "When you want checks to run, or early feedback, before the work is ready to merge"
+      ],
+      "answer": 3,
+      "why": "A draft signals work in progress. It is visible, it runs checks, and it cannot be merged by accident. It hides nothing: anyone who can see the repository can see the draft."
+    },
+    {
+      "q": "You merged your pull request on GitHub. What is true of `main` on your laptop?",
+      "choices": [
+        "It updates automatically",
+        "It does not have the merge until you pull",
+        "It is deleted",
+        "It now conflicts with the remote"
+      ],
+      "answer": 1,
+      "why": "The merge happened on the remote. Your local `main` is behind until you run `git pull`. Branching from the stale `main` is a common cause of avoidable conflicts."
+    }
+  ],
+  "mission": {
+    "title": "Ship one small change through a pull request",
+    "where": "Your own repository.",
+    "steps": [
+      "Create an issue describing a small improvement, such as adding a usage section to the README. Note its number.",
+      "Branch from an up-to-date `main` with a descriptive name.",
+      "Make the change in one or two commits and push the branch.",
+      "Open a draft pull request. Write what, why and how to check, and include `Closes` with your issue number.",
+      "Read your own diff on the **Files changed** tab and leave yourself one line comment.",
+      "Mark it ready for review, merge it, and delete the branch.",
+      "Pull `main` locally, then confirm the issue closed itself and links to the pull request."
+    ]
+  },
+  "terms": [
+    {
+      "term": "pull request",
+      "def": "A proposal on GitHub to merge one branch into another, with a description, discussion, reviews and check results attached."
+    },
+    {
+      "term": "base branch",
+      "def": "The branch a pull request will merge into, usually the default branch."
+    },
+    {
+      "term": "head branch",
+      "def": "The branch that holds the proposed commits. GitHub also calls it the compare branch."
+    },
+    {
+      "term": "draft pull request",
+      "def": "A pull request marked as unfinished. It can collect feedback and run checks, and cannot be merged until marked ready."
+    },
+    {
+      "term": "review",
+      "def": "A reviewer's set of comments on a pull request, submitted with a verdict: comment, approve or request changes."
+    },
+    {
+      "term": "closing keyword",
+      "def": "A word such as Closes, Fixes or Resolves followed by an issue number. It closes the issue when the pull request merges into the default branch."
+    },
+    {
+      "term": "status check",
+      "def": "An automated result, such as a test run, reported against a commit and shown on the pull request."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh pr create --fill",
+      "does": "Opens a pull request for the current branch, using commit messages for the title and body.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr create --draft",
+      "does": "Opens the pull request as a draft.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr view --web",
+      "does": "Opens the current branch's pull request in the browser.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr checks",
+      "does": "Shows the status of automated checks on the current pull request.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr status",
+      "does": "Summarizes the pull requests relevant to you in this repository.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr list",
+      "does": "Lists the open pull requests in the repository.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr merge --merge --delete-branch",
+      "does": "Merges the pull request with a merge commit, then deletes the branch.",
+      "kind": "gh",
+      "risk": "caution"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About pull requests",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/about-pull-requests"
+    },
+    {
+      "label": "GitHub Docs: Creating a pull request",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request"
+    },
+    {
+      "label": "GitHub Docs: Linking a pull request to an issue",
+      "url": "https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues/linking-a-pull-request-to-an-issue"
+    },
+    {
+      "label": "GitHub Docs: Merging a pull request",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/merging-a-pull-request"
+    },
+    {
+      "label": "GitHub CLI manual: gh pr create",
+      "url": "https://cli.github.com/manual/gh_pr_create"
+    }
+  ]
+}

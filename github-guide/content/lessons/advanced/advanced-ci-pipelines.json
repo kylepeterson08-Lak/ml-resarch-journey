@@ -1,0 +1,434 @@
+{
+  "id": "advanced-ci-pipelines",
+  "track": "advanced",
+  "title": "CI in practice: tests, matrices, caching, required checks",
+  "minutes": 20,
+  "summary": "Continuous integration runs the same lint and test commands on every push and pull request, on a clean machine, and reports a verdict on the commit. Make that verdict required and broken code cannot reach `main` by accident.",
+  "outcomes": [
+    "Write a complete Python CI workflow with linting, tests and dependency caching",
+    "Use a matrix to test several Python versions without copying jobs",
+    "Upload a test report as an artifact and write a job summary",
+    "Turn a job into a required status check on `main`",
+    "Cancel superseded runs with `concurrency` and order jobs with `needs`",
+    "Avoid the path-filter trap that leaves a required check pending forever"
+  ],
+  "prereqs": [
+    "advanced-actions-fundamentals"
+  ],
+  "lenses": {
+    "everyday": "A restaurant kitchen has a pass where every plate stops before it leaves. Someone checks temperature, portion and garnish against the ticket, the same way every time, whoever cooked it and however busy the night is. Plates that fail go back. Nobody argues with the pass, because it is not personal. CI is the pass for code: the same checks on every change, and a clear yes or no before anything reaches the dining room, which is your `main` branch.",
+    "legal": "Before a return leaves a tax practice it goes through a review checklist: math verified, prior-year carryovers tied out, diagnostics cleared, preparer and reviewer different people. The checklist is the same for every return and its completion is documented. CI is that review step made automatic and mandatory. The workflow file is the written procedure. Each run is the completed checklist for one specific change. The required-check rule is the policy that nothing is filed until the checklist passes. A failed check is a review note that must be cleared.",
+    "ml": "You refactor the data loader. The unit tests pass on your laptop, where a stale cached dataset hides a bug and you happen to run Python 3.12. CI checks out the commit on a clean machine, installs exactly what `requirements.txt` says, and runs the tests on 3.11, 3.12 and 3.13, then a thirty-second training smoke test on a toy dataset. The 3.11 job fails on a syntax feature you used. You find out in four minutes, and not when a collaborator's overnight run dies at step one.",
+    "technical": "A CI workflow triggers on `push` and `pull_request`, checks out the commit, provisions a toolchain, restores a dependency cache keyed on a hash of the requirements files, installs, then runs linters and tests. A `strategy.matrix` expands one job definition into several, one per combination. Each job reports a check on the commit with a conclusion. A ruleset or branch protection rule can list check names that must succeed before a pull request merges. `concurrency` groups cancel superseded runs, and `needs` builds a dependency graph between jobs."
+  },
+  "sections": [
+    {
+      "heading": "What CI actually guarantees",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "CI answers one narrow question: from a clean checkout of this exact commit, do the agreed commands succeed? It does not prove the code is correct. It proves that the tests you have still pass, and that the project installs without leaning on anything left over on your laptop."
+        },
+        {
+          "type": "flow",
+          "steps": [
+            {
+              "label": "Push or pull request"
+            },
+            {
+              "label": "Clean runner",
+              "via": "triggers",
+              "note": "Nothing from your laptop comes along"
+            },
+            {
+              "label": "Install",
+              "via": "checkout",
+              "note": "Exactly what the requirements file says"
+            },
+            {
+              "label": "Lint and test",
+              "via": "then",
+              "note": "The same commands every time"
+            },
+            {
+              "label": "Verdict on the commit",
+              "via": "reports",
+              "note": "A check with a result and a log"
+            }
+          ],
+          "caption": "Every run starts from nothing. That is the feature."
+        },
+        {
+          "type": "reveal",
+          "prompt": "Your tests pass locally but fail in CI with `ModuleNotFoundError`. What is the most likely cause, and is CI wrong?",
+          "answer": "CI is right. At some point you installed that package on your machine and never added it to the requirements file. The clean runner installs only what is declared. Add the dependency and the failure disappears for everyone, including the next person who clones the repository."
+        }
+      ]
+    },
+    {
+      "heading": "A complete Python pipeline",
+      "blocks": [
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "name: CI\n\non:\n  push:\n    branches: [main]\n  pull_request:\n\npermissions:\n  contents: read\n\nconcurrency:\n  group: ci-${{ github.ref }}\n  cancel-in-progress: ${{ github.event_name == 'pull_request' }}\n\njobs:\n  lint:\n    runs-on: ubuntu-latest\n    timeout-minutes: 10\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-python@v7\n        with:\n          python-version: \"3.12\"\n          cache: pip\n      - run: python -m pip install ruff\n      - run: ruff check .\n\n  test:\n    needs: lint\n    runs-on: ubuntu-latest\n    timeout-minutes: 20\n    strategy:\n      fail-fast: false\n      matrix:\n        python-version: [\"3.11\", \"3.12\", \"3.13\"]\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-python@v7\n        with:\n          python-version: ${{ matrix.python-version }}\n          cache: pip\n      - name: Install dependencies\n        run: |\n          python -m pip install --upgrade pip\n          python -m pip install -r requirements.txt pytest\n      - name: Run tests\n        run: python -m pytest -q --junitxml=results.xml\n      - name: Write a job summary\n        if: always()\n        run: |\n          echo \"### Tests on Python ${{ matrix.python-version }}\" >> \"$GITHUB_STEP_SUMMARY\"\n          echo \"Result: ${{ job.status }}\" >> \"$GITHUB_STEP_SUMMARY\"\n      - name: Keep the test report\n        if: always()\n        uses: actions/upload-artifact@v7\n        with:\n          name: test-results-${{ matrix.python-version }}\n          path: results.xml\n          retention-days: 14",
+          "file": ".github/workflows/ci.yml"
+        },
+        {
+          "type": "list",
+          "items": [
+            "`cache: pip` saves pip's download cache between runs, keyed on a hash of your requirements files. Unchanged dependencies install in seconds.",
+            "`matrix` turns one `test` job into three, one per Python version. `fail-fast: false` lets all three finish, so you see every failure and not only the first.",
+            "`needs: lint` holds the test jobs until linting passes. Cheap checks first, expensive ones after.",
+            "`timeout-minutes` stops a hung job. Without it a stuck test can occupy a runner for hours.",
+            "`if: always()` runs a step even when an earlier step failed. You want the test report most when tests fail.",
+            "The artifact name includes the matrix value because every artifact in a run needs its own name.",
+            "`$GITHUB_STEP_SUMMARY` is a file. Markdown appended to it appears on the run's summary page.",
+            "`concurrency` puts runs for the same branch in one group. On pull requests a new push cancels the run it replaced. Runs on `main` are left to finish, so every merged commit gets a verdict."
+          ]
+        }
+      ]
+    },
+    {
+      "heading": "From green check to required check",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A check that can be ignored is advice. A required check is a control. Once a job is required, the merge button stays disabled until that job succeeds on the pull request's latest commit."
+        },
+        {
+          "type": "table",
+          "head": [
+            "You wrote",
+            "The check is called"
+          ],
+          "rows": [
+            [
+              "A job with the id `lint`",
+              "`lint`"
+            ],
+            [
+              "A job with `name: Unit tests`",
+              "`Unit tests`"
+            ],
+            [
+              "A matrix job `test` on three versions",
+              "`test (3.11)`, `test (3.12)`, `test (3.13)`"
+            ]
+          ],
+          "caption": "Where a check's name comes from"
+        },
+        {
+          "type": "p",
+          "text": "You require checks by name in a ruleset or a branch protection rule. [Guardrails](#advanced-branch-protection) covers the settings. Two details matter here. A check must have run recently before GitHub offers it in the search box. And each matrix combination is its own check, so requiring `test (3.11)` and later dropping 3.11 from the matrix leaves a requirement nothing can satisfy."
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "The path-filter trap",
+          "text": "If a required workflow has a `paths` filter and a pull request touches none of those paths, the workflow never starts and its required check stays pending forever. The pull request cannot merge. Either leave trigger filters off required workflows, or let the workflow always start and skip the expensive job inside it with an `if` condition. A job skipped that way counts as passing."
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "jobs:\n  # lint and test are defined as above\n\n  ci-passed:\n    needs: [lint, test]\n    if: always()\n    runs-on: ubuntu-latest\n    steps:\n      - name: Fail unless every needed job succeeded\n        env:\n          LINT: ${{ needs.lint.result }}\n          TEST: ${{ needs.test.result }}\n        run: |\n          echo \"lint: $LINT, test: $TEST\"\n          if [ \"$LINT\" != \"success\" ] || [ \"$TEST\" != \"success\" ]; then\n            exit 1\n          fi",
+          "caption": "One stable gate job to require, whatever the matrix contains"
+        },
+        {
+          "type": "p",
+          "text": "Require `ci-passed` and nothing else. It runs even when something upstream failed, because of `if: always()`, and it fails unless both needed jobs succeeded. You can now change the matrix freely without touching the rule."
+        }
+      ]
+    },
+    {
+      "heading": "Speed, cost and signal",
+      "blocks": [
+        {
+          "type": "list",
+          "items": [
+            "**Cache what is slow to download**, not what is quick to build. For Python that is pip's cache. `actions/cache` handles anything else, keyed with `hashFiles` on the file that defines the content.",
+            "**Order jobs by cost.** Lint in seconds, before tests in minutes, before a training smoke run.",
+            "**Cancel what nobody is waiting for.** `concurrency` stops runs for commits you have already replaced.",
+            "**Filter triggers carefully.** `paths` saves time on documentation-only changes, with the required-check caveat above.",
+            "**Keep CI fast.** Past about ten minutes, people stop waiting for it and start merging around it."
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "steps:\n  - name: Restore the generated test fixtures\n    id: fixtures\n    uses: actions/cache@v6\n    with:\n      path: data/fixtures\n      key: fixtures-${{ hashFiles('scripts/make_fixtures.py') }}\n\n  - name: Build fixtures only when the cache missed\n    if: steps.fixtures.outputs.cache-hit != 'true'\n    run: python scripts/make_fixtures.py",
+          "caption": "A general cache: restore by key, rebuild only on a miss"
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "![CI](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg?branch=main)",
+          "caption": "A status badge for the README. Replace OWNER and REPO."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Design and operating effectiveness",
+          "text": "Auditors separate two questions. Is the control designed well: does the workflow test the right things, and is it required on the right branch? And did it operate: is there a passing run for each merged change? The workflow file and the ruleset answer the first. The run history and the merged pull requests answer the second. Editing the workflow changes the control itself, which is why workflow files deserve review like any other code."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Do not rely on red and green",
+          "text": "GitHub marks check results with an icon and text as well as color, and the text is what assistive technology reads. Do the same in your own job summaries: write Passed or Failed in words, and put results in a table instead of using colored symbols alone."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Add CI to a Python repository",
+      "browser": [
+        "Open the **Actions** tab and select **New workflow**.",
+        "Search the suggestions for a Python starter, or choose **set up a workflow yourself**.",
+        "Name the file `ci.yml` and paste the pipeline from this lesson. Adjust the Python versions and install commands to your project.",
+        "Commit to a new branch and open a pull request, so the workflow tests itself.",
+        "Watch the checks at the bottom of the pull request. Select a check to open its log."
+      ],
+      "phone": [
+        "Writing YAML on a phone is slow. Create the file in the mobile browser by pasting, or ask a coding agent to open the pull request for you.",
+        "In GitHub Mobile, open the pull request and expand its checks to see each job's status.",
+        "Tap a failed check to read the log. As of this writing the app shows step output and can re-run failed jobs.",
+        "Approve and merge from the app once the required checks pass."
+      ],
+      "cli": [
+        "`git switch -c add-ci`, then create `.github/workflows/ci.yml` with the pipeline.",
+        "`git add .github/workflows/ci.yml`, `git commit -m \"Add CI workflow\"` and `git push -u origin add-ci`.",
+        "`gh pr create --fill` to open the pull request.",
+        "`gh pr checks --watch` to follow the checks until they finish.",
+        "`gh run view --log-failed` if something fails.",
+        "`gh run download <run-id>` to fetch the test-report artifacts."
+      ],
+      "editor": [
+        "Create `.github/workflows/ci.yml` in VS Code or a codespace. The GitHub Actions extension flags unknown keys and bad indentation as you type.",
+        "Run the same lint and test commands in the integrated terminal first. CI should confirm what you already saw locally.",
+        "Commit, push and open the pull request from the GitHub Pull Requests extension.",
+        "If an agent writes the workflow, check that it runs your real test command, that `permissions` is `contents: read`, and that it did not add `continue-on-error` or skip markers to reach a passing result."
+      ]
+    },
+    {
+      "task": "Make a check required before merging",
+      "browser": [
+        "Let the workflow run at least once on a pull request, so GitHub knows the check names.",
+        "Go to **Settings**, then **Rules**, then **Rulesets**, and create a branch ruleset that targets the default branch.",
+        "Turn on **Require status checks to pass** and add the check by name, for example `ci-passed`.",
+        "Set the enforcement status to **Active** and save.",
+        "Open any pull request. The merge box now lists the check as required."
+      ],
+      "phone": [
+        "Repository rules cannot be edited in GitHub Mobile as of this writing.",
+        "The mobile browser can reach **Settings** on the desktop site, but the rule form is long and cramped. Save this task for a computer.",
+        "Afterward the phone is the right tool for the result: watching required checks and merging when they pass."
+      ],
+      "cli": [
+        "`gh ruleset list` to see the rulesets that already exist.",
+        "`gh ruleset check main` to print the rules that apply to `main`.",
+        "Creating a ruleset from the terminal means sending JSON with `gh api`. For a single repository the web form is quicker and harder to get wrong.",
+        "After saving in the browser, run `gh pr checks --required` on an open pull request to list the checks it must pass."
+      ],
+      "editor": [
+        "Rules live in repository settings, not in a file, so there is nothing to edit in the workspace.",
+        "Run `gh repo view --web` in the integrated terminal to jump to the repository, then open **Settings**.",
+        "Keep this change for yourself. Most coding agent setups deliberately lack the administration access that editing rules requires, and that is a sensible boundary."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Requiring a check from a workflow that has a `paths` filter. Pull requests that miss the filter wait forever on a check that never reports.",
+      "fix": "Remove the trigger filter from required workflows, or move the condition inside the job with `if`, where a skipped job counts as passing."
+    },
+    {
+      "trap": "Requiring `test (3.11)` by name, then changing the matrix. The old name never reports again and every pull request is blocked.",
+      "fix": "Require one gate job that `needs` the matrix, so the required name stays the same when the matrix changes."
+    },
+    {
+      "trap": "Turning a failing check into a passing one with `continue-on-error: true`, or by deleting the failing test.",
+      "fix": "Fix the cause or revert the change. If a test is wrong, fix the test in a reviewed pull request that says why."
+    },
+    {
+      "trap": "Uploading artifacts with the same name from every matrix job. The second upload fails.",
+      "fix": "Put the matrix value in the artifact name."
+    },
+    {
+      "trap": "Trusting a passing check on a pull request that is far behind `main`. It passed against old code.",
+      "fix": "Require branches to be up to date before merging, or use a merge queue where available."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "Your matrix lists three Python versions and you did not set `fail-fast`. The 3.11 job fails after one minute. What happens to the other two?",
+      "choices": [
+        "They keep running to completion",
+        "They are cancelled, because `fail-fast` defaults to true",
+        "They restart from the beginning",
+        "They are marked as passed"
+      ],
+      "answer": 1,
+      "why": "`fail-fast` defaults to `true`, which cancels the remaining matrix jobs as soon as one fails. Set `fail-fast: false` when you want a result for every version."
+    },
+    {
+      "q": "A required workflow has `paths: [\"src/**\"]`. A pull request changes only `README.md`. What does the merge box show?",
+      "choices": [
+        "The required check passes automatically",
+        "The required check is skipped and counted as passed",
+        "The required check stays pending and the pull request cannot merge",
+        "The pull request merges without checks"
+      ],
+      "answer": 2,
+      "why": "A workflow skipped by a trigger filter never reports, so the requirement is never met. A job skipped by an `if` condition inside a workflow that did start is different: it reports as skipped and satisfies the requirement."
+    },
+    {
+      "q": "Why does the example put the matrix value in the artifact name?",
+      "choices": [
+        "Artifact names within one run must be unique",
+        "Artifacts are sorted by name in the cache",
+        "It makes uploads faster",
+        "`actions/upload-artifact` rejects names without a version"
+      ],
+      "answer": 0,
+      "why": "Each artifact in a run is a separate upload with its own name. Three matrix jobs uploading `test-results` would collide. Adding the version gives three distinct names."
+    },
+    {
+      "q": "What does `cache: pip` on `actions/setup-python` store between runs?",
+      "choices": [
+        "The installed packages in `site-packages`",
+        "The whole virtual machine",
+        "Your test results",
+        "pip's download cache, keyed on your requirements files"
+      ],
+      "answer": 3,
+      "why": "It caches downloaded package files, not the installed environment. pip still installs on every run, but without downloading. The key changes when the requirements files change, which discards the cache at the right moment."
+    },
+    {
+      "q": "Checks passed on your pull request, you merged, and the run on `main` fails. Nobody force-pushed. What is the most likely explanation?",
+      "choices": [
+        "GitHub ran the wrong workflow on `main`",
+        "Your branch was behind `main`, and your change clashes in behavior with something merged since",
+        "The caches are corrupted",
+        "Required checks do not run on `main`"
+      ],
+      "answer": 1,
+      "why": "Pull request checks test your change against the base branch as it was when the run started. If `main` has moved on, two changes that each pass alone can fail together. Requiring up-to-date branches, or a merge queue, closes that gap."
+    }
+  ],
+  "mission": {
+    "title": "Put a real gate on your main branch",
+    "where": "Your own repository. Use one small Python file and one test if you have no code yet.",
+    "steps": [
+      "Add a `requirements.txt`, which may hold only a comment, and one test file such as `tests/test_smoke.py` asserting that `1 + 1 == 2`.",
+      "Add the `ci.yml` pipeline from this lesson on a branch, including the `ci-passed` gate job, and open a pull request.",
+      "Watch the matrix expand into three test jobs. Open the run summary and find your job summary and the artifacts.",
+      "Push a commit with a failing assertion. Confirm the checks fail and the summary says so. Then fix it.",
+      "After merging, create a ruleset on `main` that requires the `ci-passed` check.",
+      "Open a second pull request and confirm the merge button waits for the check."
+    ]
+  },
+  "terms": [
+    {
+      "term": "continuous integration",
+      "def": "The practice of automatically building and testing every change on a clean machine, so problems surface within minutes of the push that caused them."
+    },
+    {
+      "term": "matrix",
+      "def": "A `strategy` setting that expands one job definition into several jobs, one for each combination of the listed values."
+    },
+    {
+      "term": "status check",
+      "def": "A named result reported on a commit by a workflow job or an external service: success, failure, or still pending."
+    },
+    {
+      "term": "required check",
+      "def": "A status check that a ruleset or branch protection rule says must succeed before a pull request can merge."
+    },
+    {
+      "term": "artifact",
+      "def": "A file or folder a job uploads so it outlives the runner. Used for reports, built sites and passing data between jobs."
+    },
+    {
+      "term": "dependency cache",
+      "def": "Downloaded files saved under a key and restored in later runs to avoid repeating slow downloads. A changed key means a fresh start."
+    },
+    {
+      "term": "concurrency group",
+      "def": "A label that makes runs wait for or cancel each other, so only one run per group is active at a time."
+    },
+    {
+      "term": "job summary",
+      "def": "Markdown that a step appends to the file named by `GITHUB_STEP_SUMMARY`. It is shown on the run's summary page."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh pr checks --watch",
+      "does": "Shows the status of every check on the current branch's pull request and refreshes until they finish.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr checks --required",
+      "does": "Lists only the checks that must pass before the pull request can merge.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh run download <run-id>",
+      "does": "Downloads the artifacts a run uploaded into the current folder.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh run view <run-id> --log-failed",
+      "does": "Prints the output of the failed steps so you can read the first error.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh cache list",
+      "does": "Lists the caches stored for the repository, with their keys and sizes.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh ruleset check <branch>",
+      "does": "Prints the rules that apply to a branch, including required status checks.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "python -m pytest -q --junitxml=results.xml",
+      "does": "Runs the tests quietly and writes a machine-readable report that CI can keep as an artifact.",
+      "kind": "shell",
+      "risk": "safe"
+    },
+    {
+      "cmd": "ruff check .",
+      "does": "Lints every Python file under the current folder and exits with an error code if it finds problems.",
+      "kind": "shell",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: Building and testing Python",
+      "url": "https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python"
+    },
+    {
+      "label": "GitHub Docs: About status checks",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/about-status-checks"
+    },
+    {
+      "label": "GitHub Docs: Troubleshooting required status checks",
+      "url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/troubleshooting-required-status-checks"
+    },
+    {
+      "label": "GitHub Docs: Workflow syntax for GitHub Actions",
+      "url": "https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions"
+    }
+  ]
+}

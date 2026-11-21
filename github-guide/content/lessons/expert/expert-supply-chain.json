@@ -1,0 +1,523 @@
+{
+  "id": "expert-supply-chain",
+  "track": "expert",
+  "title": "Supply-chain integrity: signing, attestations, pinning",
+  "minutes": 22,
+  "summary": "Software reaches you through a chain of people, tools and downloads. Signing shows who made a change, attestations show where a file was built, an SBOM lists what is inside, and pinning fixes exactly what you run. None of them proves the code is good.",
+  "outcomes": [
+    "Sign commits and tags with an SSH or GPG key and read the Verified badge correctly",
+    "Explain what a signature proves and what it does not",
+    "Generate a build provenance attestation in a workflow and verify it with `gh attestation verify`",
+    "Describe the SLSA build levels at a conceptual level",
+    "Export an SBOM and use dependency review and hash-checked lock files",
+    "Pin actions by commit SHA and keep the pins current"
+  ],
+  "prereqs": ["advanced-security-features", "expert-git-internals", "expert-actions-architecture"],
+  "lenses": {
+    "everyday": "You buy medicine. The foil seal tells you nobody opened the bottle after it left the factory. The lot number lets the maker trace which line produced it and when. The ingredient list tells you what is inside, so you can check it when a recall is announced. The pharmacist's initials on the label say who handed it over. None of those tells you the medicine works. They tell you it is the thing the label says, from where the label says, untouched since. Software has the same four: a signature, a provenance record, a bill of materials, and an exact version you asked for by number.",
+    "legal": "A notary does not vouch that a contract is wise or even true. The notary certifies that an identified person signed it. A signed commit is the same narrow act. Provenance is the custodian's affidavit that travels with an exhibit: what it is, where it came from, who handled it. An SBOM is the schedule of assets attached to the agreement. Pinning is incorporating a standard as published on a stated date. In tax practice the parallel is substantiation. A deduction stands on records made at the time of the transaction, ideally by someone other than the taxpayer, and a reconstruction after the fact carries far less weight. An attestation is that contemporaneous third-party record for a build.",
+    "ml": "You download a pretrained checkpoint, install forty packages and train for a week. Six months later a reviewer asks which code produced Table 2, and a security notice says one of those packages shipped a malicious release. Signed commits show who changed the training code. A lock file with hashes means the wheels installed today are byte for byte the ones from the paper run. An attestation on the released weights ties the file to the commit and workflow that built it. An SBOM answers whether the bad version was ever in your environment. And because some checkpoint formats can execute code when loaded, knowing where a file came from is a safety question.",
+    "technical": "A commit or tag signature is a cryptographic signature over the object, made with a GPG, SSH or S/MIME key. GitHub marks it Verified when it validates against a key on the committer's account. An artifact attestation is a signed statement that binds an artifact's digest to a predicate, typically SLSA build provenance naming the repository, commit, workflow and runner. `gh attestation verify` checks the signature and the claimed source. An SBOM is a machine-readable inventory of dependencies, which GitHub exports in SPDX format from the dependency graph. Pinning replaces a mutable reference, such as a tag or a version range, with an immutable one: a commit SHA or a file hash."
+  },
+  "sections": [
+    {
+      "heading": "Four questions, four kinds of evidence",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Supply-chain security sounds like one topic and is really four separate questions about a piece of software. Each has its own control, and a control built for one question says nothing about the others. Most disappointment comes from expecting a signature to do a scanner's job."
+        },
+        {
+          "type": "table",
+          "head": ["Question", "Control", "What you can show afterward"],
+          "rows": [
+            ["Who made this change?", "Signed commits and tags", "A Verified badge tied to a key on a known account"],
+            ["Where and how was this file built?", "An artifact attestation with build provenance", "A signed record naming the repository, commit and workflow"],
+            ["What is inside it?", "Lock files and an SBOM", "An inventory of every dependency and version"],
+            ["Did the tools I ran change under me?", "Actions pinned by commit SHA, packages pinned by hash", "References that cannot be re-pointed silently"]
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "None of these says the code is good",
+          "text": "A signed commit can contain a bug or a backdoor. A perfectly attested build can be a faithful build of malicious source. These controls establish origin and integrity. Review, tests and scanning establish quality. You need both, and an auditor will ask about them separately."
+        }
+      ]
+    },
+    {
+      "heading": "Signing commits and tags",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Git records an author name and email on every commit, and both are plain text that anyone can type. Without signatures, nothing stops someone from committing as you. A signature closes that gap. The commit is signed with a private key only you hold, and GitHub checks it against the public key on your account."
+        },
+        {
+          "type": "reveal",
+          "prompt": "A commit in your repository shows your name, your email and your avatar. You did not write it. How is that possible?",
+          "answer": "Anyone can set `git config user.email` to your address and push a commit to a repository they can write to. GitHub links commits to accounts by email, so it shows your avatar. Only a signature separates your commits from an imitation. Vigilant mode makes the difference visible by labeling every unsigned commit attributed to you as Unverified."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "SSH key",
+              "points": [
+                "Reuses the kind of key you already have for pushing",
+                "Three configuration lines to set up",
+                "Upload the public key to GitHub a second time, as a signing key"
+              ]
+            },
+            {
+              "title": "GPG key",
+              "points": [
+                "The long-standing standard, with expiry and revocation built in",
+                "More setup, and a keyring to maintain",
+                "Widely supported by tools outside GitHub"
+              ]
+            },
+            {
+              "title": "S/MIME certificate",
+              "points": [
+                "Uses an X.509 certificate issued by an organization",
+                "Fits enterprises that already run a certificate authority",
+                "Rare for individuals"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# Sign with the SSH key you already use\ngit config --global gpg.format ssh\ngit config --global user.signingkey ~/.ssh/id_ed25519.pub\ngit config --global commit.gpgsign true\ngit config --global tag.gpgsign true\n\n# Register the same public key on GitHub as a signing key\ngh ssh-key add ~/.ssh/id_ed25519.pub --type signing --title \"laptop signing key\"\n\n# From now on commits are signed. Check one:\ngit commit -m \"Pin evaluation seed\"\ngit log --show-signature -1",
+          "caption": "SSH signing, end to end"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Verified** means the signature is valid for a key on the committer's GitHub account. Commits you make in GitHub's web editor are signed by GitHub on your behalf.",
+            "**Vigilant mode** is an account setting. With it on, every commit attributed to you that lacks a valid signature is labeled **Unverified**, so an imitation stands out.",
+            "**Checking SSH signatures locally** needs a file of trusted keys. Until you set `gpg.ssh.allowedSignersFile`, `git log --show-signature` reports that it cannot check, even though GitHub shows Verified.",
+            "**A rule can require signatures** on a branch. Commits GitHub creates for a merge or a squash are signed by GitHub. Rebase merging in the browser rewrites commits without the author's signature, so test your merge method before you enforce the rule.",
+            "**Sign release tags** with `git tag -s`. A signed tag covers the commit it points at and, through the hash chain, everything before it."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Pick a second factor you can use every time",
+          "text": "Signing and account security both rest on two-factor authentication. Codes typed from an authenticator app are hard for some people with low vision, tremor or memory impairments, especially under time pressure. Passkeys and hardware security keys replace typing with a touch or a device unlock. Register more than one method and keep recovery codes somewhere you can reach, so access never depends on a single device."
+        }
+      ]
+    },
+    {
+      "heading": "Provenance: attestations and SLSA",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A release asset is a file. By itself it cannot tell you whether it came from the project's pipeline or from someone's laptop. An **artifact attestation** is a signed statement, created during the workflow run, that binds the file's digest to facts about the build: which repository, which commit, which workflow, which runner."
+        },
+        {
+          "type": "flow",
+          "caption": "Provenance travels with the artifact",
+          "steps": [
+            {"label": "Source commit", "note": "Reviewed and merged"},
+            {"label": "Workflow run", "via": "triggers", "note": "Builds on a hosted runner"},
+            {"label": "Artifact and attestation", "via": "signs", "note": "Digest bound to repository, commit and workflow"},
+            {"label": "Consumer verifies", "via": "downloads", "note": "Checks the signature and the expected source before use"}
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "file": ".github/workflows/release.yml",
+          "code": "name: Release\n\non:\n  push:\n    tags: [\"v*\"]\n\npermissions:\n  contents: read\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    timeout-minutes: 20\n    permissions:\n      contents: read\n      id-token: write        # identity used for signing\n      attestations: write    # permission to store the attestation\n    steps:\n      - uses: actions/checkout@v7\n      - uses: actions/setup-python@v7\n        with:\n          python-version: \"3.13\"\n      - run: python -m pip install build && python -m build\n      - uses: actions/attest-build-provenance@<full-commit-sha>   # pin the release you reviewed\n        with:\n          subject-path: dist/*\n      - uses: actions/upload-artifact@v7\n        with:\n          name: dist\n          path: dist/",
+          "caption": "Build, attest, upload. The attestation step is pinned by commit SHA, as this lesson recommends."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# Download a release asset, then check where it was built\ngh release download v1.4.0 --repo my-lab/vision-toolkit --pattern \"*.whl\"\ngh attestation verify vision_toolkit-1.4.0-py3-none-any.whl --repo my-lab/vision-toolkit",
+          "caption": "Verification fails if the file's digest has no valid attestation from that repository"
+        },
+        {
+          "type": "table",
+          "caption": "SLSA build levels, one line each",
+          "head": ["Level", "What it asks for", "What it guards against"],
+          "rows": [
+            ["Build L1", "Provenance exists and describes how the artifact was built", "Mistakes and missing documentation"],
+            ["Build L2", "A hosted build platform generates and signs the provenance", "Tampering after the build, and provenance written by hand"],
+            ["Build L3", "The platform is hardened so one build cannot influence another or reach the signing key", "Tampering during the build by a compromised job"]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "GitHub's documentation describes artifact attestations as a way to reach Build L2, and L3 when the build runs in a reusable workflow that callers cannot alter. Availability for private repositories depends on your plan. Treat the levels as a vocabulary for how much a build can be trusted, not as a certificate."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "An attestation is a contemporaneous record",
+          "text": "Evidence made at the time of an event, by a system with no stake in the outcome, carries more weight than a statement assembled later. An attestation is that kind of record for a build. It lets a later inquiry concentrate on whether the source was sound, with far less argument about whether the binary matches the source."
+        }
+      ]
+    },
+    {
+      "heading": "Knowing what you depend on",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Most of the code you ship was written by other people. The dependency graph lists it, an SBOM exports that list, dependency review shows what a pull request would add, and hash-checked lock files make sure that what installs is what you reviewed."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**SBOM.** From **Insights**, open **Dependency graph** and select **Export SBOM** for an SPDX file. Keep one with each release. When an advisory lands you search files, and you do not have to rebuild old environments.",
+            "**Dependency review.** A pull request that changes a manifest shows which packages it adds, removes or upgrades, and whether any has a known vulnerability. A workflow action can fail the check automatically. Availability for private repositories depends on your plan.",
+            "**Lock files with hashes.** A version number identifies a release by name. A hash identifies its bytes. With hashes in the lock file, a replaced or tampered package fails to install.",
+            "**Trusted publishing.** If you publish packages, registries such as PyPI can accept uploads from a named workflow through OpenID Connect, so no long-lived upload token exists to steal."
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# Produce a fully pinned requirements file with a hash for every package\npip install pip-tools\npip-compile --generate-hashes --output-file requirements.txt requirements.in\n\n# Install in hash-checking mode: any mismatch stops the install\npip install --require-hashes -r requirements.txt",
+          "caption": "Hash-checking mode for a Python project"
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Pinning without a maintenance plan is a freeze",
+          "text": "A pin stops surprise changes, and security fixes are changes too. Pair every pin with Dependabot so updates arrive as pull requests you can read, test and merge. The goal is deliberate change, not zero change."
+        }
+      ]
+    },
+    {
+      "heading": "Pinning what you execute",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A workflow line such as `uses: some-org/tool@v3` runs whatever commit the tag `v3` points at today. Tags are movable. If that repository is compromised, or its maintainer re-tags, your next run executes different code with your token. A full commit SHA cannot be re-pointed."
+        },
+        {
+          "type": "code",
+          "lang": "yaml",
+          "code": "steps:\n  # Mutable: runs whatever v3 points at when the job starts\n  - uses: some-org/tool@v3\n\n  # Immutable: runs exactly this commit. The comment keeps it readable,\n  # and Dependabot updates the SHA and the comment together.\n  - uses: some-org/tool@<full-40-character-commit-sha>   # v3.2.1",
+          "caption": "The same action, referenced two ways"
+        },
+        {
+          "type": "callout",
+          "kind": "danger",
+          "title": "Check that the SHA belongs to the real repository",
+          "text": "GitHub resolves a commit ID across a repository's whole fork network. A commit that exists only in someone's fork can still load under the original repository's name. Copy the ID from a tagged release in the action's own repository, never from a comment, an issue or a pull request you have not verified."
+        }
+      ]
+    },
+    {
+      "heading": "Trade-offs to decide on purpose",
+      "blocks": [
+        {
+          "type": "table",
+          "head": ["Control", "What it costs", "When to soften it"],
+          "rows": [
+            ["Required signed commits", "Key setup for every contributor, lost-key recovery, friction for bots and for some merge methods", "A solo learning repository. Sign your own commits anyway."],
+            ["SHA-pinned actions", "Unreadable references and a steady stream of update pull requests", "First-party actions can stay on a major tag if the noise outweighs the risk for you."],
+            ["Hash-checked lock files", "Regenerating hashes on every change and for every platform you install on", "Exploratory notebooks. Lock before you publish results."],
+            ["Attestations", "Extra workflow permissions and a verification step someone must actually run", "Projects that ship nothing for other people to download."]
+          ]
+        },
+        {
+          "type": "p",
+          "text": "Adopt these in the order the questions matter to you. For a research repository that is usually lock files first, then signed commits, then pinned actions, and attestations once you release weights or packages that other people install."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Sign your commits with an SSH key",
+      "browser": [
+        "Open your account **Settings**, then **SSH and GPG keys**, and select **New SSH key**.",
+        "Set **Key type** to **Signing Key**, paste your public key, give it a title and save.",
+        "On the same page, tick **Flag unsigned commits as unverified** to turn on vigilant mode.",
+        "Configure Git on your computer with the commands in this lesson. The browser cannot do that part.",
+        "Push a signed commit and open it on github.com. Select the **Verified** badge to see which key signed it."
+      ],
+      "phone": [
+        "Commits you make in GitHub's web editor, including from a mobile browser, are signed by GitHub for you. There is nothing to configure for those.",
+        "Managing signing keys is not available in GitHub Mobile as of this writing. Open your account settings in the phone's browser to add a public key, or wait for the computer where the key lives.",
+        "To check a commit from a phone, open it in the mobile browser and look for the **Verified** badge."
+      ],
+      "cli": [
+        "`git config --global gpg.format ssh` selects SSH signatures.",
+        "`git config --global user.signingkey ~/.ssh/id_ed25519.pub` names the key.",
+        "`git config --global commit.gpgsign true` signs every commit from now on.",
+        "`gh ssh-key add ~/.ssh/id_ed25519.pub --type signing` registers the public key on GitHub as a signing key.",
+        "Make a commit, push it, and run `gh browse <commit-id>` to open it and see the badge."
+      ],
+      "editor": [
+        "VS Code uses your Git configuration. With `commit.gpgsign` set, commits from the Source Control view are signed. The setting **Git: Enable Commit Signing** turns it on for a workspace.",
+        "In Codespaces, turn on **GPG verification** in your Codespaces settings so commits made there are signed for you.",
+        "A coding agent commits under whatever identity its environment has. Check the badge and the committer on its commits, and do not copy your private signing key into an agent's sandbox."
+      ]
+    },
+    {
+      "task": "Verify where a downloaded artifact was built",
+      "browser": [
+        "Open the repository's **Actions** tab and select **Attestations** in the sidebar to list what has been attested.",
+        "Open an attestation to read its subject digest, the workflow and the commit.",
+        "The browser shows the record. Checking that your downloaded file matches it needs the command line."
+      ],
+      "phone": [
+        "Not practical on a phone. Verification hashes a local file and checks it against the attestation, which needs the `gh` command line at a computer or in a Codespace."
+      ],
+      "cli": [
+        "`gh release download v1.4.0 --repo OWNER/REPO` fetches the release assets.",
+        "`gh attestation verify <file> --repo OWNER/REPO` checks the signature and that the build came from that repository.",
+        "Read the output for the workflow and commit that produced the file. A non-zero exit code means do not use it.",
+        "In automation, add `--format json`, inspect the result, and fail the job when verification fails."
+      ],
+      "editor": [
+        "Run the same commands in the integrated terminal before you add a downloaded artifact to a project.",
+        "If a coding agent downloads a model or a binary for you, ask it to run the verification and show the raw output. Read the exit status yourself."
+      ]
+    },
+    {
+      "task": "Export a software bill of materials",
+      "browser": [
+        "Open the repository's **Insights** tab and select **Dependency graph**.",
+        "Select **Export SBOM**. The browser downloads an SPDX JSON file.",
+        "Attach the file to the matching release, or store it with the release records."
+      ],
+      "phone": [
+        "GitHub Mobile does not offer the export as of this writing. In the phone's browser, switch to the desktop site and follow the browser steps, or use the command line later."
+      ],
+      "cli": [
+        "`gh api repos/OWNER/REPO/dependency-graph/sbom --jq .sbom > sbom.spdx.json` saves the SBOM.",
+        "`jq '.packages | length' sbom.spdx.json` counts the packages listed.",
+        "`gh release upload v1.4.0 sbom.spdx.json` attaches it to a release."
+      ],
+      "editor": [
+        "Run the export in the integrated terminal and open the JSON file to read it.",
+        "With a coding agent, ask for a summary of the SBOM grouped by license, then confirm two entries against the file."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Reading **Verified** as reviewed, tested or safe.",
+      "fix": "It means the signature matches a key on that account. Keep review and status checks as separate requirements on the branch."
+    },
+    {
+      "trap": "Turning on vigilant mode before every machine you commit from is set up to sign.",
+      "fix": "Configure signing on each device first. Otherwise your own commits show as Unverified, which trains you and your collaborators to ignore the label."
+    },
+    {
+      "trap": "Keeping the private signing key in a repository, a dotfiles backup or an unprotected CI secret.",
+      "fix": "Keep it on your device, protected by a passphrase or a hardware key. If it leaks, remove the public key from your account and generate a new pair."
+    },
+    {
+      "trap": "Pinning everything and never updating.",
+      "fix": "Enable Dependabot for each ecosystem you pin, and merge its pull requests on a schedule."
+    },
+    {
+      "trap": "Copying a commit SHA for an action from an issue comment or a blog post.",
+      "fix": "Take it from a tagged release in the action's own repository, and confirm the commit page is not in a fork."
+    },
+    {
+      "trap": "Generating attestations that nobody verifies.",
+      "fix": "Put `gh attestation verify` where the artifact is consumed: the deploy job, the install script or the code path that loads a model."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "A commit shows the **Verified** badge. What has been established?",
+      "choices": [
+        "The code was reviewed by a second person",
+        "The commit passed its status checks",
+        "The commit was signed by a key registered to that GitHub account",
+        "The author's legal identity was confirmed"
+      ],
+      "answer": 2,
+      "why": "Verification is a cryptographic check against a public key on the account. It says nothing about review, tests or who the person is in the real world. Those are separate controls."
+    },
+    {
+      "q": "With vigilant mode on, how does GitHub label an unsigned commit that carries your name and email?",
+      "choices": [
+        "Unverified",
+        "Verified, because the email matches your account",
+        "It hides the commit from the history",
+        "Partially verified"
+      ],
+      "answer": 0,
+      "why": "Vigilant mode states that you sign everything, so anything attributed to you without a valid signature is flagged. A matching email alone never earns the Verified label. Partially verified exists, but it describes a commit validly signed by a committer who is not the stated author."
+    },
+    {
+      "q": "Build provenance for a release file names the repository, the commit and the workflow that built it. What does it not tell you?",
+      "choices": [
+        "Which workflow built the file",
+        "Whether the file changed after the build",
+        "Which commit the build used",
+        "Whether the source code itself is free of malicious changes"
+      ],
+      "answer": 3,
+      "why": "Provenance binds an artifact to its build. A faithful build of bad source is still bad. Whether the source can be trusted is a matter for review, signing and scanning."
+    },
+    {
+      "q": "`pip install --require-hashes -r requirements.txt` fails with a hash mismatch for one package. What is the most likely meaning?",
+      "choices": [
+        "The package has a known vulnerability",
+        "The file being installed is not the file whose hash was recorded",
+        "The lock file lists too many packages",
+        "The installed version of pip is too old"
+      ],
+      "answer": 1,
+      "why": "Hash checking compares bytes. A mismatch means a different file is being served under that name and version: a re-uploaded release, a build for another platform that was never hashed, or tampering. It is not a vulnerability scan."
+    },
+    {
+      "q": "Commit SHAs are immutable. Why can a SHA copied from a stranger's comment still be dangerous in a `uses:` line?",
+      "choices": [
+        "The SHA may exist only in a fork and still resolve under the original repository's name",
+        "SHAs expire after a fixed period",
+        "Actions cannot be referenced by SHA",
+        "The SHA might point at a tag"
+      ],
+      "answer": 0,
+      "why": "Immutability guarantees the content never changes, not that the content is the official release. Commit IDs resolve across a fork network, so an attacker can push a commit to a fork and hand you its ID. Take the SHA from a release in the real repository."
+    }
+  ],
+  "mission": {
+    "title": "Prove one commit is yours and inventory what you ship",
+    "where": "Your own repository and your account settings. Nothing here rewrites history.",
+    "steps": [
+      "Register an SSH public key on GitHub as a signing key, and add the signing settings to your Git configuration.",
+      "On a scratch branch, make a commit and push it. Open the commit on github.com and select the **Verified** badge to read the key details.",
+      "Turn on vigilant mode, then open one of your older unsigned commits and note how its label changed.",
+      "Export the SBOM for your repository and count the packages. Pick one you do not recognize and find which direct dependency pulled it in.",
+      "Find one third-party action in a workflow, resolve its tag to a commit ID with `gh api`, and pin it with a version comment.",
+      "Write down which of this lesson's four questions your repository can now answer, and which it still cannot."
+    ]
+  },
+  "terms": [
+    {
+      "term": "signed commit",
+      "def": "A commit carrying a cryptographic signature made with the committer's private key, which others can check against the matching public key."
+    },
+    {
+      "term": "vigilant mode",
+      "def": "A GitHub account setting that labels every commit attributed to you as Unverified unless it carries a valid signature."
+    },
+    {
+      "term": "artifact attestation",
+      "def": "A signed statement that binds a specific file, identified by its digest, to claims about it, such as how and where it was built."
+    },
+    {
+      "term": "build provenance",
+      "def": "The record of what produced an artifact: the source repository, the commit, the workflow and the build environment."
+    },
+    {
+      "term": "SLSA",
+      "def": "Supply-chain Levels for Software Artifacts. A framework that grades how far a build process can be trusted, from provenance that merely exists to provenance from a hardened platform."
+    },
+    {
+      "term": "SBOM",
+      "def": "Software bill of materials. A machine-readable list of the components and versions inside a piece of software."
+    },
+    {
+      "term": "hash-checking mode",
+      "def": "An install mode in which a package is accepted only if its file hash matches the one recorded in the lock file."
+    },
+    {
+      "term": "pinning",
+      "def": "Replacing a reference that can move, such as a tag or a version range, with one that cannot, such as a commit SHA or a file hash."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git config --global gpg.format ssh",
+      "does": "Tells Git to create SSH signatures in place of the default GPG signatures.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git config --global commit.gpgsign true",
+      "does": "Signs every new commit automatically.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git commit -S -m \"<message>\"",
+      "does": "Creates one signed commit, whatever the default setting is.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git log --show-signature -1",
+      "does": "Shows the signature status of the latest commit as your local Git sees it.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git tag -s v1.4.0 -m \"<message>\"",
+      "does": "Creates a signed, annotated tag for a release.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git verify-tag v1.4.0",
+      "does": "Checks the signature on a tag against the keys your local Git trusts.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh ssh-key add <key.pub> --type signing",
+      "does": "Registers a public key on your GitHub account for verifying signatures.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh attestation verify <file> --repo OWNER/REPO",
+      "does": "Checks that a local file has a valid attestation from the named repository.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api repos/OWNER/REPO/dependency-graph/sbom --jq .sbom",
+      "does": "Prints the repository's SBOM in SPDX JSON format.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "pip install --require-hashes -r requirements.txt",
+      "does": "Installs only packages whose files match the hashes in the requirements file.",
+      "kind": "shell",
+      "risk": "caution"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About commit signature verification",
+      "url": "https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification"
+    },
+    {
+      "label": "GitHub Docs: Displaying verification statuses for all of your commits",
+      "url": "https://docs.github.com/en/authentication/managing-commit-signature-verification/displaying-verification-statuses-for-all-of-your-commits"
+    },
+    {
+      "label": "GitHub Docs: Using artifact attestations to establish provenance for builds",
+      "url": "https://docs.github.com/en/actions/security-guides/using-artifact-attestations-to-establish-provenance-for-builds"
+    },
+    {
+      "label": "SLSA specification: Security levels",
+      "url": "https://slsa.dev/spec/v1.0/levels"
+    },
+    {
+      "label": "GitHub Docs: Exporting a software bill of materials for your repository",
+      "url": "https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/exporting-a-software-bill-of-materials-for-your-repository"
+    },
+    {
+      "label": "Sigstore documentation",
+      "url": "https://docs.sigstore.dev/"
+    }
+  ]
+}

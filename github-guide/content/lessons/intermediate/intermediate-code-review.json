@@ -1,0 +1,502 @@
+{
+  "id": "intermediate-code-review",
+  "track": "intermediate",
+  "title": "Pull request craft and code review",
+  "minutes": 18,
+  "summary": "A pull request asks busy people to read your work. Make it small, say what changed, why, and how you tested it, and review your own diff first. As a reviewer, ask questions, separate blocking problems from preferences, and approve when the change is good enough.",
+  "outcomes": [
+    "Scope a pull request so a reviewer can finish it in one sitting",
+    "Write a title and description that answer what, why and how it was tested",
+    "Leave line comments and suggestions, and submit a review in the right state",
+    "Respond to a review by pushing commits, resolving conversations and re-requesting review",
+    "Add a pull request template so every description starts from the same headings"
+  ],
+  "prereqs": ["basics-pull-requests"],
+  "lenses": {
+    "everyday": "You ask a friend to proofread. You hand over two pages, not the whole manuscript, with a note: \"I rewrote the ending, please check that the timeline still works.\" You read it once yourself first so they do not spend their time on typos. They write in the margin. Some notes say \"this date is wrong.\" Others say \"I would phrase this differently, your call.\" You fix what needs fixing, answer the rest, and show them the changed paragraph again, not all two pages. That is a pull request and a review.",
+    "legal": "A preparer does not drop a return on the partner's desk without a cover memo. The workpapers are tick-marked, the preparer's self-review is done, and the memo says what changed from last year and where judgment was needed. The reviewer writes review notes. Each note must be cleared, meaning answered and signed off, before the return is released, and the reviewer separates \"must fix\" from \"consider.\" On GitHub the description is the cover memo, line comments are review notes, resolving a conversation clears a note, **Request changes** sends the file back to the preparer, and **Approve** is the sign-off. The pull request keeps the whole exchange as the review record.",
+    "ml": "Your pull request is titled `Add label smoothing to the loss`. The description says what changed (a new `label_smoothing` config key, default 0.0), why (the model is overconfident on the validation set), and how you tested it (a unit test on the loss value, and three seeds on a data subset with a small results table). A reviewer asks whether the baseline used the same seeds, and proposes a clearer name for the key as a one-click suggestion. A pull request that also refactors the data loader and commits notebook outputs cannot be reviewed line by line, and cannot be reverted without losing all three.",
+    "technical": "A pull request compares a head branch to a base branch and shows the changes made on the head since the two diverged. A review is a separate object attached to the pull request. It has a state, which is commented, approved or changes requested, an optional summary, and line comments anchored to positions in the diff. A line comment can carry a suggestion, a replacement for those lines that the author can commit from the page. Each comment thread can be resolved. New pushes update the diff, and existing reviews stay unless a rule dismisses them. Whether approvals are required before merging is decided by branch rules, not by the pull request."
+  },
+  "sections": [
+    {
+      "heading": "Before you ask for review",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A reviewer's attention is the scarcest thing in the process. Everything you do before requesting review is aimed at spending it on the part that needs judgment."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**One purpose.** If the title needs the word *and*, split the pull request.",
+            "**Small.** Aim for a diff someone can read carefully in one sitting. Review quality falls quickly as a diff grows, and a huge one gets a skim and a thumbs-up.",
+            "**Behavior changes apart from tidying.** A rename or a reformat that touches forty files hides the three lines that change what the code does. Send them separately.",
+            "**Review your own diff first.** Open the **Files changed** tab and read it as a stranger would. You will catch leftover debug prints, stray files and missing tests before anyone else has to.",
+            "**Let the checks finish.** A reviewer should not be the one to discover a failing test."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Open it as a draft",
+          "text": "A draft pull request shows your work and runs the checks, and it cannot be merged. Use it when you want early feedback or a place to track progress. Select **Ready for review** when you want a real review."
+        },
+        {
+          "type": "reveal",
+          "prompt": "You have a 900-line pull request. 850 lines are a mechanical rename. 50 lines change how the learning rate is scheduled. How should you send it?",
+          "answer": "As two pull requests. Send the rename first with a description that says it changes no behavior, so a reviewer can approve it in a minute. Then send the 50 lines on top, where every line gets real attention. Sent together, they would get one tired skim."
+        }
+      ]
+    },
+    {
+      "heading": "Title and description",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The description is part of the change. It is what the reviewer reads first, what appears in release notes, and what you will search for in a year when you ask why the code is this way."
+        },
+        {
+          "type": "table",
+          "caption": "What a description has to answer",
+          "head": ["Part", "Answers", "Example"],
+          "rows": [
+            ["Title", "What does this do, in one line?", "`Add label smoothing to the loss`"],
+            ["What", "What changed, at the level of behavior?", "New `label_smoothing` key in `config.yaml`, default 0.0"],
+            ["Why", "What problem does it solve?", "Validation confidence is far above accuracy"],
+            ["How tested", "What evidence shows it works?", "A unit test, three seeds, a results table"],
+            ["Notes for the reviewer", "Where should they look hardest?", "Unsure about the default value"]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "## What\nAdds a `label_smoothing` option to the cross-entropy loss.\nDefault is 0.0, so existing configs behave as before.\n\n## Why\nThe model is overconfident on the validation set. Closes #23.\n\n## How tested\n- New unit test: `tests/test_loss.py::test_label_smoothing`\n- Three seeds on the 10 percent subset, results below\n\n| smoothing | val accuracy | calibration error |\n|---|---|---|\n| 0.0 | 91.2 | 0.081 |\n| 0.1 | 91.6 | 0.034 |\n\n## Notes for the reviewer\nI am not sure 0.1 should become the default. Opinions welcome.",
+          "caption": "A description a reviewer can act on"
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Describe your screenshots and plots",
+          "text": "A screenshot or a plot in a description is invisible to a reviewer who uses a screen reader, and to anyone reading the notification email as text. Add alt text when you attach the image, and state the result in words as well: *validation accuracy rose from 91.2 to 91.6*."
+        }
+      ]
+    },
+    {
+      "heading": "Reviewing someone else's work",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Read the description first, then the tests, then the code. You are checking four things. Does it do what it says? Is it tested? Can the next person understand it? Is anything missing that should have changed too?"
+        },
+        {
+          "type": "compare",
+          "caption": "The three states a review can have",
+          "items": [
+            {
+              "title": "Comment",
+              "points": [
+                "General feedback with no verdict",
+                "Does not count toward required approvals",
+                "Use it for questions and early thoughts"
+              ]
+            },
+            {
+              "title": "Approve",
+              "points": [
+                "Your sign-off that the change can merge",
+                "Counts toward required approvals",
+                "The bar is good enough, not perfect"
+              ]
+            },
+            {
+              "title": "Request changes",
+              "points": [
+                "Says something must be fixed first",
+                "Blocks the merge where reviews are required",
+                "Stays in force until you approve or the review is dismissed"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "list",
+          "items": [
+            "Hover over a line in **Files changed** and select the plus icon to comment on it. Drag across several lines to comment on a range.",
+            "Choose **Start a review** to hold your comments as pending and send them together. One notification with ten comments is kinder than ten notifications.",
+            "To propose exact wording, add a suggestion. The author can commit it with one click.",
+            "Tick **Viewed** on each file as you finish it. The file collapses and a counter shows your progress. If the file changes later, the tick clears."
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "code": "```suggestion\nsmoothing = config.get(\"label_smoothing\", 0.0)\n```",
+          "caption": "A suggestion block inside a line comment. GitHub renders it as a small diff with a button to commit it."
+        },
+        {
+          "type": "p",
+          "text": "How you phrase a comment decides whether it helps. These habits keep a review useful and keep people willing to ask you for the next one."
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Ask before you assert.** *What happens if the batch is empty?* gets a better answer than *this is broken*.",
+            "**Label the weight.** Start optional points with `nit:` and say plainly which comments block the merge.",
+            "**Comment on the code, never the person.** *This function does two jobs* is reviewable. *You always do this* is not.",
+            "**Say what is good.** A specific compliment teaches as much as a correction.",
+            "**Approve when it is good enough.** If the remaining points are preferences, approve and trust the author with them."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Review is a control, so keep it honest",
+          "text": "In change-control terms a review separates the person who makes a change from the person who accepts it. That separation only works if the reviewer reads the diff. An approval given without reading is a signature on a document you did not review, and the pull request records it under your name. Authors cannot approve their own pull requests for the same reason."
+        }
+      ]
+    },
+    {
+      "heading": "Responding to review",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A review is a conversation with a finish line. Your job as the author is to close every thread, by changing the code or by explaining why you will not."
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Reply to each comment, even if the reply is one word: *done*.",
+            "Push fixes as new commits while the review is open. Reviewers can then see exactly what changed since they last looked.",
+            "Commit the suggestions you agree with from the page. Add several to a batch to commit them together.",
+            "Select **Resolve conversation** when a thread is settled. Some teams leave that to the person who opened the thread.",
+            "Re-request review from the sidebar so the reviewer knows it is their turn."
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "A reviewer submitted **Request changes**. You push a commit that fixes everything they asked for. Is the pull request unblocked?",
+          "answer": "Not yet. Their review stays in the changes-requested state until they approve, or until someone with permission dismisses it. Pushing does not tell them you are finished, either. Re-request their review."
+        }
+      ]
+    },
+    {
+      "heading": "Templates and code owners",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Two small files remove a lot of repeated effort. A pull request template pre-fills every new description with your headings. A CODEOWNERS file asks the right people for review automatically."
+        },
+        {
+          "type": "code",
+          "lang": "markdown",
+          "file": ".github/pull_request_template.md",
+          "code": "## What\n\n## Why\n\n## How tested\n\n## Checklist\n- [ ] Tests added or updated\n- [ ] Docs updated if behavior changed\n- [ ] No data files, checkpoints or secrets in the diff"
+        },
+        {
+          "type": "code",
+          "lang": "text",
+          "file": ".github/CODEOWNERS",
+          "code": "# Each line: a path pattern, then who is asked to review changes to it\n*.py        @your-username\n/configs/   @your-username @a-labmate",
+          "caption": "A minimal CODEOWNERS file"
+        },
+        {
+          "type": "p",
+          "text": "The template takes effect once it is on the default branch. With CODEOWNERS in place, GitHub requests a review from the listed owners whenever a pull request touches a matching path. Requiring their approval before a merge is a separate setting, covered in [Guardrails](#advanced-branch-protection)."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Open a pull request a reviewer can act on",
+      "browser": [
+        "Push your branch. On the repository page, select **Compare & pull request** in the banner that appears.",
+        "Check that the base branch is the one you mean to merge into.",
+        "Write a specific title in the imperative, then fill in what, why and how tested. Add `Closes #23` if it finishes an issue.",
+        "Open the menu on the green button and choose **Create draft pull request** if the work is not ready.",
+        "Open **Files changed** and read your own diff from top to bottom.",
+        "When the checks pass, select **Ready for review** and add reviewers in the right sidebar."
+      ],
+      "phone": [
+        "As of this writing GitHub Mobile can open a pull request from a branch that is already pushed. Open the repository and look for the option to create a pull request.",
+        "If you cannot find it, open the repository in your phone's browser, go to **Pull requests** and select **New pull request**.",
+        "Type the description by hand with the same headings: what, why, how tested.",
+        "Read the diff in the files view before you request review. A phone screen is workable for a small diff and unreliable for a large one."
+      ],
+      "cli": [
+        "`git push -u origin feature/label-smoothing` to publish the branch.",
+        "`gh pr create --draft --title \"Add label smoothing to the loss\" --body-file pr.md` to open a draft from a prepared description. `--fill` uses your commit messages instead.",
+        "`gh pr diff` to read your own diff in the terminal.",
+        "`gh pr checks` to see whether the checks have passed.",
+        "`gh pr ready` to mark it ready, then `gh pr edit --add-reviewer username` to request review."
+      ],
+      "editor": [
+        "In VS Code with the GitHub Pull Requests extension, publish the branch from the Source Control view.",
+        "Use the extension's create pull request button, check the base branch, and fill in the title and description. Tick the draft option if you want one.",
+        "Review the diff in the editor before requesting review. Each changed file opens side by side with its previous version.",
+        "A coding agent can draft the description from the diff. Ask for what, why and how tested, then check every claim. Agents sometimes report that tests pass without having run them."
+      ]
+    },
+    {
+      "task": "Review a pull request",
+      "browser": [
+        "Open the pull request and read the description, then select **Files changed**.",
+        "Hover over a line, select the plus icon, write your comment and choose **Start a review**.",
+        "To propose replacement text, use the suggestion button in the comment toolbar and edit the lines inside the block.",
+        "Tick **Viewed** on each file as you finish it.",
+        "Open the review menu at the top right of the tab. Depending on the layout the button reads **Review changes** or **Submit review**.",
+        "Write a short summary, choose **Comment**, **Approve** or **Request changes**, and submit."
+      ],
+      "phone": [
+        "Open the pull request from your inbox in GitHub Mobile and go to its changed files.",
+        "As of this writing the app lets you comment on a line, start a review, and submit it as a comment, an approval or a request for changes.",
+        "For a suggestion, type the suggestion block by hand inside a line comment.",
+        "If a diff is too wide to read on the phone, leave a comment saying you will finish on a larger screen. A partial review is better than a careless approval."
+      ],
+      "cli": [
+        "`gh pr checkout 42` to get the branch locally, so you can run the code and the tests.",
+        "`gh pr diff 42` to read the change, and `gh pr checks 42` to see the automated results.",
+        "`gh pr review 42 --comment --body \"Question about the default value\"` for feedback without a verdict.",
+        "`gh pr review 42 --approve`, or `gh pr review 42 --request-changes --body \"The baseline uses different seeds\"`, to give one.",
+        "Line-by-line comments are quicker in the browser or an editor. `gh pr view 42 --web` jumps there."
+      ],
+      "editor": [
+        "In the GitHub Pull Requests extension, find the pull request in the list of reviews waiting on you and check it out.",
+        "Open changed files from the extension's list. Add a comment with the plus icon that appears beside a line.",
+        "Submit the review from the pull request's description page, choosing comment, approve or request changes.",
+        "An AI reviewer can give a first pass. Treat its output like notes from a junior colleague: verify each point in the code, discard what is wrong, and remember that the approval is yours."
+      ]
+    },
+    {
+      "task": "Respond to review comments",
+      "browser": [
+        "Open the **Conversation** tab and work through the threads from the top.",
+        "For a suggestion you accept, select **Commit suggestion**, or use **Add suggestion to batch** on several and commit them together.",
+        "For other requests, push a commit that makes the change, then reply in the thread with what you did.",
+        "Select **Resolve conversation** on each settled thread.",
+        "In the **Reviewers** section of the sidebar, select the re-request icon beside the reviewer's name."
+      ],
+      "phone": [
+        "In GitHub Mobile, open the pull request and reply to each comment thread.",
+        "As of this writing small text fixes can be made from the phone, by editing the file on the pull request's branch in the app or the mobile browser.",
+        "For anything that needs testing, reply that the fix is coming and make it from a computer or a Codespace.",
+        "Re-request review from the mobile browser if the app does not show the control."
+      ],
+      "cli": [
+        "`gh pr view 42 --comments` to read the conversation in the terminal.",
+        "Make each change, then `git commit` and `git push`. The pull request updates itself.",
+        "`gh pr comment 42 --body \"Addressed all three points, see the last two commits\"` to summarize.",
+        "`gh pr edit 42 --add-reviewer username` to ask for another look."
+      ],
+      "editor": [
+        "Review comments appear inline in the files and in the extension's comments panel. Reply from there.",
+        "Apply a suggestion from the comment itself, or make the edit by hand, then commit and sync.",
+        "Resolve each thread from its comment box once it is settled.",
+        "If you hand the comments to a coding agent, ask for one commit per thread and tell it not to reply or resolve on your behalf. Read each commit before you push."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "One pull request that mixes a refactor, a feature and a formatting pass. The reviewer cannot find the lines that matter and approves on trust.",
+      "fix": "Split by purpose. Send the mechanical change first, then the behavior change on top of it."
+    },
+    {
+      "trap": "Force-pushing rewritten commits in the middle of a review. The reviewer loses track of what they already read.",
+      "fix": "Add new commits while the review is open. Tidy the history at merge time with a squash."
+    },
+    {
+      "trap": "Resolving a conversation without replying, so the reviewer cannot tell whether you fixed it or dismissed it.",
+      "fix": "Reply first with what you changed or why you did not, then resolve."
+    },
+    {
+      "trap": "Approving because the checks are green. Checks confirm what was tested and say nothing about what was not.",
+      "fix": "Read the diff and the tests. Ask what input would break the change."
+    },
+    {
+      "trap": "Spending review comments on spacing and quote style.",
+      "fix": "Let a formatter and a linter enforce style automatically, and keep human review for logic, naming and design."
+    },
+    {
+      "trap": "Reviewing only the lines that changed. The bug is often in what should have changed and did not: a test, a doc, a second caller.",
+      "fix": "Ask what else depends on this code, and check that the tests cover the new behavior."
+    }
+  ],
+  "quiz": [
+    {
+      "q": "A branch rule requires one approval. One reviewer submitted **Request changes** yesterday. A second reviewer approves today. Can the pull request merge?",
+      "choices": [
+        "Yes, one approval satisfies the rule",
+        "No, the request for changes blocks it until that reviewer approves or the review is dismissed",
+        "Yes, the newer review replaces the older one",
+        "No, two approvals are always needed after a request for changes"
+      ],
+      "answer": 1,
+      "why": "Where approvals are required, a request for changes from someone with write access holds the merge until that same person approves or the blocking review is dismissed. Another person's approval does not cancel it."
+    },
+    {
+      "q": "What can an author do with a suggestion block left in a line comment?",
+      "choices": [
+        "Commit the proposed lines from the pull request page",
+        "Nothing until the reviewer pushes it",
+        "Vote on it with a reaction",
+        "Convert it into an issue"
+      ],
+      "answer": 0,
+      "why": "A suggestion is a ready-made replacement for the commented lines. The author commits it with a button, alone or in a batch, and the reviewer is credited as a co-author of that commit. The reviewer does not need to push anything."
+    },
+    {
+      "q": "You want feedback on an approach and you want the checks to run, but the work is not ready to merge. What do you open?",
+      "choices": [
+        "An issue describing the idea",
+        "A draft pull request",
+        "A normal pull request with WIP in the title",
+        "A fork of your own repository"
+      ],
+      "answer": 1,
+      "why": "A draft pull request shows the diff, runs checks and collects comments, and GitHub will not let anyone merge it. A normal pull request with WIP in the title relies on every reader noticing the title."
+    },
+    {
+      "q": "Where must `pull_request_template.md` live for GitHub to pre-fill new pull request descriptions?",
+      "choices": [
+        "In `.github/workflows/`",
+        "On the repository's Settings page",
+        "On the default branch, in `.github/`, the root or `docs/`",
+        "On each feature branch"
+      ],
+      "answer": 2,
+      "why": "GitHub reads the template from the default branch, from the `.github` folder, the repository root or `docs`. A template that exists only on a feature branch has no effect until it is merged."
+    },
+    {
+      "q": "Which review comment is most likely to get a useful response?",
+      "choices": [
+        "This is wrong.",
+        "Why would you do it this way?",
+        "What happens here if `batch` is empty? I think line 42 divides by zero.",
+        "Please rewrite this file."
+      ],
+      "answer": 2,
+      "why": "It names a specific case, points at a line and states the concern as something the author can check. The others give a verdict without a reason, or a question that reads as an accusation."
+    }
+  ],
+  "mission": {
+    "title": "Give every future pull request a head start",
+    "where": "Your own repository. A collaborator helps for the last step and is not required.",
+    "steps": [
+      "On a new branch, add `.github/pull_request_template.md` with the headings What, Why, How tested and a short checklist.",
+      "Open a draft pull request for it. The template is not on the default branch yet, so write the description by hand under the same headings.",
+      "In **Files changed**, leave yourself one line comment and one suggestion. Commit the suggestion from the page.",
+      "Mark the pull request ready, merge it, and delete the branch.",
+      "Make one more small change on a new branch and open a pull request. Confirm the description is pre-filled.",
+      "If someone can review for you, ask them to request changes once, then practice the full loop: fix, reply, resolve, re-request."
+    ]
+  },
+  "terms": [
+    {
+      "term": "draft pull request",
+      "def": "A pull request marked as not ready. It shows the diff and runs checks, and it cannot be merged until you mark it ready for review."
+    },
+    {
+      "term": "review",
+      "def": "A reviewer's submitted verdict on a pull request, made of a state, an optional summary and any line comments."
+    },
+    {
+      "term": "suggested change",
+      "def": "A reviewer's proposed replacement for specific lines, written in a suggestion block, that the author can commit from the pull request page."
+    },
+    {
+      "term": "nit",
+      "def": "Short for nitpick. A label reviewers put on a minor, optional comment so the author knows it does not block the merge."
+    },
+    {
+      "term": "pull request template",
+      "def": "A Markdown file on the default branch whose contents GitHub copies into the description of every new pull request."
+    },
+    {
+      "term": "CODEOWNERS",
+      "def": "A file that maps path patterns to people or teams. GitHub requests their review automatically when a pull request touches matching files."
+    },
+    {
+      "term": "self-review",
+      "def": "Reading your own diff in the Files changed tab before asking anyone else to, so you catch what a stranger would catch."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "gh pr create --draft --fill",
+      "does": "Opens a draft pull request and takes the title and description from your commits.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr ready",
+      "does": "Marks the current branch's draft pull request as ready for review.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr diff",
+      "does": "Prints the pull request's diff in the terminal, for a self-review.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr checkout <number>",
+      "does": "Fetches a pull request's branch and switches to it so you can run the code.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr checks",
+      "does": "Lists the automated checks on the pull request and whether each one passed.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh pr review <number> --approve",
+      "does": "Submits an approving review. Use `--comment` or `--request-changes` for the other states.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "gh pr edit <number> --add-reviewer <username>",
+      "does": "Requests a review from someone, including a second look after you push fixes.",
+      "kind": "gh",
+      "risk": "safe"
+    },
+    {
+      "cmd": "is:open is:pr review-requested:@me",
+      "does": "Search qualifiers that list the open pull requests waiting for your review.",
+      "kind": "search",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: About pull request reviews",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews"
+    },
+    {
+      "label": "GitHub Docs: Commenting on a pull request",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/commenting-on-a-pull-request"
+    },
+    {
+      "label": "GitHub Docs: Incorporating feedback in your pull request",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/incorporating-feedback-in-your-pull-request"
+    },
+    {
+      "label": "GitHub Docs: Creating a pull request template for your repository",
+      "url": "https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository"
+    },
+    {
+      "label": "GitHub Docs: About code owners",
+      "url": "https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners"
+    },
+    {
+      "label": "GitHub CLI manual: gh pr review",
+      "url": "https://cli.github.com/manual/gh_pr_review"
+    }
+  ]
+}

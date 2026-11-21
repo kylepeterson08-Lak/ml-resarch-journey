@@ -1,0 +1,537 @@
+{
+  "id": "expert-incident-response",
+  "track": "expert",
+  "title": "Incident response: leaked secrets and lost commits",
+  "minutes": 23,
+  "summary": "Two emergencies recur: something got out that should not have, and something vanished that should not have. For a leak, revoke first and clean up second. For lost work, find the commit ID before anything is tidied. Both go better with a rehearsed order of operations.",
+  "outcomes": [
+    "Respond to a leaked credential in the right order: revoke, assess, purge, prevent",
+    "Explain which copies of a secret a history rewrite cannot reach",
+    "Recover lost commits with the reflog, `git fsck` and GitHub's own records",
+    "Undo a bad merge on a shared branch with `git revert -m 1`, and bring the work back later",
+    "Secure a compromised account and check what it touched",
+    "Run a blameless review that ends in a changed guardrail"
+  ],
+  "prereqs": ["intermediate-undo-toolkit", "advanced-security-features", "expert-git-internals"],
+  "lenses": {
+    "everyday": "You drop your house key in a busy street with your address on the tag. You do not start by searching for the key. You change the lock, because you cannot know who picked it up. Then you check whether anything is missing, and only then do you think about tidying. A leaked password works the same way: replace it first. Lost work is the opposite kind of emergency. The file you deleted is almost always still in the recycle bin, and the worst thing you can do is empty the bin while you are looking. Stop, find it, restore it, and clean up afterward.",
+    "legal": "A privileged document goes out in a production by mistake. You send the clawback letter, but you plan as though the other side has read it, and you act on what the document could unlock. That is why a leaked credential is revoked before history is cleaned. The response follows a known discipline: preserve the evidence, keep a timeline, establish who had access and when, and analyze notification duties under statute and contract. Recovery has its own parallel. A filing made in error is not erased. It is corrected by a later filing that refers to it, the way an amended return supersedes an original and leaves both on record. `git revert` works the same way.",
+    "ml": "A notebook cell printed `os.environ` and you committed the output. Your cloud key and your model hub token are now public, and automated scanners find keys like these within minutes and use them to rent GPUs on your account. Rotate both before you touch Git. The other emergency arrives at 2 a.m. before a deadline: a hurried `git reset --hard` removes the commit holding the only config that reproduces Table 2. The commit still exists, and the reflog knows its ID. Then a merged data-loader change turns out to shuffle labels. Revert the merge on `main`, fix it on the branch, and remember that merging the branch again will not bring the original change back.",
+    "technical": "Publishing a secret to a remote is irreversible in practice: clones, forks, pull request refs, caches and third-party scrapers hold copies outside your control. The only effective control is to invalidate the credential at its issuer. History rewriting with `git filter-repo` removes the value from reachable commits and changes every later commit ID. Commits removed from a branch by reset, rebase or force push remain as unreachable objects until garbage collection. They are recoverable by ID from a reflog, from `git fsck`, from another clone, or from GitHub's records of the push. `git revert -m 1` creates a commit that inverts a merge relative to its first parent, without removing the merge from history."
+  },
+  "sections": [
+    {
+      "heading": "A leaked secret: order of operations",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The instinct after pushing a secret is to make the commit disappear. That instinct is wrong, because it spends the critical minutes on the one step that does not reduce harm. Work in this order."
+        },
+        {
+          "type": "flow",
+          "caption": "Reduce harm first, tidy second",
+          "steps": [
+            {"label": "Revoke and rotate", "note": "At the issuer. The old value must stop working"},
+            {"label": "Assess", "via": "then", "note": "Read the provider's logs for use during the exposure window"},
+            {"label": "Purge history", "via": "then", "note": "Rewrite, force-push, have everyone clone again"},
+            {"label": "Close the gap", "via": "then", "note": "Push protection, ignore rules, short-lived credentials"}
+          ]
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "**Revoke and rotate at the issuer.** Delete the token or key in the provider's console and create a replacement. Assume the old value was copied the moment it was pushed.",
+            "**Assess.** Check the provider's usage and audit logs from the time of the push until revocation. Look for resources you did not create and calls from addresses you do not know.",
+            "**Purge the value from history** so it stops appearing in clones, searches and blame views. This is cleanup. It protects nobody on its own.",
+            "**Tell the people who need to know.** Collaborators must stop pushing from old clones. Your security contact or supervisor may have duties of their own.",
+            "**Prevent the next one.** Turn on push protection, add the file pattern to `.gitignore`, move the secret into a secret store, and prefer credentials that expire."
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# replacements.txt holds one rule per line:  OLD_VALUE==>REPLACEMENT\necho 'EXAMPLE-not-a-real-key-123==>***REMOVED***' > ../replacements.txt\n\ngit clone https://github.com/my-lab/research.git research-clean\ncd research-clean\ngit filter-repo --replace-text ../replacements.txt\n\ngit log -p -S 'EXAMPLE-not-a-real-key-123' --all     # should print nothing\n\ngit remote add origin https://github.com/my-lab/research.git\ngit push --force --all\ngit push --force --tags\n\nrm ../replacements.txt                               # this file contains the secret",
+          "caption": "Step three, run only after the key is already dead"
+        },
+        {
+          "type": "callout",
+          "kind": "danger",
+          "title": "Deleting the commit does not un-leak the secret",
+          "text": "A force push changes what your branch points at. It does not recall copies. Assume a public repository is scraped continuously, and treat a private one as exposed to everyone and every integration with read access. The secret is safe only when it no longer works."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Write it down as you go",
+          "text": "Keep a dated record of what was exposed, for how long, what you checked and what you changed. Depending on the data the credential could reach, the jurisdiction and your contracts, there may be duties to notify affected people, customers or regulators, sometimes on short deadlines. Preserve logs and do not delete evidence. This is general information, not legal advice. Involve counsel or your security lead early."
+        }
+      ]
+    },
+    {
+      "heading": "What a history rewrite cannot reach",
+      "blocks": [
+        {
+          "type": "table",
+          "head": ["Copy", "Why it survives", "What to do"],
+          "rows": [
+            ["Other people's clones", "They hold the old commits locally", "Ask everyone to delete their clone and clone again. Do not let old branches be pushed back"],
+            ["Forks", "A fork is a separate repository with its own refs", "Ask fork owners to delete or rewrite. For forks you cannot reach, contact GitHub Support"],
+            ["Pull request refs and cached views on GitHub", "GitHub keeps commits that pull requests referenced, and serves pages by commit ID", "Contact GitHub Support and ask for the old objects and cached views to be removed"],
+            ["CI logs, artifacts and caches", "The value may have been printed or packaged during a run", "Delete the affected runs, artifacts and caches"],
+            ["Scrapers and search indexes", "Automated tools copy new public commits within minutes", "Nothing can be done. This is why revocation comes first"]
+          ]
+        },
+        {
+          "type": "reveal",
+          "prompt": "You notice the leaked key 90 seconds after pushing to a public repository, and you force-push a clean history at once. Is the key safe to keep using?",
+          "answer": "No. Ninety seconds is long enough for automated scanners, and the old commit can remain reachable by its ID on GitHub after the branch has moved. You cannot prove that nobody copied it, so the only defensible position is that somebody did. Revoke it. The force push was worth doing for hygiene and for nothing else."
+        }
+      ]
+    },
+    {
+      "heading": "Lost commits: the recovery ladder",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Commits are rarely destroyed. They become unreachable: no branch points at them, so they drop out of view while still sitting in the object store. Recovery means finding the commit ID and attaching a name to it. Work down this ladder and stop at the first rung that has your commit."
+        },
+        {
+          "type": "table",
+          "head": ["Where to look", "Command or place", "Finds"],
+          "rows": [
+            ["Your reflog", "`git reflog`, or `git reflog show <branch>`", "Everything `HEAD` or a branch pointed at recently: resets, rebases, amends, and deleted branches you had checked out"],
+            ["Dangling objects", "`git fsck --lost-found`", "Dropped stashes, and files that were staged and never committed"],
+            ["A closed pull request", "**Restore branch** on the pull request page", "A branch deleted after a merge or a close"],
+            ["GitHub's activity view", "`https://github.com/OWNER/REPO/activity`", "Pushes, force pushes and deletions, with the commit before and after"],
+            ["Another clone", "A teammate's machine, a CI checkout, your other laptop", "Anything that was fetched there before the loss"]
+          ]
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git reflog                                # find the line before the mistake\n# 3f2c91a HEAD@{0}: reset: moving to HEAD~3\n# a81d0e4 HEAD@{1}: commit: Add ablation config   <- the lost tip\n\ngit branch rescue/ablation a81d0e4        # attach a name. Nothing else changes\ngit log --oneline --graph rescue/ablation -5\n\n# On GitHub's side, when you know the old commit ID:\ngh api repos/OWNER/REPO/git/refs -f ref=refs/heads/rescue/ablation -f sha=FULL_COMMIT_ID",
+          "caption": "Find the ID, attach a branch"
+        },
+        {
+          "type": "graph",
+          "caption": "After `git reset --hard`, main points at B. Commits C and D are unreachable, not deleted. A branch created at D makes them ordinary commits again.",
+          "commits": [
+            {"id": "A", "msg": "Start project"},
+            {"id": "B", "parents": ["A"], "msg": "Add baseline"},
+            {"id": "C", "parents": ["B"], "msg": "Tune schedule", "ghost": true},
+            {"id": "D", "parents": ["C"], "msg": "Add ablation config", "ghost": true}
+          ],
+          "branches": {"main": "B"},
+          "head": "main",
+          "highlight": ["D"]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Rescue first, decide later",
+          "text": "Create a branch at the lost commit before you do anything else. A branch costs nothing, makes the commits reachable again, and gives you time to compare and think. Do not run `git gc`, do not expire the reflog, and do not delete the damaged clone until the work is safe."
+        }
+      ]
+    },
+    {
+      "heading": "A bad merge on main: revert, then fix forward",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A merged change breaks `main`. Other people have already pulled it, so rewriting `main` would break their clones. The safe move is a new commit that undoes the merge."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git switch main && git pull\ngit log --oneline --merges -5          # find the merge commit, say 9b1e7c2\ngit revert -m 1 9b1e7c2                # undo what the merge brought into main\ngit push",
+          "caption": "Reverting a merge commit"
+        },
+        {
+          "type": "p",
+          "text": "`-m 1` tells Git which parent is the mainline. Parent 1 is the branch you merged into, so the revert removes the changes that came from the other side. On GitHub, the **Revert** button on a merged pull request does the same thing through a new pull request, which is the right route when `main` is protected."
+        },
+        {
+          "type": "graph",
+          "caption": "R undoes merge M. Later, RR undoes R to restore the original feature, and M2 merges the new fix F3 on top.",
+          "commits": [
+            {"id": "A", "msg": "Start project"},
+            {"id": "B", "parents": ["A"], "msg": "Baseline"},
+            {"id": "F1", "parents": ["B"], "msg": "Feature work"},
+            {"id": "F2", "parents": ["F1"], "msg": "More feature work"},
+            {"id": "M", "parents": ["B", "F2"], "msg": "Merge feature"},
+            {"id": "R", "parents": ["M"], "msg": "Revert the merge"},
+            {"id": "F3", "parents": ["F2"], "msg": "Fix the bug"},
+            {"id": "RR", "parents": ["R"], "msg": "Revert the revert"},
+            {"id": "M2", "parents": ["RR", "F3"], "msg": "Merge the fix"}
+          ],
+          "branches": {"main": "M2", "feature": "F3"},
+          "head": "main",
+          "highlight": ["R", "RR"]
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "The revert-the-revert gotcha",
+          "text": "After the revert, Git still considers the feature's original commits merged, because they are ancestors of `main`. Fix the bug on the same branch and merge again, and only the new commits arrive. The reverted changes stay reverted. To bring the whole feature back, first revert the revert commit, then merge the fix."
+        },
+        {
+          "type": "reveal",
+          "prompt": "A feature was merged, then reverted. The author adds one fix commit to the same branch and opens a new pull request. The diff shows only the one-line fix. Why, and what would merging it produce?",
+          "answer": "The branch's earlier commits are already in the history of `main`, so the pull request contains only what is new. Merging it would apply a one-line fix to code that the revert removed, which either conflicts or leaves `main` with a fragment of the feature. Revert the revert on a branch first, add the fix, and open the pull request from that."
+        }
+      ]
+    },
+    {
+      "heading": "A compromised account",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "The signs include sign-in alerts you did not cause, commits or repositories you did not create, new SSH keys or tokens, and collaborators you did not add. Act on the account first, then on everything it could reach."
+        },
+        {
+          "type": "list",
+          "ordered": true,
+          "items": [
+            "Change the password and confirm your two-factor methods are still yours. Regenerate the recovery codes.",
+            "End other sessions from the sessions list in your account settings.",
+            "Review and remove unknown SSH keys, GPG keys, personal access tokens, and authorized OAuth apps and GitHub Apps.",
+            "Check the email addresses on the account. An attacker who adds one can reset the password later.",
+            "Read your security log, and the organization audit log if you are an owner, for what was done and when.",
+            "Inspect repositories for deploy keys, webhooks, collaborators, workflow files and releases you did not make.",
+            "Rotate every secret the account could read or a workflow could have sent elsewhere, and report the incident to GitHub Support and to your organization."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Recovery has to work on your worst day",
+          "text": "Account recovery happens under stress, sometimes without your usual device. Keep recovery codes in a password manager or a printed copy you can reach, register a second two-factor method, and make sure the methods you choose are ones you can operate without assistance. A recovery path you cannot use is not a recovery path."
+        }
+      ]
+    },
+    {
+      "heading": "Backups and the review afterward",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Git's distributed design makes every clone a partial backup of the code. It is not a backup of the project. Issues, pull request discussions, releases, wikis and settings live only on GitHub."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git clone --mirror https://github.com/my-lab/research.git research.git   # every ref\ncd research.git && git remote update --prune                              # refresh it later\n\ngit clone https://github.com/my-lab/research.wiki.git                     # the wiki is its own repository\ngh issue list --state all --limit 1000 --json number,title,state,body > issues.json",
+          "caption": "A mirror of the Git data, plus two things that are not in it"
+        },
+        {
+          "type": "list",
+          "items": [
+            "**Timeline.** What happened, in order, with times. Facts only.",
+            "**What made the mistake likely.** A missing ignore rule, an unprotected branch, a confusing command, a deadline.",
+            "**What made it hard to notice or undo.** No alert, no backup, one person holding the knowledge.",
+            "**One or two changes to the system**, each with an owner and a date. A changed guardrail outlasts a promise to be careful."
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "note",
+          "title": "Blameless is a method, not a courtesy",
+          "text": "People who expect to be punished report late and leave out details, and the details are what you need. Ask what the system allowed, and fix that. The person who made the mistake is usually the one who understands it best."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Respond to a secret pushed to GitHub",
+      "browser": [
+        "Go to the service that issued the credential and revoke it there. For a GitHub token, open **Settings**, then **Developer settings**, then **Personal access tokens**, and delete or regenerate it.",
+        "In the provider's console, review usage since the time of the push.",
+        "In the repository, open the **Security** tab and check **Secret scanning** for an alert. Close it as revoked once the credential is dead.",
+        "After history has been rewritten from a terminal, contact GitHub Support to request removal of cached views and unreachable commits.",
+        "Open the repository's security settings and turn on push protection, so the next attempt is blocked before it lands."
+      ],
+      "phone": [
+        "Do the step that matters most from wherever you are: open the issuing service in your phone's browser and revoke the credential now.",
+        "Tell collaborators not to push from old clones. A comment or a message from the phone is enough.",
+        "History cleanup needs a terminal. It can wait until you reach a computer, because the secret is already dead."
+      ],
+      "cli": [
+        "Revoke at the issuer first. If it was the token `gh` uses, run `gh auth logout` and then `gh auth login` to get a new one.",
+        "Install `git-filter-repo` and make a fresh clone to work in.",
+        "Write the leaked value into a replacements file, then run `git filter-repo --replace-text ../replacements.txt`.",
+        "`git log -p -S '<value>' --all` must return nothing.",
+        "`git remote add origin <url>`, then `git push --force --all` and `git push --force --tags`.",
+        "Delete the replacements file. It contains the secret."
+      ],
+      "editor": [
+        "Search the whole workspace for the value and for other credentials near it. Leaks travel in groups.",
+        "Do not paste a live secret into a coding agent or any chat tool. Rotate first. The dead value is then safe to share for cleanup.",
+        "After rotation, an agent can prepare the replacements file and run the rewrite in a fresh clone. A person with authority over the repository performs the force push."
+      ]
+    },
+    {
+      "task": "Recover commits that disappeared",
+      "browser": [
+        "If a branch was deleted after its pull request closed, open the pull request and select **Restore branch**.",
+        "Open `https://github.com/OWNER/REPO/activity` to see pushes, force pushes and branch deletions, each with the commit before and after.",
+        "Use the entry's menu to compare the two states, and copy the earlier commit ID.",
+        "Open the repository at that commit and create a branch from it with the branch selector, or use the command-line step that creates a ref."
+      ],
+      "phone": [
+        "GitHub Mobile has no reflog or activity view as of this writing. The activity page and **Restore branch** both work in a mobile browser.",
+        "If the lost work was only on your computer, nothing can be done from the phone. Leave that clone untouched until you are back at it."
+      ],
+      "cli": [
+        "`git reflog`, and find the entry immediately before the reset, rebase or deletion.",
+        "`git branch rescue/<name> <id>` makes the commits reachable again.",
+        "Not in the reflog? `git fsck --lost-found` lists dangling commits and blobs. Inspect each with `git show <id>`.",
+        "For a force push on GitHub, create a branch at the old tip: `gh api repos/OWNER/REPO/git/refs -f ref=refs/heads/rescue/main -f sha=<full-id>`.",
+        "`git fetch origin`, then compare with `git log --oneline main..origin/rescue/main` before you decide how to restore."
+      ],
+      "editor": [
+        "For edits that were never committed, open the file in VS Code and check the **Timeline** view. Local History can restore earlier saved versions.",
+        "Use the integrated terminal for the reflog steps.",
+        "A coding agent can search the reflog and propose a recovery. Have it create a rescue branch before it runs any reset, and check the branch yourself."
+      ]
+    },
+    {
+      "task": "Undo a bad merge on a shared branch",
+      "browser": [
+        "Open the merged pull request and select **Revert** near the bottom of the conversation.",
+        "GitHub opens a new pull request that undoes the merge. Explain why in the description and link the incident.",
+        "Get it reviewed and merged through the normal checks.",
+        "When the fix is ready, revert the revert pull request the same way, then merge the fix."
+      ],
+      "phone": [
+        "Open the merged pull request in the mobile browser and use **Revert** there. GitHub Mobile may not offer the button as of this writing.",
+        "Approving and merging the revert pull request works in the app once the checks pass."
+      ],
+      "cli": [
+        "`git switch main` and `git pull`.",
+        "`git log --oneline --merges -5` to find the merge commit.",
+        "`git switch -c revert/feature-x`, then `git revert -m 1 <merge-id>`.",
+        "`git push -u origin revert/feature-x` and `gh pr create --fill`.",
+        "Later, on a new branch, `git revert <revert-id>` restores the feature. Add the fix on top and open a pull request."
+      ],
+      "editor": [
+        "Run the revert from the integrated terminal. The GitHub Pull Requests extension can then create the pull request.",
+        "With a coding agent, ask for a revert pull request for one specific merge. Verify that its diff is the exact inverse of the original pull request's diff."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Cleaning history before revoking the credential.",
+      "fix": "Revoke at the issuer first. Every minute spent rewriting is a minute the key still works."
+    },
+    {
+      "trap": "Deciding that a leak in a private repository does not count.",
+      "fix": "Collaborators, integrations, CI logs and any future change of visibility all have access. Rotate anyway."
+    },
+    {
+      "trap": "Deleting the damaged clone and cloning again to get a clean start.",
+      "fix": "That clone's reflog may be the only record of the lost commits. Keep it until the work is recovered and pushed."
+    },
+    {
+      "trap": "Answering a force push with another force push from your own copy.",
+      "fix": "Create a rescue branch at the old tip first, compare the two histories, then restore deliberately. Your copy may be missing other people's work."
+    },
+    {
+      "trap": "Merging a reverted branch again and expecting the feature to return.",
+      "fix": "Revert the revert commit first, then merge the new fixes."
+    },
+    {
+      "trap": "Ending the review with a reminder to be more careful.",
+      "fix": "Change a guardrail: block force pushes, require pull requests, turn on push protection. Give it an owner and a date."
+    }
+  ],
+  "lab": "lab-reflog-rescue",
+  "quiz": [
+    {
+      "q": "You pushed a live cloud key to a public repository five minutes ago. What do you do first?",
+      "choices": [
+        "Force-push a history without the commit",
+        "Delete the repository",
+        "Make the repository private",
+        "Revoke the key at the cloud provider"
+      ],
+      "answer": 3,
+      "why": "Only revocation stops the key from working. The other three change what is visible from now on and recall nothing that was already copied. Do them, if at all, after the key is dead."
+    },
+    {
+      "q": "You ran `git reset --hard HEAD~3` by mistake. The three commits were never pushed. Where do you look first?",
+      "choices": [
+        "`git stash list`",
+        "`git reflog`",
+        "The repository's activity view on GitHub",
+        "`git log --all`"
+      ],
+      "answer": 1,
+      "why": "The reflog records every position `HEAD` has held, including the tip before the reset. The commits were never pushed, so GitHub has no record of them. `git log --all` walks from refs, and no ref points at them any more."
+    },
+    {
+      "q": "In `git revert -m 1 <merge>`, what does `-m 1` specify?",
+      "choices": [
+        "That the first parent is the mainline, so the changes from the other parent are undone",
+        "That only the first file in the merge is reverted",
+        "That the revert is applied one commit at a time",
+        "That the merge commit is deleted from history"
+      ],
+      "answer": 0,
+      "why": "A merge has two parents, and Git needs to know which side to keep. Parent 1 is the branch that was merged into. The merge commit stays in history, and the revert is a new commit after it."
+    },
+    {
+      "q": "A feature was merged and then reverted on `main`. Two fix commits were added to the same branch, and it is merged again. What lands on `main`?",
+      "choices": [
+        "The whole feature plus the fixes",
+        "Nothing, because the branch was already merged",
+        "Only the two fix commits. The original changes stay reverted",
+        "A conflict in every file the feature touched"
+      ],
+      "answer": 2,
+      "why": "The original commits are already ancestors of `main`, so a second merge brings only what is new. The revert is still in effect for everything else. Reverting the revert restores the original changes."
+    },
+    {
+      "q": "Which of these does `git clone --mirror` not capture?",
+      "choices": [
+        "Tags",
+        "Issues and pull request discussions",
+        "Branches other than the default",
+        "Commit history"
+      ],
+      "answer": 1,
+      "why": "A mirror copies every ref and object in the Git repository. Issues, reviews, releases and settings are stored by GitHub outside Git, so they need a separate export through the API."
+    }
+  ],
+  "mission": {
+    "title": "Run a fire drill in a scratch repository",
+    "where": "A new scratch repository with a fake secret. Nothing real is at risk, and you delete the repository at the end.",
+    "steps": [
+      "Create a scratch repository. Commit a file containing the line `API_KEY=EXAMPLE-not-a-real-key-123` and push it.",
+      "Write down, as if it were real, where you would revoke this key and where you would read its usage logs.",
+      "Remove the value with `git filter-repo --replace-text` in a fresh clone, then force-push.",
+      "Confirm `git log -p -S 'EXAMPLE-not-a-real-key-123' --all` prints nothing. Then open the old commit's address on GitHub by its ID and see whether it still loads.",
+      "Make a commit, run `git reset --hard HEAD~1`, and recover the commit with `git reflog` and `git branch`.",
+      "Delete the scratch repository. Then turn on push protection for a repository you care about."
+    ]
+  },
+  "terms": [
+    {
+      "term": "credential rotation",
+      "def": "Replacing a secret with a new one and invalidating the old one at the service that issued it."
+    },
+    {
+      "term": "exposure window",
+      "def": "The time between a secret becoming visible to others and the moment it stopped working."
+    },
+    {
+      "term": "history rewrite",
+      "def": "Replacing existing commits with altered copies, which changes the ID of every rewritten commit and all of its descendants."
+    },
+    {
+      "term": "dangling commit",
+      "def": "A commit that no ref or reflog entry points to. It stays in the object store until garbage collection removes it."
+    },
+    {
+      "term": "mainline parent",
+      "def": "The parent of a merge commit that a revert treats as the branch to keep, chosen with the `-m` option."
+    },
+    {
+      "term": "mirror clone",
+      "def": "A bare copy of a repository that includes every ref, used for backups and migrations."
+    },
+    {
+      "term": "blameless review",
+      "def": "A review of an incident that examines what the system allowed and how to change it, without assigning fault to individuals."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git reflog",
+      "does": "Lists every commit `HEAD` has pointed at recently, including ones no branch reaches now.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git branch rescue/<name> <id>",
+      "does": "Attaches a new branch to a lost commit, making it reachable again.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git fsck --lost-found",
+      "does": "Lists dangling commits and blobs, such as dropped stashes.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git log -p -S '<string>' --all",
+      "does": "Finds every commit on any branch that added or removed a given string.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git revert -m 1 <merge-id>",
+      "does": "Creates a commit that undoes a merge, keeping the branch that was merged into.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git filter-repo --replace-text replacements.txt",
+      "does": "Rewrites all history, replacing each listed string. Every affected commit ID changes.",
+      "kind": "git",
+      "risk": "danger"
+    },
+    {
+      "cmd": "git push --force --all",
+      "does": "Overwrites every branch on the remote with your local history. Use only after a coordinated rewrite.",
+      "kind": "git",
+      "risk": "danger"
+    },
+    {
+      "cmd": "git clone --mirror <url>",
+      "does": "Makes a complete bare copy of a repository, with all branches and tags.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "gh api repos/OWNER/REPO/git/refs -f ref=refs/heads/rescue -f sha=<full-id>",
+      "does": "Creates a branch on GitHub at a commit you know by ID, for example the tip before a force push.",
+      "kind": "gh",
+      "risk": "caution"
+    },
+    {
+      "cmd": "https://github.com/OWNER/REPO/activity",
+      "does": "Shows pushes, force pushes and branch deletions, with the commit before and after each.",
+      "kind": "web",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "GitHub Docs: Removing sensitive data from a repository",
+      "url": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository"
+    },
+    {
+      "label": "GitHub Docs: Secret scanning",
+      "url": "https://docs.github.com/en/code-security/secret-scanning"
+    },
+    {
+      "label": "GitHub Docs: Using the activity view to see changes to a repository",
+      "url": "https://docs.github.com/en/repositories/viewing-activity-and-data-for-your-repository/using-the-activity-view-to-see-changes-to-a-repository"
+    },
+    {
+      "label": "GitHub Docs: Reviewing your security log",
+      "url": "https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/reviewing-your-security-log"
+    },
+    {
+      "label": "Git reference: git-reflog",
+      "url": "https://git-scm.com/docs/git-reflog"
+    },
+    {
+      "label": "Git reference: git-revert",
+      "url": "https://git-scm.com/docs/git-revert"
+    }
+  ]
+}

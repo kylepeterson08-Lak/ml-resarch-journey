@@ -1,0 +1,541 @@
+{
+  "id": "basics-undo",
+  "track": "basics",
+  "title": "The safety net: three undos you can trust",
+  "minutes": 14,
+  "summary": "Most mistakes in Git fall into three situations: something is staged that should not be, the last commit needs fixing, or a pushed commit needs reversing. Each has one safe command. Learn those three and the rule about shared history, and experimenting stops being frightening.",
+  "outcomes": [
+    "Unstage a file without losing your edits",
+    "Fix the most recent commit's message or contents before it is pushed",
+    "Reverse a pushed commit with a new commit, from the command line or with the Revert button",
+    "Recognize the one basic undo that discards work for good",
+    "State the rule about rewriting history that other people already have"
+  ],
+  "prereqs": [
+    "basics-commits",
+    "basics-remotes"
+  ],
+  "lenses": {
+    "everyday": "You are packing a box to ship. Taking an item back out before you tape the box is unstaging: nothing is lost, and it goes back on the table. Reopening the box you taped a minute ago to add the forgotten charger is amending, and it is fine because the box has not left the house. Once the box is at your friend's place, you cannot reach in and change it. You send a second box with a note: ignore the blue mug, here is the green one. That second box is a revert. The first shipment still happened, and the record shows both.",
+    "legal": "Three corrections, three procedures. A page pulled from a filing packet before it is submitted goes back in your working folder: unstaging. A document you signed five minutes ago and have not yet served can be corrected and re-executed: amending an unpushed commit. Once a return or a pleading is filed, you do not alter the filed copy. You file an amended return or a corrected pleading that supersedes it, and the original remains in the record. That is a revert: a new entry that reverses an earlier one. The governing rule is the same in both worlds. Never quietly alter a record that others have already relied on.",
+    "ml": "You are about to commit `train.py` and notice that a 300-line debug notebook is staged too. Unstage it, and it stays on disk. You commit a config change with the message `update` and want it to say which hyperparameter moved. Amend it, since it has not been pushed. A week later a merged change turns out to leak validation data into training, and collaborators have already pulled it. You revert that commit. `main` gets a new commit that removes the leak, everyone pulls it normally, and the history still shows that the leak existed between those two IDs. That matters when you decide which past results to rerun.",
+    "technical": "`git restore --staged <path>` copies the path from `HEAD` into the index, which removes its changes from the next commit and leaves the working tree alone. `git commit --amend` creates a new commit with the same parent as the current tip and moves the branch to it. The old tip is no longer on the branch, so the branch's history has been rewritten. `git revert <commit>` computes the inverse of a commit's changes and records it as a new commit on top of the current tip, leaving existing history intact. `git restore <path>` overwrites a working-tree file from the index, and it is the only one of these that destroys uncommitted content."
+  },
+  "sections": [
+    {
+      "heading": "Which situation are you in?",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "Before reaching for a command, name the situation. Two questions settle it. Has the change been committed? Has the commit been pushed?"
+        },
+        {
+          "type": "table",
+          "head": [
+            "Situation",
+            "Safe undo",
+            "What it changes"
+          ],
+          "rows": [
+            [
+              "A file is staged that should not be",
+              "`git restore --staged <file>`",
+              "The staging area only. Your edits stay"
+            ],
+            [
+              "The last commit is wrong and has not been pushed",
+              "`git commit --amend`",
+              "Replaces the last commit with a corrected one"
+            ],
+            [
+              "A pushed commit was a mistake",
+              "`git revert <commit>`",
+              "Adds a new commit that reverses it"
+            ],
+            [
+              "Uncommitted edits to a file should be thrown away",
+              "`git restore <file>`",
+              "**Destroys those edits. There is no undo**"
+            ]
+          ]
+        },
+        {
+          "type": "flow",
+          "caption": "How far a change has traveled decides which undo fits",
+          "steps": [
+            {
+              "label": "Staged",
+              "note": "Undo with git restore --staged"
+            },
+            {
+              "label": "Committed locally",
+              "via": "git commit",
+              "note": "Undo with git commit --amend"
+            },
+            {
+              "label": "Pushed",
+              "via": "git push",
+              "note": "Undo with git revert"
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Git tells you the command",
+          "text": "`git status` prints the undo for the state you are in. Under staged changes it says how to unstage. Under modified files it says how to discard. When unsure, read its hints before searching the web."
+        }
+      ]
+    },
+    {
+      "heading": "Undo one: unstage",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "You ran `git add .` and a file came along that does not belong in this commit. Unstaging removes it from the next commit and leaves the file on disk exactly as you edited it."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git add .\ngit status                          # debug.ipynb is staged by accident\ngit restore --staged debug.ipynb    # out of the staging area, edits intact\ngit status                          # debug.ipynb is no longer under \"Changes to be committed\""
+        },
+        {
+          "type": "p",
+          "text": "Nothing can be lost here. If the file should never be committed, add it to `.gitignore`. See [What stays out](#intermediate-ignore-lfs)."
+        }
+      ]
+    },
+    {
+      "heading": "Undo two: amend the last commit",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "You committed and immediately spotted a typo in the message, or realized that one file was left out. As long as you have **not pushed**, you can replace the commit."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "# fix the message only\ngit commit --amend -m \"Add warmup to learning-rate schedule\"\n\n# add a forgotten file and keep the message\ngit add configs/small.yaml\ngit commit --amend --no-edit"
+        },
+        {
+          "type": "graph",
+          "caption": "Amend does not edit C. It creates C2 beside it and moves the branch there. C is left behind with no name pointing at it.",
+          "commits": [
+            {
+              "id": "A"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ]
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ],
+              "msg": "update",
+              "ghost": true
+            },
+            {
+              "id": "C2",
+              "parents": [
+                "B"
+              ],
+              "msg": "Add warmup to learning-rate schedule"
+            }
+          ],
+          "branches": {
+            "main": "C2"
+          },
+          "head": "main"
+        },
+        {
+          "type": "callout",
+          "kind": "warn",
+          "title": "Only before pushing",
+          "text": "An amended commit has a new ID. If the original was already pushed, your branch and the remote now disagree about history, and your next push is rejected. On a branch other people use, do not amend pushed commits. Make a new commit with the fix."
+        },
+        {
+          "type": "reveal",
+          "prompt": "You amend a commit that you pushed ten minutes ago, then run `git push`. What happens, and why?",
+          "answer": "The push is rejected. Amending replaced your local commit with a new one that has a different ID, so the remote holds a commit your branch no longer contains. Git treats that as the remote having work you lack. Pulling would merge the old and new versions into a confusing duplicate. On a shared branch, the clean way out is to leave pushed commits alone and add a follow-up commit."
+        }
+      ]
+    },
+    {
+      "heading": "Undo three: revert a pushed commit",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "A commit is on GitHub, others may have pulled it, and it has to go. `git revert` leaves that commit where it is and adds a new commit that applies the exact opposite change."
+        },
+        {
+          "type": "code",
+          "lang": "bash",
+          "code": "git log --oneline -5      # find the ID of the bad commit, for example 3f2a9c1\ngit revert 3f2a9c1        # opens an editor with a prepared message\ngit push                  # an ordinary push, no force needed"
+        },
+        {
+          "type": "graph",
+          "caption": "Revert adds R, which undoes B's changes. B stays in the history, so everyone's clones still agree.",
+          "commits": [
+            {
+              "id": "A"
+            },
+            {
+              "id": "B",
+              "parents": [
+                "A"
+              ],
+              "msg": "Change data split"
+            },
+            {
+              "id": "C",
+              "parents": [
+                "B"
+              ],
+              "msg": "Add logging"
+            },
+            {
+              "id": "R",
+              "parents": [
+                "C"
+              ],
+              "msg": "Revert \"Change data split\""
+            }
+          ],
+          "branches": {
+            "main": "R"
+          },
+          "head": "main",
+          "highlight": [
+            "B",
+            "R"
+          ]
+        },
+        {
+          "type": "p",
+          "text": "On GitHub, a merged pull request has a **Revert** button. It opens a new pull request that reverses the merge, and that pull request goes through review and checks like any other change."
+        },
+        {
+          "type": "callout",
+          "kind": "law",
+          "title": "Correct the record, do not erase it",
+          "text": "A revert is the version-control form of an amended filing. The original entry stays, and a later entry supersedes it with a stated reason. Write that reason in the revert's message. An auditor, a co-author, or you in a year can then see what was wrong, when it was noticed, and when it was corrected."
+        }
+      ]
+    },
+    {
+      "heading": "The one that bites: discarding edits",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "`git restore <file>` without `--staged` overwrites the file in your working tree with the last staged or committed version. Edits that were never committed are gone. Git never had a copy, so no Git command can bring them back."
+        },
+        {
+          "type": "compare",
+          "items": [
+            {
+              "title": "`git restore --staged <file>`",
+              "points": [
+                "Removes the file's changes from the next commit",
+                "Leaves your edits on disk",
+                "Safe in every case"
+              ]
+            },
+            {
+              "title": "`git restore <file>`",
+              "points": [
+                "Replaces the file on disk with the committed version",
+                "Deletes uncommitted edits to that file",
+                "Cannot be undone by Git"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "callout",
+          "kind": "danger",
+          "title": "Look before you discard",
+          "text": "Run `git diff <file>` first and read what you are about to throw away. Editors label this action **Discard Changes** and ask for confirmation for the same reason. If there is any doubt, commit the work on a scratch branch. A commit you turn out not to need costs nothing."
+        }
+      ]
+    },
+    {
+      "heading": "The rule underneath all three",
+      "blocks": [
+        {
+          "type": "p",
+          "text": "**Do not rewrite history that other people already have.** Unstage freely. Amend only what is still local. Once a commit is pushed to a shared branch, move forward with a new commit, which is what revert does."
+        },
+        {
+          "type": "p",
+          "text": "The reassuring half of the rule: work you committed is very hard to lose. Even a commit left behind by an amend stays in the repository for weeks and can be recovered. The tools for that, `reset`, `stash` and the reflog, are in [the full undo toolkit](#intermediate-undo-toolkit)."
+        },
+        {
+          "type": "callout",
+          "kind": "a11y",
+          "title": "Reduce the cost of a slip",
+          "text": "The safe undo and the destructive one differ by a single flag. That is hard on anyone working with low vision, a tremor, dictation or divided attention. Define an alias such as `git config --global alias.unstage \"restore --staged\"` so the safe action has its own distinct name, and prefer an editor's labeled buttons, with their confirmation prompts, for the destructive one."
+        }
+      ]
+    }
+  ],
+  "howto": [
+    {
+      "task": "Take a file out of the next commit",
+      "browser": [
+        "The web editor commits one change at a time and has no staging area, so there is nothing to unstage.",
+        "In github.dev, opened by pressing {{.}}, use the Source Control view and select the minus icon beside a file under **Staged Changes**."
+      ],
+      "phone": [
+        "GitHub Mobile commits each edit directly and has no staging area.",
+        "If you committed something on the phone by mistake, reverse it with a revert, described in the third task."
+      ],
+      "cli": [
+        "`git status` to see what is staged.",
+        "`git restore --staged path/to/file` to unstage one file.",
+        "`git restore --staged .` to unstage everything.",
+        "`git status` again to confirm the file moved out of the staged list. Your edits are untouched."
+      ],
+      "editor": [
+        "In VS Code's Source Control view, find the file under **Staged Changes**.",
+        "Select the minus icon beside it. The file moves back to **Changes**.",
+        "To unstage everything, use the minus icon on the **Staged Changes** heading.",
+        "If a coding agent staged files for you, review the staged list and unstage anything outside the task before committing."
+      ]
+    },
+    {
+      "task": "Fix the last commit before pushing",
+      "browser": [
+        "Commits made on github.com are on the remote at once, so there is no unpushed state to amend.",
+        "For a wrong message or wrong content, make a follow-up commit, or revert as shown in the third task."
+      ],
+      "phone": [
+        "Phone commits also land directly on the remote, so amending is not available.",
+        "Make a follow-up commit with the correction."
+      ],
+      "cli": [
+        "`git status` and confirm that your branch is ahead of the remote. That means the commit has not been pushed.",
+        "To change the message: `git commit --amend -m \"Better message\"`.",
+        "To add a forgotten file: `git add <file>`, then `git commit --amend --no-edit`.",
+        "`git log --oneline -2` to confirm that one corrected commit sits where the old one was."
+      ],
+      "editor": [
+        "In VS Code's Source Control view, stage any forgotten file.",
+        "Open the menu on the **Commit** button and choose **Commit (Amend)**.",
+        "Edit the message if needed and confirm.",
+        "Check the sync indicator in the status bar. If it shows commits to pull right after an amend, the original was already pushed. Stop and ask before forcing anything."
+      ]
+    },
+    {
+      "task": "Reverse a commit that is already on GitHub",
+      "browser": [
+        "For a merged pull request, open it and select **Revert** near the bottom of the **Conversation** tab.",
+        "GitHub creates a branch with the reversing commit and opens a new pull request. Add the reason to its description.",
+        "Merge the revert pull request once the checks pass.",
+        "For a single commit that did not come from a pull request, use the command line or an editor. The website has no revert button for individual commits."
+      ],
+      "phone": [
+        "Open the merged pull request in your phone's browser at github.com and select **Revert**. GitHub Mobile may not show this button as of this writing.",
+        "Complete the new pull request that GitHub opens, including the reason.",
+        "Merge it once the checks pass, from the browser or the app."
+      ],
+      "cli": [
+        "`git switch main` and `git pull`, so you revert against current history.",
+        "`git log --oneline -10` to find the commit's ID.",
+        "`git revert <commit-id>` and save the prepared message, adding the reason.",
+        "`git push` to publish the revert.",
+        "On a team, do this on a branch and open a pull request for the revert."
+      ],
+      "editor": [
+        "In VS Code, open the built-in terminal and run `git revert <commit-id>`. The message opens in an editor tab. Save and close it.",
+        "With the GitHub Pull Requests extension, you can also open the merged pull request and follow its link to github.com to use **Revert**.",
+        "Sync to push the revert.",
+        "If you ask a coding agent to undo a change, tell it to use `git revert`. Check that it did not use `reset` and a force push on a shared branch."
+      ]
+    }
+  ],
+  "pitfalls": [
+    {
+      "trap": "Running `git restore <file>` when you meant `git restore --staged <file>`. The first deletes your edits.",
+      "fix": "Say the goal out loud: unstage, or discard. Check with `git diff <file>` before discarding. Consider an `unstage` alias."
+    },
+    {
+      "trap": "Amending a commit that was already pushed, then forcing the push on a shared branch.",
+      "fix": "Leave pushed commits alone. Add a correcting commit or a revert."
+    },
+    {
+      "trap": "Deleting the folder and cloning again to escape a confusing state. Uncommitted and unpushed work goes with it.",
+      "fix": "Run `git status` and read its hints. Commit what you have to a scratch branch before trying anything drastic."
+    },
+    {
+      "trap": "Expecting a revert to erase a secret from history. The original commit, with the secret in it, is still there.",
+      "fix": "Treat a pushed secret as compromised and replace it. See [the Security tab](#advanced-security-features) and [Incident response](#expert-incident-response)."
+    }
+  ],
+  "lab": "lab-safe-undo",
+  "quiz": [
+    {
+      "q": "You staged `debug.ipynb` by accident and want to keep working on it without committing it. Which command?",
+      "choices": [
+        "`git restore debug.ipynb`",
+        "`git restore --staged debug.ipynb`",
+        "`git revert debug.ipynb`",
+        "`git commit --amend`"
+      ],
+      "answer": 1,
+      "why": "`--staged` touches the staging area only, so the notebook stays on disk with your edits. Without the flag, `git restore` overwrites the file with the committed version and the edits are gone. Revert operates on whole commits and does not take a file name."
+    },
+    {
+      "q": "When is `git commit --amend` safe?",
+      "choices": [
+        "Any time, because it only changes the message",
+        "Only on the default branch",
+        "When the commit has not been pushed, or the branch is yours alone",
+        "Only when the working tree is clean"
+      ],
+      "answer": 2,
+      "why": "Amending replaces the commit with a new one that has a different ID. That is harmless while the commit exists only on your machine. Once others have the original, replacing it makes their history disagree with yours."
+    },
+    {
+      "q": "What does `git revert 3f2a9c1` do?",
+      "choices": [
+        "Adds a new commit that applies the opposite of commit 3f2a9c1",
+        "Deletes commit 3f2a9c1 from history",
+        "Moves the branch back to commit 3f2a9c1",
+        "Restores every file to its state in commit 3f2a9c1"
+      ],
+      "answer": 0,
+      "why": "Revert records an inverse change as a new commit and leaves history intact, which is why it is safe on shared branches. It does not delete the original, and it reverses that one commit's changes only. Later commits are untouched."
+    },
+    {
+      "q": "Which of these can permanently destroy work?",
+      "choices": [
+        "`git restore --staged train.py`",
+        "`git revert HEAD`",
+        "`git commit --amend --no-edit`",
+        "`git restore train.py`, when the file has uncommitted edits"
+      ],
+      "answer": 3,
+      "why": "Plain `git restore` overwrites the working-tree file with the committed version, and Git never stored the discarded edits. The other three leave everything recoverable: unstaging keeps your edits, revert adds a commit, and an amended commit's predecessor stays in the repository for a while."
+    },
+    {
+      "q": "A merged pull request broke `main`. What does the **Revert** button on that pull request do?",
+      "choices": [
+        "Deletes the pull request and its commits",
+        "Opens a new pull request that reverses the merge",
+        "Force-pushes `main` back to the previous commit",
+        "Reopens the original pull request"
+      ],
+      "answer": 1,
+      "why": "GitHub prepares a branch with a reversing commit and opens a pull request for it. Nothing is deleted or force-pushed. The revert is reviewed and merged like any change, and the history shows both the mistake and the correction."
+    }
+  ],
+  "mission": {
+    "title": "Use all three undos once, on purpose",
+    "where": "Your own repository, on a practice branch.",
+    "steps": [
+      "Create a branch `practice/undo`. Add two files, `keep.md` and `oops.md`, and run `git add .`.",
+      "Unstage `oops.md` with `git restore --staged`. Confirm with `git status` that it is still on disk.",
+      "Commit `keep.md` with the message `update`. Then amend the message to something specific.",
+      "Commit `oops.md` separately and push the branch.",
+      "Revert the `oops.md` commit and push. Read the result with `git log --oneline -4`.",
+      "On GitHub, open the branch's commit list and confirm that the revert appears as its own commit with a reason.",
+      "Delete the practice branch when you are done."
+    ]
+  },
+  "terms": [
+    {
+      "term": "unstage",
+      "def": "To remove a change from the staging area so it is left out of the next commit. The edit itself stays in the working tree."
+    },
+    {
+      "term": "amend",
+      "def": "To replace the most recent commit with a corrected one. The replacement has a new ID."
+    },
+    {
+      "term": "revert",
+      "def": "To add a new commit that applies the opposite of an earlier commit's changes, leaving the earlier commit in history."
+    },
+    {
+      "term": "discard",
+      "def": "To overwrite uncommitted edits in the working tree with the last committed version. Git keeps no copy of what was discarded."
+    },
+    {
+      "term": "rewriting history",
+      "def": "Any operation that replaces existing commits with new ones, such as amending. Harmless on work only you have, disruptive on shared branches."
+    },
+    {
+      "term": "shared history",
+      "def": "Commits that have been pushed to a branch other people use. Treat them as permanent."
+    }
+  ],
+  "commands": [
+    {
+      "cmd": "git restore --staged <file>",
+      "does": "Unstages a file. Your edits stay in the working tree.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git restore <file>",
+      "does": "Discards uncommitted edits to a file by restoring the last committed version. Cannot be undone.",
+      "kind": "git",
+      "risk": "danger"
+    },
+    {
+      "cmd": "git commit --amend -m \"New message\"",
+      "does": "Replaces the last commit's message. Use only before pushing.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git commit --amend --no-edit",
+      "does": "Adds the currently staged changes to the last commit and keeps its message.",
+      "kind": "git",
+      "risk": "caution"
+    },
+    {
+      "cmd": "git revert <commit>",
+      "does": "Creates a new commit that reverses the named commit. Safe on shared branches.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git diff <file>",
+      "does": "Shows the uncommitted edits in a file, so you can see what a discard would destroy.",
+      "kind": "git",
+      "risk": "safe"
+    },
+    {
+      "cmd": "git config --global alias.unstage \"restore --staged\"",
+      "does": "Defines `git unstage <file>` as a distinct name for the safe unstage action.",
+      "kind": "git",
+      "risk": "safe"
+    }
+  ],
+  "links": [
+    {
+      "label": "Pro Git: Undoing Things",
+      "url": "https://git-scm.com/book/en/v2/Git-Basics-Undoing-Things"
+    },
+    {
+      "label": "Git reference: git-restore",
+      "url": "https://git-scm.com/docs/git-restore"
+    },
+    {
+      "label": "Git reference: git-revert",
+      "url": "https://git-scm.com/docs/git-revert"
+    },
+    {
+      "label": "GitHub Docs: Reverting a pull request",
+      "url": "https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/incorporating-changes-from-a-pull-request/reverting-a-pull-request"
+    },
+    {
+      "label": "GitHub Docs: Changing a commit message",
+      "url": "https://docs.github.com/en/pull-requests/committing-changes-to-your-project/creating-and-editing-commits/changing-a-commit-message"
+    }
+  ]
+}
