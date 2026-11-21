@@ -154,12 +154,31 @@
       try { ref = db.doc('data/users/' + uid + '/progress'); } catch (e) { return null; }
       var writing = false, dirty = false;
 
+      // Flashcard ids are built from terms and commands, so they contain
+      // spaces, quotes and colons. Field names in the stored document stay
+      // plain by keeping the cards as a list of rows.
+      function pack(progress) {
+        var copy = JSON.parse(JSON.stringify(progress));
+        copy.cards = Object.keys(copy.cards || {}).map(function (id) {
+          var c = copy.cards[id];
+          return { id: id, box: c.box, due: c.due, seen: c.seen };
+        });
+        return copy;
+      }
+      function unpack(stored) {
+        var copy = JSON.parse(JSON.stringify(stored)), cards = {};
+        (Array.isArray(copy.cards) ? copy.cards : []).forEach(function (c) {
+          if (c && typeof c.id === 'string') cards[c.id] = { box: c.box || 0, due: c.due || 0, seen: c.seen || 0 };
+        });
+        copy.cards = cards;
+        return copy;
+      }
+
       function push() {
         if (writing) { dirty = true; return; }
         writing = true;
         dirty = false;
-        // the store wants a plain JSON object, so round-trip through JSON
-        ref.set({ v: 1, progress: JSON.parse(JSON.stringify(GG.store.progress())) }).then(function () {
+        ref.set({ v: 1, progress: pack(GG.store.progress()) }).then(function () {
           writing = false;
           platform.sync = 'on';
           if (dirty) push();
@@ -173,7 +192,7 @@
 
       return ref.get().then(function (snap) {
         var remote = snap.exists ? snap.data() : null;
-        if (remote && remote.progress) GG.store.mergeIn(remote.progress);
+        if (remote && remote.progress) GG.store.mergeIn(unpack(remote.progress));
         platform.sync = 'on';
         notify();
         // send up anything this device has that the account copy lacks

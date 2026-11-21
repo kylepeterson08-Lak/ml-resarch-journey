@@ -312,6 +312,7 @@
       onclick: function () {
         var on = GG.store.prefs().focus !== 'on';
         GG.store.setPref('focus', on ? 'on' : 'off');
+        GG.app.applyPrefs();
         focusBtn.setAttribute('aria-pressed', String(on));
       }
     }, GG.icon('eye'), 'Focus');

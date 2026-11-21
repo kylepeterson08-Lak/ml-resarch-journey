@@ -62,7 +62,8 @@
     attr('data-spacing', p.spacing === 'relaxed' ? 'relaxed' : null);
     attr('data-font', p.font === 'system' ? 'system' : null);
     attr('data-motion', p.motion === 'reduce' ? 'reduce' : null);
-    attr('data-focus', p.focus === 'on' ? 'on' : null);
+    // Focus mode hides the navigation, so it only applies while reading a lesson.
+    attr('data-focus', p.focus === 'on' && currentRoute && currentRoute.view === 'lesson' ? 'on' : null);
     Array.prototype.forEach.call(document.querySelectorAll('link[data-webfont]'), function (link) {
       link.disabled = p.font === 'system';
     });
@@ -160,6 +161,7 @@
       if (window.console) console.error(err);
     }
     GG.clear(main).appendChild(view);
+    applyPrefs();
     markNav();
     if (navigated) {
       window.scrollTo(0, 0);
