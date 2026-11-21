@@ -1,0 +1,88 @@
+# Builds, tests and publishes the GitHub guide that lives in github-guide/.
+#
+# Every push and pull request that touches the guide runs the "build" job:
+# validate the lesson files, build the site, run the tests. Only a push to
+# main continues to "deploy", which publishes the built site to GitHub Pages.
+#
+# One-time setup before the first deploy:
+#   Settings > Pages > Build and deployment > Source: GitHub Actions
+#
+# The lessons "Publishing: tags, releases and GitHub Pages" and
+# "GitHub Actions: workflows, jobs, steps, runners" walk through this file.
+
+name: Guide
+
+on:
+  push:
+    paths:
+      - "github-guide/**"
+      - ".github/workflows/guide.yml"
+  pull_request:
+    paths:
+      - "github-guide/**"
+      - ".github/workflows/guide.yml"
+  workflow_dispatch:
+
+# Start from read-only access. The deploy job asks for more, for itself only.
+permissions:
+  contents: read
+
+# A newer run on the same branch replaces an older one that is still going.
+# On main, a deploy that has started is allowed to finish.
+concurrency:
+  group: guide-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  build:
+    name: Validate, build, test
+    # A branch in this repository is already checked by its push. Run for
+    # pull requests only when they come from a fork, which has no push here.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+
+      - name: Validate the content and build the site
+        run: python github-guide/tools/build.py --strict --offline
+
+      - name: Run the Python tests
+        run: python -m unittest discover -s github-guide/tests -v
+
+      - name: Run the JavaScript tests
+        run: node --test github-guide/tests/*.test.js
+
+      - name: Upload the built site for Pages
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: github-guide/dist
+
+  deploy:
+    name: Publish to GitHub Pages
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write      # publish the site
+      id-token: write   # prove to Pages which workflow run built it
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy the uploaded site
+        id: deployment
+        uses: actions/deploy-pages@v5
