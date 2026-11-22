@@ -740,6 +740,176 @@
     "outro": "Recovery worked because the work was committed. Commit early, push often, and tag what you cite."
   },
   {
+    "id": "lab-keep-data-out",
+    "track": "intermediate",
+    "title": "Keep a checkpoint out of history",
+    "minutes": 12,
+    "intro": "A training run left a 150 MB checkpoint beside your code. You are about to commit it by accident, GitHub is about to refuse it, and the obvious fix is not going to work. Everything here is unpushed, which is what makes it repairable.",
+    "setup": [
+      "git init",
+      "echo \"print('train')\" > train.py",
+      "git add .",
+      "git commit -m \"Add training script\"",
+      "!origin",
+      "!bigfile path=checkpoints/model.pt size=150",
+      "echo \"run 1: loss 0.42\" > notes.md"
+    ],
+    "steps": [
+      {
+        "goal": "See what is in the folder",
+        "say": "`ls -lh` shows sizes. Look inside `checkpoints` too.",
+        "suggest": ["ls -lh", "ls -lh checkpoints", "git status"],
+        "check": {"ran": "^ls -lh checkpoints"},
+        "after": "A 150 MB checkpoint and a notes file, both untracked. Git will add whatever you tell it to."
+      },
+      {
+        "goal": "Make the common mistake",
+        "say": "`git add .` stages everything in sight. This is how large files get into history.",
+        "suggest": ["git add .", "git commit -m \"Add training outputs\""],
+        "check": {"minCommits": {"main": 2}, "clean": true},
+        "after": "Git accepted it without complaint. Git has no size limit of its own. The limit belongs to GitHub."
+      },
+      {
+        "goal": "Try to push",
+        "say": "GitHub checks every file in every commit it receives.",
+        "suggest": ["git push"],
+        "check": {"ran": "^git push", "differentCommit": ["main", "server/main"]},
+        "after": "Refused, with error GH001. Files over 100 MB are blocked. Nothing reached GitHub."
+      },
+      {
+        "goal": "Try the fix that does not work",
+        "say": "The tempting move is to stop tracking the file in a new commit and push again. Do it, and read the result.",
+        "suggest": ["git rm --cached checkpoints/model.pt", "git commit -m \"Remove checkpoint\"", "git push"],
+        "check": {"ran": "^git push", "untracked": ["checkpoints/model.pt"], "historyHasFile": {"ref": "main", "path": "checkpoints/model.pt"}},
+        "hint": "Run all three commands. The push is expected to fail again.",
+        "after": "Still refused. Your newest snapshot no longer has the file, but the commit before it does, and a push sends every commit. The file has to leave history, not only the latest snapshot."
+      },
+      {
+        "goal": "Rewrite the unpushed commits",
+        "say": "None of these commits has been pushed, so they are yours to redo. A soft reset moves the branch back to what GitHub has and keeps your files and your staging area as they are.",
+        "suggest": ["git reset --soft origin/main", "git status", "git commit -m \"Add run notes\""],
+        "check": {"not": {"historyHasFile": {"ref": "main", "path": "checkpoints/model.pt"}}, "headMessage": "^Add run notes", "minCommits": {"main": 2}},
+        "after": "One clean commit with the notes in it. The checkpoint is still on your disk and is no longer in any commit on this branch."
+      },
+      {
+        "goal": "Make it impossible next time",
+        "say": "A `.gitignore` file lists what Git should not offer to track. A trailing slash means a whole folder.",
+        "suggest": ["echo \"checkpoints/\" > .gitignore", "git status", "git add .gitignore", "git commit -m \"Ignore checkpoints\""],
+        "check": {"ignored": ["checkpoints/model.pt"], "clean": true, "minCommits": {"main": 3}},
+        "after": "`git status` stopped mentioning the checkpoint. The Files panel marks it ignored. Commit the `.gitignore` itself so collaborators get the same protection."
+      },
+      {
+        "goal": "Push",
+        "say": "History now holds nothing GitHub will refuse.",
+        "suggest": ["git push"],
+        "check": {"sameCommit": ["main", "server/main"]}
+      },
+      {
+        "goal": "Test the guard",
+        "say": "`git add .` now skips the folder silently. Naming an ignored file outright is an error, so you cannot add it by accident.",
+        "suggest": ["git add .", "git status", "git add checkpoints/model.pt"],
+        "check": {"ran": "^git add checkpoints", "clean": true},
+        "after": "Git refused and told you how to override it. For large files you do want versioned, the lesson covers Git LFS and data versioning tools."
+      }
+    ],
+    "outro": "Ignore first, commit second. And when something large does slip in, fix it before you push, while the commits are still yours alone."
+  },
+  {
+    "id": "lab-interactive-rebase",
+    "track": "advanced",
+    "title": "Tidy a branch before review",
+    "minutes": 14,
+    "intro": "Your branch `feature/eval` works, and its history is a mess: a commit named wip, a typo fix, and a debugging file that should never have been committed. You will reshape five commits into two with an interactive rebase, then use fixup commits so Git does the arranging.",
+    "setup": [
+      "git init",
+      "printf \"# Project\\n\" > README.md",
+      "echo \"print('train')\" > train.py",
+      "git add .",
+      "git commit -m \"Add training script\"",
+      "!origin",
+      "git switch -c feature/eval",
+      "printf \"def evaluate():\\n    return 0\\n\" > eval.py",
+      "git add .",
+      "git commit -m \"Add eval script\"",
+      "printf \"def evaluate():\\n    return accuracy()\\n\" > eval.py",
+      "git commit -am \"wip\"",
+      "printf \"# Project\\n\\n## Metrics\\n\\nAccuracy on the validation split.\\n\" > README.md",
+      "git commit -am \"Add metrics section to README\"",
+      "printf \"def evaluate():\\n    return accuracy(split='val')\\n\" > eval.py",
+      "git commit -am \"fix typo\"",
+      "echo \"debug: batch shapes\" > debug.txt",
+      "git add .",
+      "git commit -m \"debug print\"",
+      "git push -u origin feature/eval"
+    ],
+    "steps": [
+      {
+        "goal": "Read the branch as a reviewer would",
+        "say": "`main..HEAD` lists the commits your branch adds on top of main.",
+        "suggest": ["git log --oneline main..HEAD"],
+        "check": {"ran": "^git log"},
+        "after": "Five commits. Two are noise, one is a file that should not exist, and a reviewer would have to read all of them."
+      },
+      {
+        "goal": "Open the rebase plan",
+        "say": "Interactive rebase lists every commit since `main`, oldest first, and lets you decide what happens to each. Nothing changes until you start it.",
+        "suggest": ["git rebase -i main"],
+        "check": {"rebasePlanOpen": true},
+        "after": "The plan editor is open below the terminal. In real Git this list opens in your text editor, one line per commit."
+      },
+      {
+        "goal": "Edit the plan, then start the rebase",
+        "say": "Fold `wip` and `fix typo` into `Add eval script` with **fixup**, moving `fix typo` up so it sits directly under them. **Reword** the README commit to say what it does. **Drop** the debug commit. Then select **Start rebase**.",
+        "suggest": [],
+        "plan": [
+          {"pick": "Add eval script"},
+          {"fixup": "wip"},
+          {"fixup": "fix typo"},
+          {"reword": "Add metrics section to README", "message": "Document evaluation metrics"},
+          {"drop": "debug print"}
+        ],
+        "check": {"rebasePlanOpen": false, "rebasing": false, "exactCommits": {"feature/eval": 3}, "headMessage": "^Document evaluation metrics", "fileMissing": "debug.txt", "fileContains": {"path": "eval.py", "text": "split='val'"}},
+        "hint": "The plan editor has a button that fills in this arrangement for you. The order matters: a fixup folds into the commit on the line above it.",
+        "after": "Two commits where there were five. Each has a new id, because each was rebuilt. The old five are dashed in the graph: unreachable, and still in the reflog if you need them."
+      },
+      {
+        "goal": "Check the result",
+        "say": "The first commit now contains the finished eval script, with the typo fix already inside it.",
+        "suggest": ["git log --oneline main..HEAD", "git show HEAD~1"],
+        "check": {"ran": "^git show"}
+      },
+      {
+        "goal": "Update the branch on GitHub",
+        "say": "You rewrote commits GitHub already has, so a plain push would be rejected. `--force-with-lease` overwrites the remote branch only if nobody else has pushed to it since you last looked.",
+        "suggest": ["git push --force-with-lease"],
+        "check": {"sameCommit": ["feature/eval", "server/feature/eval"]}
+      },
+      {
+        "goal": "Record a small fix the tidy way",
+        "say": "A reviewer asks for a comment in the eval script. Instead of a commit called fix, mark it as a fixup of the commit it belongs to. `HEAD~1` is the eval commit.",
+        "suggest": ["echo \"# evaluate on the validation split\" >> eval.py", "git commit -a --fixup HEAD~1"],
+        "check": {"headMessage": "^fixup! Add eval script"},
+        "after": "The message was written for you: `fixup!` followed by the subject of the commit it should join."
+      },
+      {
+        "goal": "Let Git arrange the plan",
+        "say": "`--autosquash` reads those `fixup!` markers and moves each one under its target, already set to fixup. Open the plan, see that it is arranged, and start it.",
+        "suggest": ["git rebase -i --autosquash main"],
+        "plan": "default",
+        "check": {"rebasePlanOpen": false, "rebasing": false, "exactCommits": {"feature/eval": 3}, "fileContains": {"path": "eval.py", "text": "validation split"}, "not": {"reachable": {"ref": "HEAD", "message": "^fixup!"}}},
+        "hint": "Run the command, then select Start rebase without changing anything.",
+        "after": "Still two commits, and the first one now includes the comment. This is how careful teams answer review feedback without cluttering history."
+      },
+      {
+        "goal": "Publish the final shape",
+        "say": "Same reason as before: the commits were rebuilt, so the remote branch needs a forced update, with the lease as your safety check.",
+        "suggest": ["git push --force-with-lease"],
+        "check": {"sameCommit": ["feature/eval", "server/feature/eval"]}
+      }
+    ],
+    "outro": "Rewrite freely while a branch is yours alone. Once someone else builds on it, its history is a shared record, and you correct it by adding commits."
+  },
+  {
     "id": "lab-playground",
     "track": "basics",
     "title": "Free play",

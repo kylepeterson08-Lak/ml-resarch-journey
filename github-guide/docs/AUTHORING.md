@@ -71,6 +71,7 @@ No raw HTML. Wrap literal angle brackets in backticks: `` `<file>` ``.
 | `howto` | 1 to 3 tasks, each with steps for all four tools. |
 | `pitfalls` | 2 to 6 `{trap, fix}` pairs. |
 | `lab` | Optional. An id from `labs.json`. |
+| `moreLabs` | Optional. More lab ids, shown after the main one. |
 | `quiz` | 3 to 6 questions. |
 | `mission` | `title`, optional `where`, and 3 to 7 `steps`. |
 | `terms` | 3 to 8 `{term, def}` pairs. These build the glossary and flashcards. |
@@ -205,3 +206,21 @@ explanation, `suggest` (commands that complete the step, shown as tap
 targets), a `check` the simulator evaluates, and optional `hint` and `after`.
 The test suite replays every lab's suggested commands and fails if any check
 does not pass, so a lab cannot ship broken. See `tests/gitsim.test.js`.
+
+Three more step fields:
+
+- `before`: commands run silently when the step begins. Use it for events
+  the learner does not cause, such as a teammate pushing.
+- `plan`: for a step finished in the interactive-rebase plan editor. Either
+  `"default"` (start the plan as Git arranged it) or a list such as
+  `[{"pick": "Add eval"}, {"fixup": "wip"}, {"reword": "Add docs", "message": "Document the API"}, {"drop": "debug"}]`.
+  Each value is the start of a commit subject. The editor offers the plan as
+  a one-tap fill, and the tests apply it.
+- A step with a `plan` may leave `suggest` empty.
+
+Setup lines that start with `!` are stage directions, never shown to the
+learner: `!origin` creates the remote, `!teammate` pushes a commit to it,
+and `!bigfile path=... size=150` creates a file of a stated size in megabytes.
+
+The `check` vocabulary is the list `LAB_CHECKS` in `tools/validate.py`. Each
+name is implemented in `evaluate()` in `src/js/gitsim.js`.

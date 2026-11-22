@@ -29,9 +29,24 @@
     lessonForLab: function (labId) {
       for (var i = 0; i < GG.app.order.length; i++) {
         var l = GG.data.lessons[GG.app.order[i]];
-        if (l.lab === labId) return l;
+        if (l.lab === labId || (l.moreLabs || []).indexOf(labId) !== -1) return l;
       }
       return null;
+    },
+    narrow: function () { return window.matchMedia('(max-width: 46rem)').matches; },
+    lensFor: function (lessonId) {
+      return GG.progress.resolveLens(GG.store.prefs().lens, GG.app.order.indexOf(lessonId));
+    },
+    toolNow: function () {
+      return GG.progress.resolveTool(GG.store.prefs().tool, GG.app.narrow());
+    },
+    modeFor: function (lesson) {
+      var progress = GG.store.progress(), placed = progress.placement && tracksById[progress.placement.track];
+      return GG.progress.resolveMode(GG.store.prefs().mode, {
+        done: !!(progress.lessons[lesson.id] || {}).done,
+        trackIndex: GG.data.tracks.indexOf(tracksById[lesson.track]),
+        placedIndex: placed ? GG.data.tracks.indexOf(placed) : null
+      });
     },
     go: function (route) { window.location.hash = route; },
     rerender: function () { render(false); },

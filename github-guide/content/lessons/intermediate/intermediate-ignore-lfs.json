@@ -308,6 +308,7 @@
       "fix": "Commit `.gitattributes` in the same commit as the first tracked file."
     }
   ],
+  "lab": "lab-keep-data-out",
   "quiz": [
     {
       "q": "`results.csv` is tracked. You add `results.csv` to `.gitignore` and commit. What happens to future changes to the file?",

@@ -12,7 +12,15 @@
   var GG = window.GG, h = GG.h;
   GG.views = GG.views || {};
 
-  var STATE_LABEL = { clean: 'clean', modified: 'modified', staged: 'staged', untracked: 'untracked', conflict: 'conflict' };
+  var STATE_LABEL = { clean: 'clean', modified: 'modified', staged: 'staged', untracked: 'untracked', conflict: 'conflict', ignored: 'ignored' };
+
+  var PLAN_HELP = [
+    ['pick', 'keep the commit as it is'],
+    ['reword', 'keep it, with a new message'],
+    ['squash', 'fold it into the line above and keep both messages'],
+    ['fixup', 'fold it into the line above and keep that line\u2019s message'],
+    ['drop', 'leave the commit out']
+  ];
 
   GG.views.lab = function (labId) {
     var lab = GG.app.lab(labId), sim, stepIndex, ranThisStep, lastAfter, finished, history = [], historyAt = 0;
@@ -40,6 +48,8 @@
     });
     var filesBox = h('div.stack');
     var editorBox = h('div.stack');
+    var planBox = h('section.plan.card.stack', { hidden: true, 'aria-label': 'Rebase plan editor' });
+    var planRows = [], planFor = null;
 
     function print(text, cls) {
       if (!text) return;
@@ -102,6 +112,85 @@
       } }, h('label.vh', { for: nameId }, 'New file name'), name, h('button.btn.sm', { type: 'submit' }, 'New file')));
     }
 
+    /**
+     * The rebase plan editor. Real Git opens this list as text in your
+     * editor: one line per commit, a verb at the start of each line.
+     */
+    function paintPlan(focusRow) {
+      var plan = sim.todoPlan;
+      planBox.hidden = !plan;
+      GG.clear(planBox);
+      if (!plan) { planFor = null; return; }
+      if (planFor !== plan) {
+        planFor = plan;
+        planRows = plan.items.map(function (i) { return { sha: i.sha, action: i.action, message: i.message }; });
+      }
+      var alert = h('p.small', { role: 'alert', style: 'color:var(--bad)' });
+      var step = !lab.free && !finished ? lab.steps[stepIndex] : null;
+      function move(from, to) {
+        var row = planRows.splice(from, 1)[0];
+        planRows.splice(to, 0, row);
+        GG.toast('Moved \u201c' + sim.subject(row.sha) + '\u201d to line ' + (to + 1));
+        paintPlan(to);
+      }
+      var list = h('ol.plan-rows', null, planRows.map(function (row, n) {
+        var subject = sim.subject(row.sha), short = sim.short(row.sha);
+        var label = 'line ' + (n + 1) + ', ' + subject;
+        var messageId = GG.uid('pm');
+        var message = h('input.mono', {
+          id: messageId, type: 'text', 'aria-label': 'New message for ' + label, autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false',
+          hidden: row.action !== 'reword' || null,
+          oninput: function (e) { row.message = e.target.value; }
+        });
+        message.value = row.message.split('\n')[0];
+        var text = h('span.plan-subject', { hidden: row.action === 'reword' || null }, subject);
+        var select = h('select', {
+          'aria-label': 'Action for ' + label,
+          onchange: function (e) {
+            row.action = e.target.value;
+            message.hidden = row.action !== 'reword';
+            text.hidden = row.action === 'reword';
+            item.setAttribute('data-action', row.action);
+            if (row.action === 'reword') message.focus();
+          }
+        }, PLAN_HELP.map(function (a) { return h('option', { value: a[0], selected: a[0] === row.action || null }, a[0]); }));
+        var up = h('button.icon-btn', { type: 'button', 'aria-label': 'Move up: ' + label, disabled: n === 0 || null, onclick: function () { move(n, n - 1); } }, GG.icon('left'));
+        var down = h('button.icon-btn', { type: 'button', 'aria-label': 'Move down: ' + label, disabled: n === planRows.length - 1 || null, onclick: function () { move(n, n + 1); } }, GG.icon('right'));
+        var item = h('li', { 'data-action': row.action }, select, h('span.mono.xs.muted', null, short), text, message, h('span.plan-move', null, up, down));
+        return item;
+      }));
+      planBox.appendChild(h('div', null,
+        h('h2', { style: 'font-size:var(--t-m)' }, 'Rebase plan'),
+        h('p.small.muted', null, 'Oldest commit first. Git replays them from the top down, doing what each line says.')));
+      planBox.appendChild(list);
+      planBox.appendChild(h('dl.plan-help.xs.muted', null, PLAN_HELP.map(function (a) { return [h('dt.mono', null, a[0]), h('dd', null, a[1])]; })));
+      planBox.appendChild(alert);
+      planBox.appendChild(h('div.row', null,
+        h('button.btn.primary', { type: 'button', onclick: function () {
+          var res;
+          try { res = sim.startPlan(planRows); }
+          catch (e) { alert.textContent = e.message; return; }
+          print('(started the rebase from the plan editor)', 'note');
+          print(typeof res === 'string' ? res : res.out, typeof res === 'string' || !res.err ? 'out' : 'err');
+          ranThisStep.push('(start rebase plan)');
+          afterAction();
+          input.focus();
+        } }, GG.icon('play'), 'Start rebase'),
+        h('button.btn', { type: 'button', onclick: function () {
+          print(sim.cancelPlan(), 'note');
+          afterAction();
+        } }, 'Cancel'),
+        step && step.plan && step.plan !== 'default' ? h('button.btn.quiet', { type: 'button', onclick: function () {
+          try { planRows = sim.planFromSpec(step.plan); } catch (e) { alert.textContent = e.message; return; }
+          GG.toast('Plan filled in. Read it, then start the rebase.');
+          paintPlan();
+        } }, 'Fill in the suggested plan') : null));
+      if (typeof focusRow === 'number') {
+        var rows = list.querySelectorAll('li');
+        if (rows[focusRow]) rows[focusRow].querySelector('select').focus();
+      }
+    }
+
     function paintStep() {
       GG.clear(stepBox);
       if (lab.free) {
@@ -132,11 +221,18 @@
       var hintBox = h('p.small', { hidden: true }, GG.inline(step.hint || 'Try the first suggested command below.'));
       stepBox.appendChild(h('h2', null, GG.inline(step.goal)));
       stepBox.appendChild(h('p', null, GG.inline(step.say)));
-      stepBox.appendChild(h('div.stack', null,
-        h('span.xs.muted', null, 'Tap to run, or type it yourself for practice'),
-        h('div.suggest', null, step.suggest.map(function (cmd) {
-          return h('button.chip.cmd', { type: 'button', onclick: function () { runCommand(cmd); } }, cmd);
-        }))));
+      if (step.suggest.length) {
+        stepBox.appendChild(h('div.stack', null,
+          h('span.xs.muted', null, 'Tap to run, or type it yourself for practice'),
+          h('div.suggest', null, step.suggest.map(function (cmd) {
+            return h('button.chip.cmd', { type: 'button', onclick: function () { runCommand(cmd); } }, cmd);
+          }))));
+      }
+      if (step.plan) {
+        stepBox.appendChild(h('p.small.muted', null, step.suggest.length
+          ? 'The command opens the plan editor. Finish the step there.'
+          : 'Work in the plan editor, which is open below.'));
+      }
       stepBox.appendChild(h('div', null, h('button.btn.quiet.sm', { type: 'button', 'aria-expanded': 'false', onclick: function (e) {
         hintBox.hidden = !hintBox.hidden;
         e.currentTarget.setAttribute('aria-expanded', String(!hintBox.hidden));
@@ -171,6 +267,7 @@
       paintGraphs();
       paintFiles();
       checkStep();
+      paintPlan();
     }
 
     function runCommand(line) {
@@ -200,6 +297,7 @@
       paintStep();
       paintGraphs();
       paintFiles();
+      paintPlan();
     }
 
     var picker = h('select', { id: 'lab-pick', onchange: function (e) { GG.app.go(e.target.value); } },
@@ -221,6 +319,7 @@
           lesson ? h('a.btn.quiet', { href: '#' + lesson.id }, GG.icon('book'), 'Lesson') : null)),
       h('div.lab', null,
         stepBox,
+        planBox,
         graphBox,
         h('section.term', { 'aria-label': 'Terminal' },
           out,

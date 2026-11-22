@@ -38,7 +38,7 @@ VERDICTS = {"best", "ok", "bad"}
 VISUAL_BLOCKS = {"graph", "flow", "compare", "table"}
 TOOL_ROUTES = {
     "home", "lab", "drills", "cards", "cheatsheet", "glossary",
-    "progress", "about", "placement",
+    "progress", "about", "placement", "workflow",
 }
 # Hosts we are willing to send a learner to. Anything else is a warning so a
 # human looks at it.
@@ -61,8 +61,9 @@ LAB_CHECKS = {
     "conflicts", "isAncestor", "sameCommit", "fileContains", "fileLacks",
     "fileExists", "fileMissing", "headMessage", "parents", "stash",
     "tagExists", "linear", "prOpen", "prMerged", "not", "differentCommit",
-    "reachable",
+    "reachable", "rebasePlanOpen", "exactCommits", "historyHasFile", "ignored",
 }
+PLAN_ACTIONS = {"pick", "reword", "squash", "fixup", "drop"}
 
 ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 LINK_RE = re.compile(r"\[([^\]\n]+)\]\(([^)\s]+)\)")
@@ -384,7 +385,7 @@ LESSON_REQUIRED = [
     "id", "track", "title", "minutes", "summary", "outcomes", "lenses",
     "sections", "howto", "pitfalls", "quiz", "mission", "terms", "commands", "links",
 ]
-LESSON_OPTIONAL = ["prereqs", "lab"]
+LESSON_OPTIONAL = ["prereqs", "lab", "moreLabs"]
 
 
 def lesson_word_count(lesson: dict) -> int:
@@ -514,9 +515,21 @@ def check_lesson(report: Report, rel: str, lesson: Any, ctx: dict) -> None:
             check_text(report, f"{pw}.trap", pit["trap"], routes, min_chars=15)
             check_text(report, f"{pw}.fix", pit["fix"], routes, min_chars=15)
 
-    # Lab reference.
+    # Lab references: one main lab, and optionally more.
     if "lab" in lesson and lesson["lab"] not in ctx["lab_ids"]:
         report.error(f"{rel}.lab", f"unknown lab '{lesson['lab']}'")
+    if "moreLabs" in lesson:
+        extra = lesson["moreLabs"]
+        if "lab" not in lesson:
+            report.error(f"{rel}.moreLabs", "give the lesson a main 'lab' before listing more")
+        if not isinstance(extra, list) or not extra:
+            report.error(f"{rel}.moreLabs", "expected a non-empty list of lab ids")
+        else:
+            for i, lab_id in enumerate(extra):
+                if lab_id not in ctx["lab_ids"]:
+                    report.error(f"{rel}.moreLabs[{i}]", f"unknown lab '{lab_id}'")
+                elif lab_id == lesson.get("lab"):
+                    report.error(f"{rel}.moreLabs[{i}]", "already the lesson's main lab")
 
     # Quiz.
     quiz = lesson.get("quiz")
@@ -667,12 +680,22 @@ def check_labs(report: Report, labs: Any, ctx: dict) -> None:
             continue
         for s, step in enumerate(steps):
             sw = f"{where}.steps[{s}]"
-            if not require_keys(report, sw, step, ["goal", "say", "suggest", "check"], ["hint", "after", "before"]):
+            if not require_keys(report, sw, step, ["goal", "say", "suggest", "check"], ["hint", "after", "before", "plan"]):
                 continue
             check_text(report, f"{sw}.goal", step["goal"], routes, max_chars=90)
             check_text(report, f"{sw}.say", step["say"], routes, min_chars=20)
-            if not isinstance(step["suggest"], list) or not step["suggest"]:
-                report.error(f"{sw}.suggest", "list at least one command that completes the step")
+            # A step is completed by commands, by a rebase plan, or by both.
+            if not isinstance(step["suggest"], list) or (not step["suggest"] and "plan" not in step):
+                report.error(f"{sw}.suggest", "list at least one command that completes the step, or give a rebase 'plan'")
+            if "plan" in step and step["plan"] != "default":
+                plan = step["plan"]
+                if not isinstance(plan, list) or not plan:
+                    report.error(f"{sw}.plan", "must be 'default' or a list of entries such as {\"fixup\": \"wip\"}")
+                else:
+                    for n, entry in enumerate(plan):
+                        actions = [k for k in entry if k in PLAN_ACTIONS] if isinstance(entry, dict) else []
+                        if len(actions) != 1 or set(entry) - PLAN_ACTIONS - {"message"}:
+                            report.error(f"{sw}.plan[{n}]", f"needs exactly one of {sorted(PLAN_ACTIONS)} and optionally 'message'")
             check_lab_check(report, f"{sw}.check", step["check"])
             for opt in ("hint", "after"):
                 if opt in step:
@@ -854,6 +877,7 @@ def load_all(report: Report, only: str | None = None) -> dict:
         if placement is not None:
             check_placement(report, placement, ctx)
         lab_used = {l.get("lab") for l in lessons.values() if l.get("lab")}
+        lab_used |= {lab_id for l in lessons.values() for lab_id in (l.get("moreLabs") or [])}
         for lab in labs if isinstance(labs, list) else []:
             lid = lab.get("id")
             if lid and lid not in lab_used and not lab.get("free") and lid != "lab-playground" and not lab.get("draft"):

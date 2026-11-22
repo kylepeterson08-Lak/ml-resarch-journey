@@ -462,6 +462,196 @@ test('evaluate understands the check vocabulary', () => {
   assert.equal(evaluate({ branchExists: ['main', 'feature'], branch: 'main' }, sim, []), true);
 });
 
+// ------------------------------------------------------- interactive rebase
+
+function messy() {
+  // main: A        feature: A - one - two - three - four
+  return repo('echo "base" > base.txt', 'git add .', 'git commit -m "A"', 'git switch -c feature',
+    'echo "1" > one.txt', 'git add .', 'git commit -m "one"',
+    'echo "2" > two.txt', 'git add .', 'git commit -m "two"',
+    'echo "1b" > one.txt', 'git commit -am "three: touch one again"',
+    'echo "junk" > junk.txt', 'git add .', 'git commit -m "four: junk"');
+}
+
+/** Commit subjects on the current branch that main does not have, newest first. */
+function subjects(sim) {
+  return sim.run('git log --oneline main..HEAD').out.split('\n').filter(Boolean)
+    .map(line => line.replace(/^[0-9a-f]+ (\([^)]*\) )?/, ''));
+}
+
+test('rebase -i opens a plan and changes nothing until it starts', () => {
+  const sim = messy(), before = sim.headSha();
+  ok(sim, 'git rebase -i main');
+  assert.equal(sim.todoPlan.items.length, 4);
+  assert.deepEqual(sim.todoPlan.items.map(i => i.action), ['pick', 'pick', 'pick', 'pick']);
+  assert.equal(sim.headSha(), before);
+  const blocked = sim.run('git commit --allow-empty -m "sneaky"');
+  assert.equal(blocked.err, true);
+  assert.match(blocked.out, /plan is open/);
+  ok(sim, 'git status', 'git log --oneline');
+  ok(sim, 'git rebase --abort');
+  assert.equal(sim.todoPlan, null);
+  assert.equal(sim.headSha(), before);
+});
+
+test('a plan can fixup, reword, drop and reorder in one pass', () => {
+  const sim = messy(), old = sim.headSha();
+  ok(sim, 'git rebase -i main');
+  const res = sim.startPlan(sim.planFromSpec([
+    { pick: 'one' }, { fixup: 'three' }, { reword: 'two', message: 'Add the second file' }, { drop: 'four' }
+  ]));
+  assert.match(res, /Successfully rebased/);
+  assert.deepEqual(subjects(sim), ['Add the second file', 'one']);
+  assert.equal(sim.work['one.txt'], '1b\n', 'the fixup folded the later edit into the first commit');
+  assert.equal('junk.txt' in sim.work, false, 'the dropped commit left nothing behind');
+  assert.equal(sim.currentBranch(), 'feature');
+  assert.equal(sim.status().clean, true);
+  assert.equal(sim.isAncestor(old, sim.headSha()), false, 'the old commits were replaced, not extended');
+  assert.match(sim.run('git reflog').out, /four: junk/, 'and they are still in the reflog');
+});
+
+test('squash joins the two messages; fixup keeps only the first', () => {
+  const sim = messy();
+  ok(sim, 'git rebase -i main');
+  sim.startPlan(sim.planFromSpec([{ pick: 'one' }, { squash: 'two' }, { pick: 'three' }, { pick: 'four' }]));
+  const first = sim.resolve('HEAD~2');
+  assert.equal(sim.commits[first].message, 'one\n\ntwo');
+  assert.equal(subjects(sim).length, 3);
+});
+
+test('the first commit you keep cannot be a fixup', () => {
+  const sim = messy();
+  ok(sim, 'git rebase -i main');
+  assert.throws(() => sim.startPlan(sim.planFromSpec([{ fixup: 'one' }, { pick: 'two' }, { pick: 'three' }, { pick: 'four' }])),
+    err => /without a previous commit/.test(err.message));
+  assert.notEqual(sim.todoPlan, null, 'a rejected plan stays open so it can be corrected');
+});
+
+test('a commit left out of the plan is dropped', () => {
+  const sim = messy();
+  ok(sim, 'git rebase -i main');
+  sim.startPlan(sim.planFromSpec([{ pick: 'one' }, { pick: 'two' }]));
+  assert.deepEqual(subjects(sim), ['two', 'one']);
+});
+
+test('commit --fixup and rebase --autosquash arrange the plan for you', () => {
+  const sim = repo('echo "base" > base.txt', 'git add .', 'git commit -m "A"', 'git switch -c feature',
+    'echo "1" > one.txt', 'git add .', 'git commit -m "Add one"',
+    'echo "2" > two.txt', 'git add .', 'git commit -m "Add two"',
+    'echo "1 fixed" > one.txt', 'git commit -a --fixup HEAD~1');
+  assert.equal(sim.subject(sim.headSha()), 'fixup! Add one');
+  ok(sim, 'git rebase -i --autosquash main');
+  assert.deepEqual(sim.todoPlan.items.map(i => [i.action, sim.subject(i.sha)]),
+    [['pick', 'Add one'], ['fixup', 'fixup! Add one'], ['pick', 'Add two']]);
+  sim.startPlan();
+  assert.deepEqual(subjects(sim), ['Add two', 'Add one']);
+  assert.equal(sim.work['one.txt'], '1 fixed\n');
+});
+
+test('a conflict inside a plan stops, and --continue carries on with the rest', () => {
+  const sim = repo('echo "orig" > f.txt', 'git add .', 'git commit -m "A"', 'git switch -c feature',
+    'echo "first" > f.txt', 'git commit -am "c1"',
+    'echo "second" > f.txt', 'git commit -am "c2"',
+    'echo "other" > g.txt', 'git add .', 'git commit -m "c3"');
+  ok(sim, 'git rebase -i main');
+  // dropping c1 makes c2 apply to text it was never written against
+  const res = sim.startPlan(sim.planFromSpec([{ drop: 'c1' }, { pick: 'c2' }, { fixup: 'c3' }]));
+  assert.equal(res.err, true);
+  assert.match(res.out, /CONFLICT/);
+  assert.equal(sim.pending.kind, 'rebase');
+  sim.writeFile('f.txt', 'second');
+  ok(sim, 'git add f.txt', 'git rebase --continue');
+  assert.equal(sim.pending, null);
+  assert.deepEqual(subjects(sim), ['c2'], 'c3 was folded into c2 after the conflict was settled');
+  assert.equal(sim.work['g.txt'], 'other\n');
+});
+
+// --------------------------------------------------------------- .gitignore
+
+function withIgnore() {
+  const sim = repo('echo "x" > a.txt', 'git add .', 'git commit -m "A"',
+    'echo "log" > logs/run.log', 'echo "w" > model.pt', 'echo "w" > keep.pt', 'echo "rows" > data/train.csv', 'echo "rows" > src/data/train.csv');
+  sim.writeFile('.gitignore', '# outputs\nlogs/\n*.pt\n!keep.pt\n/data/*.csv\n');
+  return sim;
+}
+
+test('.gitignore hides matching files from status and from git add .', () => {
+  const sim = withIgnore();
+  assert.deepEqual(sim.status().untracked, ['.gitignore', 'keep.pt', 'src/data/train.csv']);
+  assert.deepEqual(sim.status().ignored, ['data/train.csv', 'logs/run.log', 'model.pt']);
+  ok(sim, 'git add .');
+  assert.deepEqual(sim.status().staged.map(f => f.path), ['.gitignore', 'keep.pt', 'src/data/train.csv']);
+  assert.match(sim.run('git status --ignored').out, /Ignored files:[\s\S]*model\.pt/);
+});
+
+test('naming an ignored file is an error, and -f overrides it', () => {
+  const sim = withIgnore();
+  const res = sim.run('git add model.pt');
+  assert.equal(res.err, true);
+  assert.match(res.out, /ignored by one of your \.gitignore files/);
+  ok(sim, 'git add -f model.pt');
+  assert.ok(sim.status().staged.some(f => f.path === 'model.pt'));
+  assert.equal(sim.run('git check-ignore -v logs/run.log').out, '.gitignore:logs/\tlogs/run.log');
+  assert.equal(sim.run('git check-ignore keep.pt').err, true, 'a negated pattern re-includes the file');
+});
+
+test('a file that is already tracked stays tracked when a pattern matches it', () => {
+  const sim = repo('echo "w1" > model.pt', 'git add .', 'git commit -m "Oops"');
+  sim.writeFile('.gitignore', '*.pt\n');
+  ok(sim, 'echo "w2" > model.pt');
+  assert.deepEqual(sim.status().unstaged, [{ path: 'model.pt', kind: 'modified' }]);
+  ok(sim, 'git rm --cached model.pt', 'git add .gitignore', 'git commit -m "Stop tracking weights"');
+  assert.deepEqual(sim.status().ignored, ['model.pt'], 'after rm --cached the pattern takes effect');
+  assert.equal(sim.work['model.pt'], 'w2\n', 'and the file is still on disk');
+});
+
+test('ignored files survive branch switches, hard resets and git clean', () => {
+  const sim = repo('echo "x" > a.txt', 'git add .', 'git commit -m "A"');
+  sim.writeFile('.gitignore', '*.log\n');
+  ok(sim, 'git add .gitignore', 'git commit -m "Ignore logs"', 'echo "trace" > debug.log', 'echo "scratch" > scratch.txt',
+    'git switch -c other', 'git switch main', 'git reset --hard HEAD', 'git clean -f');
+  assert.equal(sim.work['debug.log'], 'trace\n');
+  assert.equal('scratch.txt' in sim.work, false, 'clean removes untracked files and leaves ignored ones');
+});
+
+// -------------------------------------------------------------- large files
+
+test('GitHub refuses a file over 100 MB, and a later commit that removes it does not help', () => {
+  const sim = withRemote();
+  ok(sim, 'truncate -s 150M model.pt', 'git add .', 'git commit -m "Add outputs"');
+  assert.match(sim.run('ls -lh').out, /150M\s+model\.pt/);
+  let res = sim.run('git push');
+  assert.equal(res.err, true);
+  assert.match(res.out, /GH001/);
+  assert.match(res.out, /model\.pt is 150\.00 MB/);
+
+  ok(sim, 'git rm --cached model.pt', 'git commit -m "Remove it"');
+  res = sim.run('git push');
+  assert.equal(res.err, true, 'the earlier commit still carries the file');
+
+  ok(sim, 'git reset --soft origin/main', 'git commit --allow-empty -m "Start again"', 'git push');
+  assert.equal(sim.remote.branches.main, sim.branches.main);
+});
+
+test('a file between 50 and 100 MB is pushed with a warning', () => {
+  const sim = withRemote();
+  ok(sim, 'truncate -s 60M data.bin', 'git add .', 'git commit -m "Add data"');
+  const res = ok(sim, 'git push');
+  assert.match(res.out, /recommended maximum file size of 50\.00 MB/);
+});
+
+test('the newer lab checks work', () => {
+  const sim = messy();
+  assert.equal(evaluate({ exactCommits: { feature: 5 }, rebasePlanOpen: false }, sim, []), true);
+  ok(sim, 'git rebase -i main');
+  assert.equal(evaluate({ rebasePlanOpen: true }, sim, []), true);
+  assert.equal(evaluate({ historyHasFile: { ref: 'feature', path: 'junk.txt' } }, sim, []), true);
+  assert.equal(evaluate({ historyHasFile: { ref: 'main', path: 'junk.txt' } }, sim, []), false);
+  const ig = withIgnore();
+  assert.equal(evaluate({ ignored: ['model.pt'] }, ig, []), true);
+  assert.equal(evaluate({ ignored: ['keep.pt'] }, ig, []), false);
+});
+
 // Every guided lab must be completable with its own suggested commands.
 const labs = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'labs.json'), 'utf8'));
 for (const lab of labs) {
@@ -480,8 +670,13 @@ for (const lab of labs) {
         ran.push(line);
         if (res.err) {
           // an error is fine only when the step is about seeing that error
-          assert.ok(/CONFLICT|rejected|would be overwritten|not fully merged/.test(res.out), `step ${n + 1}: "${line}" failed unexpectedly:\n${res.out}`);
+          assert.ok(/CONFLICT|rejected|would be overwritten|not fully merged|ignored by one of/.test(res.out), `step ${n + 1}: "${line}" failed unexpectedly:\n${res.out}`);
         }
+      }
+      if (step.plan) {
+        // a step may be completed in the rebase plan editor: apply the lab's suggested plan
+        const res = sim.startPlan(sim.planFromSpec(step.plan));
+        assert.ok(typeof res === 'string', `step ${n + 1}: the suggested rebase plan did not finish cleanly:\n${res.out}`);
       }
       assert.equal(evaluate(step.check, sim, ran), true, `step ${n + 1} ("${step.goal}") did not pass its check after the suggested commands`);
     });

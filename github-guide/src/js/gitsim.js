@@ -78,6 +78,57 @@
     return n + ' ' + word + (n === 1 ? '' : 's');
   }
 
+  // A large binary file is stood in for by one line of text that states its
+  // size, so a 150 MB checkpoint costs the simulator twenty bytes.
+  var BINARY = /^\(binary file, (\d+(?:\.\d+)?) MB\)/;
+
+  function sizeMB(content) {
+    var m = BINARY.exec(content || '');
+    return m ? +m[1] : 0;
+  }
+
+  function humanSize(content) {
+    var mb = sizeMB(content), n = (content || '').length;
+    if (mb) return mb + 'M';
+    return n < 1024 ? String(n) : (n / 1024).toFixed(1) + 'K';
+  }
+
+  /**
+   * Compile .gitignore text into a function: path -> the pattern that
+   * ignores it, or null. Supports comments, !negation, a trailing slash for
+   * directories, a leading or inner slash to anchor at the root, and the
+   * wildcards *, ** and ?. As in Git, the last matching pattern wins.
+   */
+  function ignoreMatcher(text) {
+    var rules = [];
+    toLines(text).forEach(function (raw) {
+      var line = raw.trim();
+      if (!line || line[0] === '#') return;
+      var negate = line[0] === '!';
+      if (negate) line = line.slice(1);
+      var dirOnly = line[line.length - 1] === '/';
+      if (dirOnly) line = line.slice(0, -1);
+      var anchored = line.indexOf('/') !== -1;
+      if (line[0] === '/') line = line.slice(1);
+      var re = '';
+      for (var i = 0; i < line.length; i++) {
+        var ch = line[i];
+        if (ch === '*' && line[i + 1] === '*') {
+          i++;
+          if (line[i + 1] === '/') { re += '(?:.*/)?'; i++; } else re += '.*';
+        } else if (ch === '*') re += '[^/]*';
+        else if (ch === '?') re += '[^/]';
+        else re += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+      }
+      rules.push({ raw: raw.trim(), negate: negate, regex: new RegExp((anchored ? '^' : '(^|/)') + re + (dirOnly ? '/' : '(/|$)')) });
+    });
+    return function (path) {
+      var hit = null;
+      rules.forEach(function (r) { if (r.regex.test(path)) hit = r.negate ? null : r.raw; });
+      return hit;
+    };
+  }
+
   // ------------------------------------------------------------------
   // Line diff and three-way merge
   // ------------------------------------------------------------------
@@ -284,7 +335,16 @@
     this.config = { 'user.name': 'You', 'user.email': 'you@example.com' };
     this.previousBranch = null;
     this.ran = [];          // every command line run by the learner
+    this.todoPlan = null;   // an interactive rebase plan, open and not yet started
+    this.ignoreCache = { text: null, match: null };
   }
+
+  /** The .gitignore pattern that covers a path, or null. Read from the working tree. */
+  Sim.prototype.ignoreRule = function (path) {
+    var text = this.work['.gitignore'] || '';
+    if (this.ignoreCache.text !== text) this.ignoreCache = { text: text, match: ignoreMatcher(text) };
+    return path === '.gitignore' ? null : this.ignoreCache.match(path);
+  };
 
   Sim.prototype.author = function () {
     return this.config['user.name'] + ' <' + this.config['user.email'] + '>';
@@ -388,7 +448,7 @@
   /** Structured status, used by `git status`, the lab UI and the checks. */
   Sim.prototype.status = function () {
     var H = this.tree(this.headSha()), I = this.index, W = this.work, self = this;
-    var staged = [], unstaged = [], untracked = [];
+    var staged = [], unstaged = [], untracked = [], ignored = [];
     union(H, I).forEach(function (p) {
       if (self.conflicted[p]) return;
       if (!(p in H)) staged.push({ path: p, kind: 'new file' });
@@ -401,7 +461,8 @@
       else if (W[p] !== I[p]) unstaged.push({ path: p, kind: 'modified' });
     });
     Object.keys(W).sort().forEach(function (p) {
-      if (!(p in I) && !self.conflicted[p]) untracked.push(p);
+      if (p in I || self.conflicted[p]) return;
+      if (self.ignoreRule(p)) ignored.push(p); else untracked.push(p);
     });
     var branch = this.currentBranch(), ahead = 0, behind = 0, up = branch && this.upstream[branch];
     if (up && this.tracking[up] && this.headSha()) {
@@ -411,7 +472,7 @@
     }
     return {
       branch: branch, detached: this.head.type === 'detached', head: this.headSha(),
-      staged: staged, unstaged: unstaged, untracked: untracked,
+      staged: staged, unstaged: unstaged, untracked: untracked, ignored: ignored,
       conflicted: Object.keys(this.conflicted).sort(),
       upstream: up && this.tracking[up] ? up : null, ahead: ahead, behind: behind,
       pending: this.pending ? this.pending.kind : null,
@@ -603,6 +664,7 @@
           return self.work[p].replace(/\n$/, '');
         }).join('\n');
       case 'ls': {
+        var long = args.some(function (a) { return /^-[a-zA-Z]*l/.test(a); });
         var prefix = args.filter(function (a) { return a[0] !== '-'; })[0];
         prefix = prefix ? normPath(prefix) + '/' : '';
         var names = {};
@@ -611,7 +673,22 @@
           var rest = path.slice(prefix.length), slash = rest.indexOf('/');
           names[slash === -1 ? rest : rest.slice(0, slash + 1)] = true;
         });
-        return Object.keys(names).sort().join('  ');
+        var list = Object.keys(names).sort();
+        if (!long) return list.join('  ');
+        return list.map(function (name) {
+          var isDir = name[name.length - 1] === '/';
+          var size = isDir ? '-' : humanSize(self.work[prefix + name]);
+          return (isDir ? 'drwxr-xr-x' : '-rw-r--r--') + '  you  ' + ('      ' + size).slice(-6) + '  ' + name;
+        }).join('\n');
+      }
+      case 'truncate': {
+        // truncate -s 150M file: the quickest real way to make a large file
+        var sizeArg = args[args.indexOf('-s') + 1] || '', target = normPath(args[args.length - 1] || '');
+        var parsed = /^(\d+)([KMG])?$/i.exec(sizeArg);
+        if (args.indexOf('-s') === -1 || !parsed || !target || target === sizeArg) throw new GitError('usage: truncate -s 150M <file>');
+        var unit = (parsed[2] || '').toUpperCase(), megabytes = unit === 'G' ? +parsed[1] * 1024 : unit === 'M' ? +parsed[1] : 0;
+        this.work[target] = megabytes ? '(binary file, ' + megabytes + ' MB)\n' : '';
+        return '';
       }
       case 'touch':
         args.forEach(function (a) { p = normPath(a); if (!(p in self.work)) self.work[p] = ''; });
@@ -658,12 +735,12 @@
   var HELP = [
     'This is a practice terminal. Nothing here touches a real repository.',
     '',
-    'Files      ls   cat FILE   echo "text" > FILE   echo "text" >> FILE   touch   rm   mv   cp',
+    'Files      ls   ls -lh   cat FILE   echo "text" > FILE   echo "text" >> FILE   touch   rm   mv   cp',
     'Snapshots  git status   git add   git commit -m   git log --oneline   git diff   git show',
-    'Branches   git branch   git switch   git switch -c   git checkout   git merge   git rebase',
+    'Branches   git branch   git switch   git switch -c   git checkout   git merge   git rebase   git rebase -i',
     'Undo       git restore   git reset   git revert   git commit --amend   git stash   git reflog',
     'Remote     git fetch   git pull   git push   git remote -v',
-    'Other      git tag   git cherry-pick   git clean   git cat-file   git rev-parse   git config',
+    'Other      git tag   git cherry-pick   git clean   git check-ignore   git cat-file   git rev-parse   git config',
     'GitHub     gh pr create   gh pr list   gh pr view   gh pr merge',
     '',
     'Chain commands with &&. Use the Files panel to edit a file by hand.'
@@ -708,6 +785,11 @@
       this.remote.branches[branch] = this.newCommit([from], tree, kv.msg || 'Update ' + kv.file, 'Sam Rivera <sam@example.com>');
       return '';
     }
+    if (name === 'bigfile') {
+      // A file of a stated size, for labs about what does not belong in history.
+      this.work[kv.path] = '(binary file, ' + (+kv.size) + ' MB)\n';
+      return '';
+    }
     throw new GitError('unknown directive !' + name);
   };
 
@@ -727,10 +809,15 @@
     if (sub === 'config') return this.gitConfig(rest);
     if (sub === 'clone') return 'This lab starts inside a repository that is already cloned.';
     if (!this.initialized) throw new GitError('fatal: not a git repository (or any of the parent directories): .git');
+    if (this.todoPlan && sub !== 'rebase' && !LOOK_ONLY[sub]) {
+      throw new GitError('A rebase plan is open and waiting. Start it or cancel it in the plan editor first.\n(In real Git, your editor would be holding the terminal at this point.)');
+    }
     var fn = this['git_' + sub.replace(/-/g, '_')];
     if (!fn) throw new GitError("git: '" + sub + "' is not supported in this practice terminal. Type help to see what is.");
     return fn.call(this, rest);
   };
+
+  var LOOK_ONLY = { status: 1, log: 1, diff: 1, show: 1, reflog: 1 };
 
   Sim.prototype.gitConfig = function (args) {
     var a = parseArgs(args, ['--get']);
@@ -817,6 +904,11 @@
       L.push('  (use "git add <file>..." to include in what will be committed)');
       st.untracked.forEach(function (p) { L.push('\t' + p); });
     }
+    if (a.flags['--ignored'] && st.ignored.length) {
+      L.push(''); L.push('Ignored files:');
+      L.push('  (use "git add -f <file>..." to include in what will be committed)');
+      st.ignored.forEach(function (p) { L.push('\t' + p); });
+    }
     L.push('');
     if (st.clean && !self.pending) L.push('nothing to commit, working tree clean');
     else if (!st.staged.length && !st.conflicted.length && (st.unstaged.length || st.untracked.length)) {
@@ -828,24 +920,44 @@
   };
 
   Sim.prototype.git_add = function (args) {
-    var a = parseArgs(args), self = this;
+    var a = parseArgs(args), self = this, force = a.flags['-f'] || a.flags['--force'];
     var all = a.flags['-A'] || a.flags['--all'] || a.pos.indexOf('.') !== -1;
     if (!all && !a.pos.length) throw new GitError("Nothing specified, nothing added.\nhint: Maybe you wanted to say 'git add .'?");
     var paths = all ? union(this.work, this.index, this.conflicted) : a.pos.map(normPath);
+    var refused = [];
     paths.forEach(function (p) {
-      var matches = [p];
+      var matches = [p], named = !all;
       if (!(p in self.work) && !(p in self.index) && !self.conflicted[p]) {
         // treat as a directory prefix
         matches = union(self.work, self.index).filter(function (q) { return q.indexOf(p + '/') === 0; });
         if (!matches.length) throw new GitError("fatal: pathspec '" + p + "' did not match any files");
+        named = false;
       }
       matches.forEach(function (q) {
+        // An ignored file that is not yet tracked is skipped. Naming it outright is an error.
+        if (!force && !(q in self.index) && !self.conflicted[q] && self.ignoreRule(q)) {
+          if (named) refused.push(q);
+          return;
+        }
         if (q in self.work) self.index[q] = self.work[q];
         else delete self.index[q];
         delete self.conflicted[q];
       });
     });
+    if (refused.length) {
+      return { out: 'The following paths are ignored by one of your .gitignore files:\n' + refused.join('\n') + '\nhint: Use -f if you really want to add them.', err: true };
+    }
     return '';
+  };
+
+  Sim.prototype.git_check_ignore = function (args) {
+    var a = parseArgs(args), self = this, out = [];
+    if (!a.pos.length) throw new GitError('usage: git check-ignore [-v] <path>...');
+    a.pos.forEach(function (raw) {
+      var path = normPath(raw), rule = self.ignoreRule(path);
+      if (rule) out.push(a.flags['-v'] ? '.gitignore:' + rule + '\t' + path : path);
+    });
+    return out.length ? out.join('\n') : { out: '', err: true };
   };
 
   Sim.prototype.git_rm = function (args) {
@@ -873,9 +985,16 @@
   };
 
   Sim.prototype.git_commit = function (args) {
-    var a = parseArgs(args, ['-m', '--message']), self = this;
+    var a = parseArgs(args, ['-m', '--message', '--fixup', '--squash']), self = this;
     var message = a.flags['-m'] !== undefined ? a.flags['-m'] : a.flags['--message'];
     if (message === true) message = '';
+    // --fixup names the commit this one should later be folded into
+    var marks = a.flags['--fixup'] ? 'fixup' : a.flags['--squash'] ? 'squash' : null;
+    if (marks) {
+      var named = a.flags['--' + marks];
+      if (named === true || !named) throw new GitError('usage: git commit --' + marks + ' <commit>');
+      message = marks + '! ' + this.subject(this.resolve(named));
+    }
     if (Object.keys(this.conflicted).length) {
       throw new GitError('error: Committing is not possible because you have unmerged files.\nhint: Fix them up in the work tree, and then use \'git add <file>\'\nhint: as appropriate to mark resolution and make a commit.\nfatal: Exiting because of an unresolved conflict.');
     }
@@ -1390,10 +1509,12 @@
       { ours: 'HEAD', theirs: 'parent of ' + this.short(sha) + ' (' + this.subject(sha) + ')' }, message);
   };
 
+  /** Replay the remaining to-do items on top of HEAD. An item is {sha, action, message}. */
   Sim.prototype.rebaseLoop = function () {
     var P = this.pending;
     while (P.todo.length) {
-      var c = this.commits[P.todo[0]], cur = this.headSha();
+      var item = P.todo[0], c = this.commits[item.sha], cur = this.headSha();
+      if (item.action === 'drop') { P.todo.shift(); continue; }
       var result = this.mergeTrees(this.tree(c.parents[0]), this.tree(cur), c.tree,
         { ours: 'HEAD', theirs: this.short(c.sha) + ' (' + this.subject(c.sha) + ')' });
       if (result.conflicts.length) {
@@ -1410,11 +1531,7 @@
         };
       }
       P.todo.shift();
-      if (treesEqual(result.tree, this.tree(cur))) continue; // already applied upstream
-      var sha = this.newCommit([cur], result.tree, c.message, c.author);
-      this.setCleanTree(result.tree);
-      this.head.sha = sha;
-      this.reflog.unshift({ sha: sha, msg: 'rebase (pick): ' + this.subject(sha) });
+      this.applyRebaseItem(item, result.tree);
     }
     var tip = this.headSha();
     this.branches[P.branch] = tip;
@@ -1424,9 +1541,112 @@
     return 'Successfully rebased and updated refs/heads/' + P.branch + '.';
   };
 
+  /** Turn one replayed change into a commit, or fold it into the commit before it. */
+  Sim.prototype.applyRebaseItem = function (item, tree) {
+    var P = this.pending, c = this.commits[item.sha], cur = this.headSha(), sha;
+    // squash and fixup need a commit made earlier in this same rebase to fold into
+    var meld = (item.action === 'squash' || item.action === 'fixup') && P.applied > 0;
+    if (meld) {
+      var prev = this.commits[cur];
+      sha = this.newCommit(prev.parents, tree, item.action === 'squash' ? prev.message + '\n\n' + c.message : prev.message, prev.author);
+    } else {
+      if (treesEqual(tree, this.tree(cur))) { this.setCleanTree(tree); return; } // the change is already there
+      sha = this.newCommit([cur], tree, item.action === 'reword' && item.message ? item.message : c.message, c.author);
+    }
+    P.applied++;
+    this.setCleanTree(tree);
+    this.head.sha = sha;
+    this.reflog.unshift({ sha: sha, msg: 'rebase (' + item.action + '): ' + this.subject(sha) });
+  };
+
+  /** The commits a rebase onto `onto` would replay, oldest first. Merge commits are flattened away. */
+  Sim.prototype.commitsToReplay = function (onto, head) {
+    var upstream = this.ancestors(onto), list = [], walk = head, self = this;
+    while (walk && !upstream[walk]) { list.unshift(walk); walk = this.commits[walk].parents[0]; }
+    return list.filter(function (s) { return self.commits[s].parents.length < 2; });
+  };
+
+  /** Move "fixup! X" and "squash! X" commits to sit right after commit X. */
+  Sim.prototype.autosquash = function (items) {
+    var self = this, out = [];
+    items.forEach(function (item) {
+      var m = /^(fixup|squash)! (.*)$/.exec(self.subject(item.sha)), at = -1;
+      if (m) {
+        for (var i = 0; i < out.length; i++) {
+          if (out[i].action === 'pick' && self.subject(out[i].sha).indexOf(m[2]) === 0) { at = i; break; }
+        }
+      }
+      if (at === -1) { out.push(item); return; }
+      at++;
+      while (at < out.length && out[at].action !== 'pick') at++; // after any fixups already attached
+      out.splice(at, 0, { sha: item.sha, action: m[1], message: item.message });
+    });
+    return out;
+  };
+
+  Sim.prototype.beginRebase = function (branch, onto, label, items) {
+    this.pending = { kind: 'rebase', branch: branch, orig: this.headSha(), onto: onto, todo: items, applied: 0, untracked: this.untrackedFiles() };
+    this.reflog.unshift({ sha: onto, msg: 'rebase (start): checkout ' + label });
+    this.setCleanTree(this.tree(onto));
+    this.head = { type: 'detached', sha: onto };
+    return this.rebaseLoop();
+  };
+
+  var PLAN_ACTIONS = { pick: 1, reword: 1, squash: 1, fixup: 1, drop: 1 };
+
+  /**
+   * Start the rebase that the plan editor describes.
+   * items: [{sha, action, message}], oldest first. A commit left out is dropped, as in real Git.
+   */
+  Sim.prototype.startPlan = function (items) {
+    var plan = this.todoPlan, known = {}, seen = {}, first = true;
+    if (!plan) throw new GitError('There is no rebase plan open. Run: git rebase -i <base>');
+    items = items || plan.items;
+    plan.items.forEach(function (i) { known[i.sha] = true; });
+    items.forEach(function (i) {
+      if (!known[i.sha] || seen[i.sha] || !PLAN_ACTIONS[i.action]) {
+        throw new GitError('error: the plan names something that is not one of the listed commits, or names a commit twice');
+      }
+      seen[i.sha] = true;
+      if (i.action === 'drop') return;
+      if (first && (i.action === 'squash' || i.action === 'fixup')) {
+        throw new GitError("error: cannot '" + i.action + "' without a previous commit\n(The first commit you keep has nothing before it to fold into. Set it to pick or reword.)");
+      }
+      first = false;
+    });
+    this.todoPlan = null;
+    return this.beginRebase(plan.branch, plan.onto, plan.label, items.map(function (i) {
+      return { sha: i.sha, action: i.action, message: i.message };
+    }));
+  };
+
+  Sim.prototype.cancelPlan = function () {
+    if (!this.todoPlan) throw new GitError('fatal: No rebase in progress?');
+    this.todoPlan = null;
+    return 'Rebase plan discarded. Nothing changed.';
+  };
+
+  /**
+   * Build plan items from a short description. Labs and tests use this:
+   *   [{pick: 'Add eval'}, {fixup: 'wip'}, {reword: 'Add metrics', message: 'New subject'}, {drop: 'debug'}]
+   * Each value is the start of a commit subject. 'default' keeps the plan as it was opened.
+   */
+  Sim.prototype.planFromSpec = function (spec) {
+    var plan = this.todoPlan, self = this, used = {};
+    if (!plan) throw new GitError('There is no rebase plan open.');
+    if (!spec || spec === 'default') return plan.items.slice();
+    return spec.map(function (entry) {
+      var action = Object.keys(entry).filter(function (k) { return PLAN_ACTIONS[k]; })[0];
+      var item = plan.items.filter(function (i) { return !used[i.sha] && self.subject(i.sha).indexOf(entry[action]) === 0; })[0];
+      if (!action || !item) throw new GitError('this plan entry does not match a commit: ' + JSON.stringify(entry));
+      used[item.sha] = true;
+      return { sha: item.sha, action: action, message: entry.message || item.message };
+    });
+  };
+
   Sim.prototype.git_rebase = function (args) {
     var a = parseArgs(args), self = this;
-    if (a.flags['--abort']) return this.abortPending('rebase');
+    if (a.flags['--abort']) return this.todoPlan ? this.cancelPlan() : this.abortPending('rebase');
     if (a.flags['--continue'] || a.flags['--skip']) {
       if (!this.pending || this.pending.kind !== 'rebase') throw new GitError('fatal: No rebase in progress?');
       if (a.flags['--skip']) {
@@ -1437,39 +1657,33 @@
       if (Object.keys(this.conflicted).length) {
         throw new GitError('error: Committing is not possible because you have unmerged files.\nhint: Fix them up in the work tree, then "git add <file>" and run "git rebase --continue".');
       }
-      var c = this.commits[this.pending.todo.shift()], cur = this.headSha();
-      if (!treesEqual(this.index, this.tree(cur))) {
-        var sha = this.newCommit([cur], this.index, c.message, c.author);
-        this.head.sha = sha;
-        this.reflog.unshift({ sha: sha, msg: 'rebase (continue): ' + this.subject(sha) });
-      }
-      this.setCleanTree(this.tree(this.headSha()));
+      this.applyRebaseItem(this.pending.todo.shift(), clone(this.index));
       return this.rebaseLoop();
     }
-    if (a.flags['-i'] || a.flags['--interactive']) {
-      return { out: 'Interactive rebase opens a text editor with a to-do list, which this practice terminal does not have.\nTo practice squashing here, try:\n  git reset --soft HEAD~2 && git commit -m "One tidy commit"', err: true };
-    }
     if (this.pending) throw new GitError('error: a ' + this.pending.kind + ' is already in progress');
-    if (!a.pos.length) throw new GitError('usage: git rebase <upstream>   (for example: git rebase main)');
+    if (!a.pos.length) throw new GitError('usage: git rebase [-i] <upstream>   (for example: git rebase main)');
     var branch = this.currentBranch();
     if (!branch) throw new GitError('fatal: this lab only rebases a checked-out branch, not a detached HEAD');
     this.requireCleanTracked('rebase');
     var onto = this.resolve(a.pos[0]), head = this.headSha();
+    var items = this.commitsToReplay(onto, head).map(function (sha) {
+      return { sha: sha, action: 'pick', message: self.commits[sha].message };
+    });
+
+    if (a.flags['-i'] || a.flags['--interactive']) {
+      if (!items.length) return { out: 'There are no commits after ' + a.pos[0] + ' to rearrange.', err: true };
+      if (a.flags['--autosquash']) items = this.autosquash(items);
+      this.todoPlan = { branch: branch, onto: onto, label: a.pos[0], items: items };
+      return 'Opened the rebase plan: ' + plural(items.length, 'commit') + ' since ' + a.pos[0] + ', oldest first.\n' +
+        '(Real Git opens this list in your editor. Here it appears in the plan editor. Nothing changes until you start it.)';
+    }
     if (this.isAncestor(onto, head)) return 'Current branch ' + branch + ' is up to date.';
     if (this.isAncestor(head, onto)) {
       this.setCleanTree(this.tree(onto));
       this.moveHead(onto, 'rebase (finish): refs/heads/' + branch + ' onto ' + this.short(onto));
       return 'Successfully rebased and updated refs/heads/' + branch + '.';
     }
-    // commits on this branch that the upstream does not have, oldest first
-    var upstreamSet = this.ancestors(onto), todo = [], walk = head;
-    while (walk && !upstreamSet[walk]) { todo.unshift(walk); walk = this.commits[walk].parents[0]; }
-    todo = todo.filter(function (s) { return self.commits[s].parents.length < 2; }); // merges are flattened
-    this.pending = { kind: 'rebase', branch: branch, orig: head, onto: onto, todo: todo, untracked: this.untrackedFiles() };
-    this.reflog.unshift({ sha: onto, msg: 'rebase (start): checkout ' + a.pos[0] });
-    this.setCleanTree(this.tree(onto));
-    this.head = { type: 'detached', sha: onto };
-    return this.rebaseLoop();
+    return this.beginRebase(branch, onto, a.pos[0], items);
   };
 
   Sim.prototype.git_reset = function (args) {
@@ -1584,9 +1798,11 @@
   };
 
   Sim.prototype.git_clean = function (args) {
-    var a = parseArgs(args), self = this, untracked = Object.keys(this.untrackedFiles()).sort();
-    if (a.flags['-n'] || a.flags['--dry-run']) return untracked.map(function (p) { return 'Would remove ' + p; }).join('\n');
-    if (!a.flags['-f'] && !a.flags['--force']) throw new GitError('fatal: clean.requireForce is true and -f not given: refusing to clean');
+    var a = parseArgs(args), self = this, st = this.status();
+    // -x also removes ignored files; without it they are left alone
+    var untracked = (a.flags['-x'] || a.flags['-fx'] || a.flags['-nx'] ? st.untracked.concat(st.ignored) : st.untracked).slice().sort();
+    if (a.flags['-n'] || a.flags['--dry-run'] || a.flags['-nx']) return untracked.map(function (p) { return 'Would remove ' + p; }).join('\n');
+    if (!a.flags['-f'] && !a.flags['--force'] && !a.flags['-fx']) throw new GitError('fatal: clean.requireForce is true and -f not given: refusing to clean');
     untracked.forEach(function (p) { delete self.work[p]; });
     return untracked.map(function (p) { return 'Removing ' + p; }).join('\n');
   };
@@ -1707,6 +1923,25 @@
         out: 'remote: error: GH006: Protected branch update failed for refs/heads/' + branch + '.\nremote: error: Changes must be made through a pull request.\n' + L[0] + '\n ! [remote rejected] ' + branch + ' -> ' + branch + ' (protected branch hook declined)\nerror: failed to push some refs to \'' + url + "'", err: true
       };
     }
+    // GitHub inspects every commit it is about to receive, not only the newest.
+    var large = this.largeFilesIn(local);
+    var blocked = large.filter(function (f) { return f.mb > 100; });
+    if (blocked.length) {
+      return {
+        out: ['remote: error: See https://gh.io/lfs for more information.'].concat(blocked.map(function (f) {
+          return 'remote: error: File ' + f.path + ' is ' + f.mb.toFixed(2) + ' MB; this exceeds GitHub\'s file size limit of 100.00 MB';
+        }), [
+          'remote: error: GH001: Large files detected. You may want to try Git Large File Storage - https://git-lfs.github.com.',
+          L[0],
+          ' ! [remote rejected] ' + branch + ' -> ' + branch + ' (pre-receive hook declined)',
+          "error: failed to push some refs to '" + url + "'",
+          '(The file is in commit ' + this.short(blocked[0].sha) + '. A push sends every new commit, so removing the file in a later commit does not take it out of what is sent.)'
+        ]).join('\n'), err: true
+      };
+    }
+    large.forEach(function (f) {
+      L.push('remote: warning: File ' + f.path + ' is ' + f.mb.toFixed(2) + ' MB; this is larger than GitHub\'s recommended maximum file size of 50.00 MB');
+    });
     if (remoteSha === local) {
       if (setUp) { this.upstream[branch] = 'origin/' + branch; this.tracking['origin/' + branch] = local; }
       return 'Everything up-to-date' + (setUp ? "\nbranch '" + branch + "' set up to track 'origin/" + branch + "'." : '');
@@ -1733,6 +1968,21 @@
     this.tracking['origin/' + branch] = local;
     if (setUp) { this.upstream[branch] = 'origin/' + branch; L.push("branch '" + branch + "' set up to track 'origin/" + branch + "'."); }
     return L.join('\n');
+  };
+
+  /** Files over 50 MB in commits the remote does not have yet. */
+  Sim.prototype.largeFilesIn = function (tip) {
+    var have = {}, found = {}, self = this;
+    Object.keys(this.remote.branches).forEach(function (b) { Object.assign(have, self.ancestors(self.remote.branches[b])); });
+    Object.keys(this.ancestors(tip)).forEach(function (sha) {
+      if (have[sha]) return;
+      var tree = self.commits[sha].tree;
+      Object.keys(tree).forEach(function (path) {
+        var mb = sizeMB(tree[path]);
+        if (mb > 50 && (!found[path] || found[path].mb < mb)) found[path] = { path: path, mb: mb, sha: sha };
+      });
+    });
+    return Object.keys(found).sort().map(function (path) { return found[path]; });
   };
 
   // ------------------------------------------------------------------
@@ -1872,6 +2122,7 @@
     st.staged.forEach(function (f) { if (f.path in self.work) state[f.path] = 'staged'; });
     st.unstaged.forEach(function (f) { if (f.path in self.work) state[f.path] = 'modified'; });
     st.untracked.forEach(function (p) { state[p] = 'untracked'; });
+    st.ignored.forEach(function (p) { state[p] = 'ignored'; });
     st.conflicted.forEach(function (p) { if (p in self.work) state[p] = 'conflict'; });
     return Object.keys(state).sort().map(function (p) { return { path: p, state: state[p] }; });
   };
@@ -1964,6 +2215,16 @@
           var from = sim.tryResolve(v.ref || 'HEAD'), rx = new RegExp(v.message);
           return !!from && Object.keys(sim.ancestors(from)).some(function (c) { return rx.test(sim.commits[c].message); });
         }
+        case 'rebasePlanOpen': return !!sim.todoPlan === v;
+        case 'exactCommits': return Object.keys(v).every(function (ref) {
+          var at = sim.tryResolve(ref);
+          return !!at && Object.keys(sim.ancestors(at)).length === v[ref];
+        });
+        case 'historyHasFile': {
+          var top = sim.tryResolve(v.ref || 'HEAD');
+          return !!top && Object.keys(sim.ancestors(top)).some(function (c) { return v.path in sim.commits[c].tree; });
+        }
+        case 'ignored': return asList(v).every(function (f) { return st.ignored.indexOf(f) !== -1; });
         case 'prOpen': return !!sim.remote && sim.remote.prs.filter(function (pr) { return pr.state === 'OPEN'; }).length === v;
         case 'prMerged': return !!sim.remote && sim.remote.prs.some(function (pr) { return pr.state === 'MERGED'; }) === v;
         default: throw new Error('unknown lab check: ' + key);

@@ -101,15 +101,59 @@
 .choice.is-ok .mark { border-color: var(--warn); background: var(--warn); color: var(--surface); }
 .choice:disabled { opacity: 1; cursor: default; }
 
+/* Step view: one part at a time. */
+.lesson[data-pace="step"] .part:not([data-step-on]) { display: none; }
+.lesson[data-pace="step"] .part > h2 { border-top: 0; padding-top: 0; }
+.lesson[data-pace="step"]:not([data-step="0"]) .lesson-head .lede,
+.lesson[data-pace="step"]:not([data-step="0"]) .lesson-head .builds,
+.lesson[data-pace="step"]:not([data-step="0"]) .lesson-head .eyebrow { display: none; }
+.lesson[data-pace="step"]:not([data-step="0"]) .lesson-head h1 { font-size: var(--t-l); }
+.stepper {
+  position: sticky; bottom: 4.3rem; z-index: 5; max-width: 46rem;
+  display: flex; flex-direction: column; gap: 0.45rem; padding: 0.5rem;
+  background: var(--surface); border: 1px solid var(--rule-strong); border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.stepper-row { display: flex; align-items: center; gap: 0.6rem; }
+.stepper-where { flex: 1; min-width: 0; display: flex; flex-direction: column; text-align: center; line-height: 1.3; }
+.stepper-title { font-family: var(--font-display); font-weight: 600; font-size: var(--t-s); overflow-wrap: anywhere; }
+@media (max-width: 30rem) { .stepper-word { display: none; } }
+@media (min-width: 62rem) { .stepper { bottom: 0.75rem; } }
+:root[data-focus="on"] .stepper { bottom: 0.75rem; }
+.lesson-tools .callout { max-width: 34rem; }
+
 /* ---------- Practice lab ---------- */
 
-.lab { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); grid-template-areas: "step" "term" "graph" "files"; }
+.lab { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); grid-template-areas: "step" "plan" "term" "graph" "files"; }
 .lab-step { grid-area: step; border-left: 5px solid var(--line, var(--ink)); }
+.plan { grid-area: plan; border: 2px solid var(--ink); }
+.plan-rows { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem; counter-reset: plan; }
+/* Two lines per commit: the controls, then the message at full width. The editor lives in a narrow column on every screen. */
+.plan-rows li {
+  margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "action sha move" "text text text"; align-items: center; gap: 0.35rem 0.5rem;
+  padding: 0.4rem 0.4rem 0.5rem 0.5rem; background: var(--paper); border: 1px solid var(--rule); border-left: 4px solid var(--ink-2); border-radius: var(--radius-s);
+}
+.plan-rows li > select { grid-area: action; }
+.plan-rows li > .mono { grid-area: sha; }
+.plan-rows li > .plan-subject, .plan-rows li > input { grid-area: text; }
+.plan-rows li > .plan-move { grid-area: move; }
+.plan-rows li[data-action="drop"] { border-left-color: var(--bad); }
+.plan-rows li[data-action="drop"] .plan-subject { text-decoration: line-through; color: var(--ink-2); }
+.plan-rows li[data-action="fixup"], .plan-rows li[data-action="squash"] { margin-left: 1.25rem; border-left-color: var(--link); }
+.plan-rows li[data-action="reword"] { border-left-color: var(--warn); }
+.plan-rows select { width: auto; min-width: 6.2rem; min-height: 2.5rem; padding: 0.25rem 0.4rem; font-family: var(--font-mono); font-size: 0.86rem; }
+.plan-rows input { min-height: 2.5rem; padding: 0.25rem 0.5rem; font-size: 0.86rem; }
+.plan-subject { overflow-wrap: anywhere; font-size: var(--t-s); }
+.plan-move { display: flex; }
+.plan-move .icon-btn { min-width: 2.5rem; min-height: 2.5rem; padding: 0; }
+.plan-move .icon { transform: rotate(90deg); }
+.plan-help { display: grid; grid-template-columns: auto 1fr; gap: 0.15rem 0.75rem; margin: 0; }
+.plan-help dt { font-weight: 700; }
+.plan-help dd { margin: 0; }
 .lab-graphs { grid-area: graph; }
 .term { grid-area: term; }
 .files { grid-area: files; }
 @media (min-width: 62rem) {
-  .lab { grid-template-columns: minmax(0, 23rem) minmax(0, 1fr); grid-template-areas: "step graph" "step term" "files term"; align-items: start; }
+  .lab { grid-template-columns: minmax(0, 23rem) minmax(0, 1fr); grid-template-areas: "step graph" "plan term" "files term"; align-items: start; }
 }
 .lab-step h2 { font-size: var(--t-m); }
 .dots { display: flex; gap: 4px; flex-wrap: wrap; }

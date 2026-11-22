@@ -416,7 +416,8 @@
       "fix": "Use `-x` so each copy names its source, and prefer merging when the whole branch should move."
     }
   ],
-  "lab": "lab-history-surgery",
+  "lab": "lab-interactive-rebase",
+  "moreLabs": ["lab-history-surgery"],
   "quiz": [
     {
       "q": "In the list that `git rebase -i` opens, which commit is on the first line?",
