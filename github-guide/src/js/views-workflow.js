@@ -82,7 +82,7 @@
     function problemList(problems) {
       if (!problems.length) {
         return h('div.callout.kind-tip', { role: 'note' }, GG.icon('check'), h('span.kind', null, 'Nothing flagged'),
-          h('div.body', null, 'This reader found none of the problems it knows how to look for. That is a narrower statement than "this workflow is safe".'));
+          h('div.body', null, 'This reader found none of the problems it knows how to look for. That is a narrower statement than “this workflow is safe”.'));
       }
       var order = { error: 0, warn: 1, note: 2 };
       return h('ul.wf-problems', null, problems.slice().sort(function (a, b) { return order[a.level] - order[b.level]; }).map(function (p) {
@@ -139,7 +139,7 @@
         if (sim.triggered) {
           result.appendChild(h('ul.wf-sim', null, sim.jobs.map(function (j) {
             var st = STATUS[j.status] || STATUS.unknown;
-            return h('li', null, h('span.badge' + (st[0] ? '.' + st[0] : ''), null, st[1]), ' ', h('code', null, j.id), h('span.wf-why', null, GG.inline(j.why)));
+            return h('li', null, h('span.badge' + (st[0] ? '.' + st[0] : ''), null, st[1]), ' ', h('code', null, j.id), ' ', h('span.wf-why', null, GG.inline(j.why)));
           })));
         }
         (sim.notes || []).forEach(function (n) { result.appendChild(h('p.small.muted', null, GG.inline(n))); });
