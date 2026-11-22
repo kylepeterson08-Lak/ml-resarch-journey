@@ -100,8 +100,14 @@ def assemble(loaded: dict) -> dict:
     terms = {t["term"].strip().lower() for l in written for t in l.get("terms", [])}
     commands = {c["cmd"] for l in written for c in l.get("commands", [])}
 
+    # The Workflow reader's first example is this repository's real workflow,
+    # read at build time so the example can never drift from the file.
+    workflow_file = ROOT.parent / ".github" / "workflows" / "guide.yml"
+    workflow_text = workflow_file.read_text(encoding="utf-8") if workflow_file.exists() else ""
+
     return {
         "site": manifest["site"],
+        "workflow": {"guide": workflow_text},
         "lenses": manifest["lenses"],
         "tools": manifest["tools"],
         "tracks": [

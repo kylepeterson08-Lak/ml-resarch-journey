@@ -308,6 +308,12 @@
         {
           "type": "p",
           "text": "The details in the file may have moved on since this lesson was written. That is the point of the exercise: the file is the truth, and you can read it."
+        },
+        {
+          "type": "callout",
+          "kind": "tip",
+          "title": "Read it with the Workflow reader",
+          "text": "The [Workflow reader](#workflow) opens with this exact file. Change the event and the branch, and watch which jobs run and which are skipped. Then load the example with problems and find each one before you read the list."
         }
       ]
     }

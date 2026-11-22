@@ -16,7 +16,7 @@
   var hostTheme = root.getAttribute('data-theme');
   var themeOverridden = false;
   var main, tracksById = {}, labsById = {}, drillsById = {}, currentRoute = null, firstRender = true;
-  var SIMPLE = ['cards', 'cheatsheet', 'glossary', 'progress', 'placement', 'about'];
+  var SIMPLE = ['cards', 'cheatsheet', 'glossary', 'progress', 'placement', 'about', 'workflow'];
 
   GG.app = {
     order: [],
@@ -100,7 +100,7 @@
         h('span.roundel.sm', { 'aria-hidden': 'true' }, t.letter), h('span', null, t.title),
         h('span.count', { 'aria-label': st.done + ' of ' + st.total + ' lessons complete' }, st.done + '/' + st.total))));
     });
-    items.push(h('li.nav-group', { 'aria-hidden': 'true' }, 'Practice'), navItem('lab', 'terminal', 'Practice lab'), navItem('drills', 'target', 'Drills'));
+    items.push(h('li.nav-group', { 'aria-hidden': 'true' }, 'Practice'), navItem('lab', 'terminal', 'Practice lab'), navItem('workflow', 'file', 'Workflow reader'), navItem('drills', 'target', 'Drills'));
     items.push(h('li.nav-group', { 'aria-hidden': 'true' }, 'Review'), navItem('cards', 'cards', 'Flashcards'), navItem('cheatsheet', 'list', 'Cheat sheet'), navItem('glossary', 'az', 'Glossary'));
     items.push(h('li.nav-group', { 'aria-hidden': 'true' }, 'You'), navItem('progress', 'chart', 'Progress'), navItem('placement', 'compass', 'Find your start'), navItem('about', 'layers', 'How it is built'));
     rail.appendChild(h('ul.nav', null, items));
@@ -165,6 +165,7 @@
     var r = currentRoute;
     GG.app.cleanups.splice(0).forEach(function (fn) { try { fn(); } catch (e) { /* keep going */ } });
     GG.speech.stop();
+    if (navigated) GG.toast(''); // a message about the last page should not follow you to the next
     var view;
     try {
       view = GG.views[r.view](r.id);
@@ -242,6 +243,7 @@
     GG.platform.onReady.push(function () {
       Array.prototype.forEach.call(document.querySelectorAll('[data-needs="tts"]'), function (el) { el.hidden = !GG.speech.available(); });
       Array.prototype.forEach.call(document.querySelectorAll('[data-needs="ask"]'), function (el) { el.hidden = !GG.platform.ask; });
+      if (GG.app.partsChanged) GG.app.partsChanged();
       if (currentRoute && currentRoute.view === 'progress') render(false);
     });
   }

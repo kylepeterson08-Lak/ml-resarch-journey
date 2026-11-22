@@ -169,7 +169,7 @@
 
     return h('div.page.home', null,
       h('header.hero.stack', null,
-        h('p.eyebrow', null, site.tagline, h('span', null, 'reviewed ' + site.reviewed)),
+        h('p.eyebrow', null, h('span', null, site.tagline), h('span', null, 'reviewed ' + site.reviewed)),
         h('h1', null, 'GitHub, inside out'),
         h('p.lede', null, 'Four tracks, from your first commit to running an organization. Every idea is explained four ways, every task is shown for four tools, and there is a practice terminal where nothing can break.'),
         actions,
@@ -183,6 +183,7 @@
         h('h2', { id: 'tools-h' }, 'Practice and review'),
         h('div.grid', null,
           toolCard('lab', 'terminal', 'Practice lab', 'Real Git commands, a simulated repository, a live commit graph.', counts.labs + ' labs'),
+          toolCard('workflow', 'file', 'Workflow reader', 'Paste a GitHub Actions file. See what it does, what is risky, and what runs when.'),
           toolCard('drills', 'target', 'Drills', 'Something has gone wrong. Choose what to do next.', counts.drills + ' drills'),
           toolCard('cards', 'cards', 'Flashcards', 'Terms and commands on a spaced schedule.', due ? due + ' due' : null),
           toolCard('cheatsheet', 'list', 'Cheat sheet', 'Every command in the guide, searchable, with a risk rating.', counts.commands + ' entries'),
@@ -206,7 +207,7 @@
 
     return h('div.page.t-' + id, null,
       h('header.stack', null,
-        h('p.eyebrow', null, 'Track ' + (at + 1) + ' of ' + GG.data.tracks.length, h('span', null, track.subtitle)),
+        h('p.eyebrow', null, h('span', null, 'Track ' + (at + 1) + ' of ' + GG.data.tracks.length), h('span', null, track.subtitle)),
         h('div.row', null, h('span.roundel.lg', { 'aria-hidden': 'true' }, track.letter), h('h1', null, track.title)),
         h('p.lede', null, track.promise),
         h('p.muted', null, h('strong', null, 'This is for you if: '), track.audience),

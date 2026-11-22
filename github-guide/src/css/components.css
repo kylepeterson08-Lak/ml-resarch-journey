@@ -97,8 +97,8 @@
   display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
   font-family: var(--font-mono); font-size: var(--t-xs); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2);
 }
-.eyebrow > * + *::before { content: "\00b7"; margin-right: 0.5rem; }
-.eyebrow > .roundel + *::before { content: none; }
+/* The dot trails each item, so a wrapped line never starts with one. */
+.eyebrow > *:not(:last-child):not(.roundel)::after { content: "\00b7"; margin-left: 0.5rem; }
 .eyebrow .raw { text-transform: none; }
 .lede { font-size: var(--t-m); color: var(--ink); max-width: var(--measure); }
 

@@ -11,9 +11,17 @@ affiliated with GitHub.
   line, and an editor with AI tools.
 - **Four reading modes.** Skim, Learn, Do, Test.
 - **A practice lab.** Real Git commands against a simulated repository, with
-  a live commit graph. Eleven guided labs and a free-play sandbox.
-- **Review tools.** Twelve drills, spaced-repetition flashcards, a searchable
-  cheat sheet with risk ratings, a glossary, and progress tracking.
+  a live commit graph. Thirteen guided labs and a free-play sandbox. The
+  simulator covers three-way merges, interactive rebase with a plan editor,
+  `.gitignore`, and GitHub's large-file limit.
+- **A workflow reader.** Paste a GitHub Actions workflow. It explains the
+  file, flags risks with a link to the lesson that covers each one, and
+  shows which jobs would run for a push, a pull request or a fork.
+- **Review tools.** Sixteen drills, spaced-repetition flashcards, a
+  searchable cheat sheet with risk ratings, a glossary, and progress tracking.
+- **Adaptive defaults.** The lens rotates from lesson to lesson, steps follow
+  your screen, and a finished lesson reopens in Skim. Each can be pinned.
+- **Step view.** One part of a lesson per screen, with Back and Next.
 
 ## Run it
 
@@ -98,8 +106,10 @@ node --test github-guide/tests/*.test.js
 - **Content.** Every lesson must pass the validator in strict mode.
 - **Contrast.** Every text and control color pair in `tokens.css` is checked
   against WCAG 2.2 AA in all four themes.
-- **Simulator.** The Git simulator's merge, rebase, reset, stash and remote
-  behavior is tested command by command.
+- **Simulator.** The Git simulator's merge, rebase, interactive rebase,
+  reset, stash, ignore rules and remote behavior are tested command by command.
+- **Workflow reader.** The YAML parser and the workflow analyzer are tested
+  rule by rule, and against every workflow example in the lessons.
 - **Labs.** Each lab is replayed with its own suggested commands. A lab whose
   steps cannot be completed fails the build.
 

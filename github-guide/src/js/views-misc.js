@@ -58,7 +58,7 @@
 
   GG.ui.openMore = function () {
     var links = [
-      ['drills', 'target', 'Drills'], ['cheatsheet', 'list', 'Cheat sheet'], ['glossary', 'az', 'Glossary'],
+      ['drills', 'target', 'Drills'], ['workflow', 'file', 'Workflow reader'], ['cheatsheet', 'list', 'Cheat sheet'], ['glossary', 'az', 'Glossary'],
       ['progress', 'chart', 'Progress'], ['placement', 'compass', 'Find your starting point'], ['about', 'layers', 'How this guide is built']
     ];
     var dlg = sheet('more', 'More', [
@@ -86,6 +86,17 @@
       l.commands.forEach(function (c) { out.push({ kind: 'Command', title: c.cmd, text: GG.plain(c.does), route: l.id, w: 2 }); });
     });
     GG.data.labs.forEach(function (l) { out.push({ kind: 'Lab', title: l.title, text: GG.plain(l.intro), route: l.id, w: 1 }); });
+    [
+      ['lab', 'Practice lab', 'A terminal with a simulated Git repository and a live commit graph'],
+      ['workflow', 'Workflow reader', 'Paste a GitHub Actions workflow YAML file to have it explained and checked for risks'],
+      ['drills', 'Drills', 'Short incidents with decision points'],
+      ['cards', 'Flashcards', 'Terms and commands on a spaced repetition schedule'],
+      ['cheatsheet', 'Cheat sheet', 'Every command in the guide with a risk rating'],
+      ['glossary', 'Glossary', 'Every term defined once'],
+      ['placement', 'Find your starting point', 'A placement check that suggests which track to start with'],
+      ['progress', 'Progress', 'What you have finished, with export and import between devices'],
+      ['about', 'How this guide is built', 'Languages, pipeline, accessibility and privacy']
+    ].forEach(function (t) { out.push({ kind: 'Page', title: t[1], text: t[2], route: t[0], w: 2 }); });
     GG.data.drills.forEach(function (d) { out.push({ kind: 'Drill', title: d.title, text: GG.plain(d.situation), route: d.id, w: 1 }); });
     out.forEach(function (e) { e.lt = e.title.toLowerCase(); e.lx = e.text.toLowerCase(); });
     return out;
@@ -304,6 +315,7 @@
       h('section.stack.prose', null,
         h('h2', null, 'What is in it'),
         h('p', null, c.lessons + ' lessons in ' + c.tracks + ' tracks, about ' + c.words.toLocaleString() + ' words. ' + c.quiz + ' quiz questions, ' + c.labs + ' guided labs, ' + c.drills + ' drills, ' + c.terms + ' glossary terms and ' + c.commands + ' cheat-sheet entries. The glossary, the cheat sheet and the flashcards are generated from the lessons, so they cannot fall out of step.'),
+        h('p', null, 'Two parts of the guide are small programs in their own right. The practice lab simulates Git, including three-way merges, interactive rebase, ignore rules and GitHub\u2019s file size limit. The Workflow reader parses a GitHub Actions file and checks it against the risks the lessons describe. Both run entirely in your browser, and both are tested on every push.'),
         h('h2', null, 'Accessibility'),
         h('p', null, 'Built to WCAG 2.2 AA targets. Text and control colors are checked for contrast by an automated test in both themes. Everything works from a keyboard with a visible focus ring. Nothing depends on color alone: every track has a letter, every status has a word. Diagrams carry a text version. Text size, spacing, contrast, motion and typeface are adjustable under Display. If something gets in your way, that is a defect, and an issue on the repository is welcome.'),
         h('h2', null, 'Privacy'),

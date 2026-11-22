@@ -38,7 +38,7 @@
 .way { padding: 0.9rem 0; border-top: 1px solid var(--rule); }
 .way h3 { font-size: var(--t-base); }
 @media (min-width: 46rem) {
-  .way { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: 1.5rem; align-items: center; }
+  .way { display: grid; grid-template-columns: minmax(15rem, 22rem) minmax(0, 1fr); gap: 1.5rem; align-items: center; }
 }
 .track-grid { display: grid; gap: 0.9rem; grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 40rem) { .track-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -228,3 +228,4 @@
 .wf-controls .check { border: 0; background: none; padding: 0.4rem 0; }
 .wf-sim { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.45rem; }
 .wf-sim li { margin: 0; }
+.wf-why { display: block; font-size: var(--t-s); color: var(--ink-2); margin-top: 0.15rem; }

@@ -454,7 +454,12 @@
       stepper.go(e.key === 'ArrowRight' ? 1 : -1);
     }
     document.addEventListener('keydown', onKey);
-    GG.app.cleanups.push(function () { document.removeEventListener('keydown', onKey); });
+    // A part can appear after the page is drawn (the tutor, when the host offers it). Recount then.
+    GG.app.partsChanged = function () { stepper.refresh(); };
+    GG.app.cleanups.push(function () {
+      document.removeEventListener('keydown', onKey);
+      GG.app.partsChanged = null;
+    });
 
     // Completion
     var doneBtn = h('button.btn.primary', { type: 'button', onclick: function () {
