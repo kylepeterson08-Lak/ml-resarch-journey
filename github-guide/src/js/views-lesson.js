@@ -61,8 +61,13 @@
 
   // ---------------------------------------------------------------- parts
 
+  // The lens this lesson is showing right now. The tutor reads it for context.
+  var activeLens = 'everyday';
+
   function lensPart(lesson) {
     var lenses = GG.data.lenses, prefs = GG.store.prefs(), box = h('div.stack');
+    var rotating = prefs.lens === 'rotate';
+    activeLens = GG.app.lensFor(lesson.id);
     function paint() {
       GG.clear(box);
       if (prefs.allLenses) {
@@ -70,23 +75,28 @@
           box.appendChild(h('div.card.lens-card', null, h('h3', null, lens.label), h('p', { 'data-speak': true }, GG.inline(lesson.lenses[lens.id]))));
         });
       } else {
-        box.appendChild(h('p.lens-text', { 'data-speak': true }, GG.inline(lesson.lenses[prefs.lens] || lesson.lenses.everyday)));
+        box.appendChild(h('p.lens-text', { 'data-speak': true }, GG.inline(lesson.lenses[activeLens])));
       }
     }
-    var seg = segmented('Explain it as', lenses, prefs.lens, function (id) { GG.store.setPref('lens', id); paint(); });
+    var seg = segmented('Explain it as', lenses, activeLens, function (id) {
+      activeLens = id;
+      // While the lens rotates, a choice made here is for this lesson only.
+      if (!rotating) GG.store.setPref('lens', id);
+      paint();
+    });
     var allId = GG.uid('all');
     var all = h('label.check.small', { for: allId, style: 'min-height:0;border:0;padding:0;background:none' },
       h('input', { id: allId, type: 'checkbox', checked: prefs.allLenses || null, onchange: function (e) { GG.store.setPref('allLenses', e.target.checked); seg.hidden = e.target.checked; paint(); } }),
       h('span', { style: 'text-decoration:none;color:inherit' }, 'Show all four side by side'));
     seg.hidden = !!prefs.allLenses;
     paint();
-    return part('lens', 'skim learn', 'The core idea, four ways', h('div.row', null, seg, all), box);
+    return part('lens', 'skim learn', 'The core idea, four ways', h('div.row', null, seg, all), box,
+      rotating ? h('p.xs.muted', null, 'The lens changes from lesson to lesson, so you meet ideas more than one way. To keep one, pin it on the ', h('a', { href: '#home' }, 'home page'), '.') : null);
   }
 
   function howtoPart(lesson) {
-    var tools = GG.data.tools, box = h('div.stack');
+    var tools = GG.data.tools, box = h('div.stack'), tool = GG.app.toolNow();
     function paint() {
-      var tool = GG.store.prefs().tool;
       GG.clear(box);
       lesson.howto.forEach(function (task) {
         box.appendChild(h('div.card.stack', null,
@@ -96,7 +106,7 @@
     }
     paint();
     return part('howto', 'learn do', 'Do it with your tools',
-      segmented('Show steps for', tools, GG.store.prefs().tool, function (id) { GG.store.setPref('tool', id); paint(); }),
+      segmented('Show steps for', tools, tool, function (id) { tool = id; GG.store.setPref('tool', id); paint(); }),
       box);
   }
 
@@ -110,16 +120,18 @@
   }
 
   function labPart(lesson) {
-    var lab = GG.app.lab(lesson.lab);
-    if (!lab) return null;
-    var done = !!GG.store.progress().labs[lab.id];
-    return part('lab', 'learn do', 'Practice it safely',
-      h('div.card.lined.stack', null,
+    var labs = [lesson.lab].concat(lesson.moreLabs || []).map(GG.app.lab).filter(Boolean);
+    if (!labs.length) return null;
+    var finished = GG.store.progress().labs;
+    return part('lab', 'learn do', 'Practice it safely', labs.map(function (lab, n) {
+      var done = !!finished[lab.id];
+      return h('div.card.lined.stack', null,
         h('div.spread', null,
           h('h3', null, lab.title),
           done ? h('span.badge.done', null, 'Completed') : h('span.badge', null, 'About ' + lab.minutes + ' min')),
         h('p', null, GG.inline(lab.intro)),
-        h('div', null, h('a.btn.primary', { href: '#' + lab.id }, GG.icon('terminal'), done ? 'Run the lab again' : 'Open the practice lab'))));
+        h('div', null, h('a.btn' + (n === 0 ? '.primary' : ''), { href: '#' + lab.id }, GG.icon('terminal'), done ? 'Run the lab again' : 'Open the practice lab')));
+    }));
   }
 
   function missionPart(lesson) {
@@ -205,7 +217,7 @@
   }
 
   function lessonContext(lesson) {
-    var lens = GG.store.prefs().lens, out = [lesson.title, GG.plain(lesson.summary), GG.plain(lesson.lenses[lens] || '')];
+    var out = [lesson.title, GG.plain(lesson.summary), GG.plain(lesson.lenses[activeLens] || '')];
     lesson.sections.forEach(function (s) {
       out.push('## ' + s.heading);
       s.blocks.forEach(function (b) { out.push(GG.blocks.text(b)); });
@@ -267,6 +279,87 @@
       h('ul', null, lesson.links.map(function (l) { return h('li', null, GG.link(l.url, l.label)); })));
   }
 
+  // ---------------------------------------------------------------- step view
+
+  /**
+   * Step view shows one part of the lesson at a time, with Back and Next.
+   * It is a pace, not a different lesson: the same parts, in the same
+   * order, as the reading mode in force.
+   */
+  function makeStepper(root, lesson) {
+    var index = 0, parts = [];
+    var count = h('span.mono.xs.muted'), title = h('span.stepper-title'), note = h('span.xs.muted');
+    var fill = h('span');
+    var back = h('button.btn', { type: 'button', 'aria-label': 'Back one part', onclick: function () { go(-1); } }, GG.icon('left'), h('span.stepper-word', null, 'Back'));
+    var nextWord = h('span', null, 'Next');
+    var next = h('button.btn.primary', { type: 'button', onclick: function () { go(1); } }, nextWord, GG.icon('right'));
+    var el = h('div.stepper', { role: 'group', 'aria-label': 'Step through this lesson', hidden: true },
+      h('div.bar', { 'aria-hidden': 'true' }, fill),
+      h('div.stepper-row', null, back, h('div.stepper-where', { 'aria-live': 'polite' }, count, title, note), next));
+
+    function key(partEl) {
+      var heading = partEl.querySelector('h2');
+      return heading ? heading.id : '';
+    }
+    function collect() {
+      var mode = root.getAttribute('data-mode');
+      return Array.prototype.filter.call(root.querySelectorAll('.part'), function (partEl) {
+        return !partEl.hidden && (partEl.getAttribute('data-modes') || '').split(' ').indexOf(mode) !== -1;
+      });
+    }
+    function paint(moveFocus) {
+      var stepping = root.getAttribute('data-pace') === 'step';
+      Array.prototype.forEach.call(root.querySelectorAll('.part'), function (partEl) { partEl.removeAttribute('data-step-on'); });
+      root.removeAttribute('data-step');
+      el.hidden = !stepping || !parts.length;
+      if (el.hidden) return;
+      index = Math.max(0, Math.min(index, parts.length - 1));
+      var current = parts[index], heading = current.querySelector('h2'), last = index === parts.length - 1;
+      current.setAttribute('data-step-on', '');
+      root.setAttribute('data-step', String(index));
+      count.textContent = 'Part ' + (index + 1) + ' of ' + parts.length;
+      title.textContent = heading ? heading.textContent : '';
+      fill.style.width = Math.round(((index + 1) / parts.length) * 100) + '%';
+      back.disabled = index === 0;
+      next.disabled = last;
+      nextWord.textContent = last ? 'Last part' : 'Next';
+      GG.store.setPlace(lesson.id, key(current));
+      if (moveFocus && heading) {
+        window.scrollTo(0, Math.max(0, current.getBoundingClientRect().top + window.scrollY - 90));
+        heading.setAttribute('tabindex', '-1');
+        heading.focus({ preventScroll: true });
+      }
+    }
+    function go(delta) {
+      if (el.hidden) return;
+      var target = index + delta;
+      if (target < 0 || target >= parts.length) return;
+      index = target;
+      note.textContent = '';
+      paint(true);
+    }
+    return {
+      el: el,
+      go: go,
+      /** Recompute the parts after a mode or pace change, staying on the same part if it is still shown. */
+      refresh: function () {
+        var here = parts[index] ? key(parts[index]) : null;
+        parts = collect();
+        var at = here ? parts.map(key).indexOf(here) : -1;
+        index = at === -1 ? 0 : at;
+        paint(false);
+      },
+      /** On opening a lesson, go back to the part you were on last time. */
+      resume: function () {
+        parts = collect();
+        var at = parts.map(key).indexOf(GG.store.place(lesson.id));
+        index = at > 0 ? at : 0;
+        note.textContent = at > 0 && root.getAttribute('data-pace') === 'step' ? 'You stopped here last time' : '';
+        paint(false);
+      }
+    };
+  }
+
   // ---------------------------------------------------------------- the view
 
   GG.views.lesson = function (id) {
@@ -281,16 +374,26 @@
         h('p.lede', null, 'This lesson is planned and not written yet.'),
         h('p', null, h('a.btn', { href: '#track-' + track.id }, 'Back to the ' + track.title + ' track')));
     }
+
+    // The reading mode: a fixed choice, or decided from what the guide knows about you.
+    var opened = GG.app.modeFor(lesson), mode = opened.mode, adaptive = prefs.mode === 'auto';
     GG.store.markSeen(id);
 
-    var root = h('article.lesson.page.t-' + track.id, { 'data-mode': prefs.mode });
+    var root = h('article.lesson.page.t-' + track.id, { 'data-mode': mode, 'data-pace': prefs.pace === 'step' ? 'step' : 'scroll' });
+    var stepper = makeStepper(root, lesson);
     var hint = h('p.small.muted.mode-hint');
-    function setMode(mode) {
-      root.setAttribute('data-mode', mode);
-      hint.textContent = MODES.filter(function (m) { return m.id === mode; })[0].hint;
-      GG.store.setPref('mode', mode);
+    function modeHint(m) { return MODES.filter(function (x) { return x.id === m; })[0].hint; }
+    hint.textContent = opened.why === 'done' ? 'Opened in Skim because you have finished this lesson. Choose Learn for the full text.'
+      : opened.why === 'below' ? 'Opened in Skim because your placement check put you past this track. Choose Learn for the full text.'
+        : modeHint(mode);
+    function setMode(m) {
+      mode = m;
+      root.setAttribute('data-mode', m);
+      hint.textContent = modeHint(m);
+      // With Auto, a switch here is for this visit. A fixed preference follows your last choice.
+      if (!adaptive) GG.store.setPref('mode', m);
+      stepper.refresh();
     }
-    hint.textContent = MODES.filter(function (m) { return m.id === prefs.mode; })[0].hint;
 
     // Read aloud
     var listenLabel = h('span', null, 'Listen');
@@ -316,6 +419,42 @@
         focusBtn.setAttribute('aria-pressed', String(on));
       }
     }, GG.icon('eye'), 'Focus');
+
+    // Pace: scroll the whole lesson, or step through it one part at a time.
+    var tip = null;
+    var stepBtn = h('button.btn.sm', {
+      type: 'button', 'aria-pressed': String(prefs.pace === 'step'),
+      onclick: function () { setPace(root.getAttribute('data-pace') === 'step' ? 'scroll' : 'step'); }
+    }, GG.icon('cards'), 'Step view');
+    function setPace(pace) {
+      root.setAttribute('data-pace', pace);
+      stepBtn.setAttribute('aria-pressed', String(pace === 'step'));
+      GG.store.setPref('pace', pace);
+      GG.store.setPref('stepTip', true);
+      if (tip) { tip.remove(); tip = null; }
+      stepper.refresh();
+    }
+    if (!prefs.stepTip && prefs.pace !== 'step' && GG.app.narrow()) {
+      // Offered once, on small screens, where a lesson is a long scroll.
+      tip = h('div.callout.kind-note', { role: 'note' }, GG.icon('tip'), h('span.kind', null, 'A different pace'),
+        h('div.body.stack', null,
+          h('span', null, 'On a small screen a lesson is a long scroll. Step view shows one part at a time, with Back and Next, and remembers where you stopped.'),
+          h('div.row', null,
+            h('button.btn.sm.primary', { type: 'button', onclick: function () { setPace('step'); } }, 'Try Step view'),
+            h('button.btn.sm', { type: 'button', onclick: function () { GG.store.setPref('stepTip', true); tip.remove(); tip = null; } }, 'Keep scrolling'))));
+    }
+    function onKey(e) {
+      if (root.getAttribute('data-pace') !== 'step' || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      var t = e.target, tag = t && t.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (t && t.isContentEditable)) return;
+      // arrow keys scroll these regions sideways, so leave them alone there
+      if (t && t.closest && t.closest('pre, .table-wrap, .graph-scroll, .stripmap')) return;
+      if (document.querySelector('dialog[open]')) return;
+      stepper.go(e.key === 'ArrowRight' ? 1 : -1);
+    }
+    document.addEventListener('keydown', onKey);
+    GG.app.cleanups.push(function () { document.removeEventListener('keydown', onKey); });
 
     // Completion
     var doneBtn = h('button.btn.primary', { type: 'button', onclick: function () {
@@ -344,13 +483,13 @@
         h('span.raw', { title: 'A hash of this lesson’s content. Edit the lesson and it changes, as a Git object id would.' }, lesson.sha),
         h('span', null, lesson.minutes + ' min')),
       h('h1', null, lesson.title),
-      h('p.lede', { 'data-speak': false }, GG.inline(lesson.summary)),
-      prereqs.length ? h('p.small.muted', null, 'Builds on: ', prereqs.map(function (p, i) {
+      h('p.lede', null, GG.inline(lesson.summary)),
+      prereqs.length ? h('p.small.muted.builds', null, 'Builds on: ', prereqs.map(function (p, i) {
         return [i ? ', ' : '', h('a', { href: '#' + p.id }, p.title)];
       })) : null,
       h('div.lesson-tools.stack', null,
-        h('div.row', null, segmented('Reading mode', MODES, prefs.mode, setMode), listen, focusBtn),
-        hint)));
+        h('div.row', null, segmented('Reading mode', MODES, mode, setMode), stepBtn, listen, focusBtn),
+        hint, tip)));
 
     root.appendChild(part('outcomes', 'skim learn', 'After this you can',
       h('ul', null, lesson.outcomes.map(function (o) { return h('li', { 'data-speak': true }, GG.inline(o)); }))));
@@ -366,11 +505,13 @@
       quizPart(lesson), commandsPart(lesson), termsPart(lesson), askPart(lesson), linksPart(lesson)]
       .forEach(function (el) { if (el) root.appendChild(el); });
 
+    root.appendChild(stepper.el);
     root.appendChild(h('footer.lesson-nav.stack', null,
       h('div', null, doneBtn),
       h('div.spread', null,
         prev ? h('a.btn', { href: '#' + prev.id }, GG.icon('left'), h('span', null, h('span.xs.muted', { style: 'display:block' }, 'Previous'), prev.title)) : h('span'),
         next ? h('a.btn', { href: '#' + next.id, style: 'text-align:right' }, h('span', null, h('span.xs.muted', { style: 'display:block' }, 'Next'), next.title), GG.icon('right')) : h('span'))));
+    stepper.resume();
     return root;
   };
 })();

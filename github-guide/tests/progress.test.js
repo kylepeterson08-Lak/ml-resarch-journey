@@ -77,3 +77,26 @@ test('placement picks the first track where a question was missed', () => {
   assert.equal(P.placeFrom(questions, {}, order), 'basics', 'unanswered counts as missed');
   assert.equal(P.placeFrom(questions, { 0: 0, 1: 1, 2: -1, 3: 3 }, order), 'advanced', '"Not sure" counts as missed');
 });
+
+test('the rotating lens walks through all four and wraps around', () => {
+  const seen = [0, 1, 2, 3, 4, 5].map(i => P.resolveLens('rotate', i));
+  assert.deepEqual(seen, ['everyday', 'legal', 'ml', 'technical', 'everyday', 'legal']);
+  assert.equal(P.resolveLens('ml', 0), 'ml', 'a pinned lens ignores the position');
+  assert.equal(P.resolveLens('nonsense', 3), 'everyday', 'an unknown value falls back safely');
+  assert.equal(P.resolveLens('rotate', -1), 'technical', 'a lesson that is not in the order still gets a lens');
+});
+
+test('the automatic tool follows the screen, and a chosen tool does not', () => {
+  assert.equal(P.resolveTool('auto', true), 'phone');
+  assert.equal(P.resolveTool('auto', false), 'browser');
+  assert.equal(P.resolveTool('cli', true), 'cli');
+});
+
+test('the automatic reading mode opens in Skim only when the full text is probably not wanted', () => {
+  assert.deepEqual(P.resolveMode('auto', { done: false, trackIndex: 1, placedIndex: null }), { mode: 'learn', why: '' });
+  assert.deepEqual(P.resolveMode('auto', { done: true, trackIndex: 1, placedIndex: null }), { mode: 'skim', why: 'done' });
+  assert.deepEqual(P.resolveMode('auto', { done: false, trackIndex: 0, placedIndex: 2 }), { mode: 'skim', why: 'below' });
+  assert.deepEqual(P.resolveMode('auto', { done: false, trackIndex: 2, placedIndex: 2 }), { mode: 'learn', why: '' }, 'your own track is read in full');
+  assert.deepEqual(P.resolveMode('auto', { done: false, trackIndex: 3, placedIndex: 2 }), { mode: 'learn', why: '' });
+  assert.deepEqual(P.resolveMode('test', { done: true, trackIndex: 0, placedIndex: 3 }), { mode: 'test', why: '' }, 'a fixed choice always wins');
+});

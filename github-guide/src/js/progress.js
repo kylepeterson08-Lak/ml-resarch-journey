@@ -111,5 +111,37 @@
     return trackOrder[trackOrder.length - 1];
   }
 
-  return { empty: empty, merge: merge, review: review, isDue: isDue, trackStats: trackStats, placeFrom: placeFrom, INTERVALS: INTERVALS };
+  // ---- Adaptive defaults. A preference can name a fixed choice, or ask the
+  // guide to decide from context. These three functions are that decision.
+
+  var LENSES = ['everyday', 'legal', 'ml', 'technical'];
+
+  /** 'rotate' walks through the four lenses, one per lesson, in curriculum order. */
+  function resolveLens(pref, lessonIndex) {
+    if (pref === 'rotate') return LENSES[((lessonIndex % LENSES.length) + LENSES.length) % LENSES.length];
+    return LENSES.indexOf(pref) === -1 ? LENSES[0] : pref;
+  }
+
+  /** 'auto' follows the screen: phone steps on a narrow one, browser steps on a wide one. */
+  function resolveTool(pref, narrowScreen) {
+    return pref === 'auto' ? (narrowScreen ? 'phone' : 'browser') : pref;
+  }
+
+  /**
+   * 'auto' opens a lesson in Skim when the full text is probably not what
+   * you came for: you have finished it, or your placement check put you
+   * past its track. Otherwise it opens in Learn.
+   * facts: {done, trackIndex, placedIndex} with placedIndex null when unknown.
+   */
+  function resolveMode(pref, facts) {
+    if (pref !== 'auto') return { mode: pref, why: '' };
+    if (facts.done) return { mode: 'skim', why: 'done' };
+    if (facts.placedIndex !== null && facts.placedIndex !== undefined && facts.trackIndex < facts.placedIndex) return { mode: 'skim', why: 'below' };
+    return { mode: 'learn', why: '' };
+  }
+
+  return {
+    empty: empty, merge: merge, review: review, isDue: isDue, trackStats: trackStats, placeFrom: placeFrom, INTERVALS: INTERVALS,
+    resolveLens: resolveLens, resolveTool: resolveTool, resolveMode: resolveMode, LENSES: LENSES
+  };
 });

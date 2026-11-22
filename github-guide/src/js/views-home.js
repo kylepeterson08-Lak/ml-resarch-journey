@@ -128,18 +128,23 @@
 
   function waysPanel() {
     var prefs = GG.store.prefs();
-    var modes = [{ id: 'skim', label: 'Skim' }, { id: 'learn', label: 'Learn' }, { id: 'do', label: 'Do' }, { id: 'test', label: 'Test' }];
+    var lenses = [{ id: 'rotate', label: 'Rotate' }].concat(GG.data.lenses);
+    var tools = [{ id: 'auto', label: 'Auto' }].concat(GG.data.tools);
+    var modes = [{ id: 'auto', label: 'Auto' }, { id: 'skim', label: 'Skim' }, { id: 'learn', label: 'Learn' }, { id: 'do', label: 'Do' }, { id: 'test', label: 'Test' }];
     function row(title, hint, control) {
       return h('div.way.stack', null, h('div', null, h('h3', null, title), h('p.small.muted', null, hint)), control);
     }
     return h('section.ways.card.stack', { 'aria-labelledby': 'ways-h' },
       h('div', null,
         h('h2', { id: 'ways-h' }, 'Change how you take it in'),
-        h('p.small.muted', null, 'Three dials. Set them here or inside any lesson, and switch whenever a topic is not landing.')),
+        h('p.small.muted', null, 'Three dials. Each starts on a setting that adapts to you. Change one here to fix it everywhere, or switch inside any lesson when a topic is not landing.')),
       h('div.way-grid', null,
-        row('Explain ideas as', 'The same concept, told four ways.', GG.segmented('Explain ideas as', GG.data.lenses, prefs.lens, function (id) { GG.store.setPref('lens', id); })),
-        row('Show steps for', 'Every task has steps for each tool.', GG.segmented('Show steps for', GG.data.tools, prefs.tool, function (id) { GG.store.setPref('tool', id); })),
-        row('Open lessons in', 'Skim it, read it, do it, or be quizzed.', GG.segmented('Open lessons in', modes, prefs.mode, function (id) { GG.store.setPref('mode', id); }))));
+        row('Explain ideas as', 'Rotate gives each lesson a different one of the four, so the same kind of idea reaches you several ways. Pick one to pin it.',
+          GG.segmented('Explain ideas as', lenses, prefs.lens, function (id) { GG.store.setPref('lens', id); })),
+        row('Show steps for', 'Auto shows phone steps on a small screen and browser steps on a large one.',
+          GG.segmented('Show steps for', tools, prefs.tool, function (id) { GG.store.setPref('tool', id); })),
+        row('Open lessons in', 'Auto opens a lesson in Learn, and in Skim once you have finished it or tested past its track.',
+          GG.segmented('Open lessons in', modes, prefs.mode, function (id) { GG.store.setPref('mode', id); }))));
   }
 
   function toolCard(route, icon, title, text, badge) {
