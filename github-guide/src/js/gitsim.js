@@ -118,7 +118,12 @@
           if (line[i + 1] === '/') { re += '(?:.*/)?'; i++; } else re += '.*';
         } else if (ch === '*') re += '[^/]*';
         else if (ch === '?') re += '[^/]';
-        else re += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+        else if (ch === '[' && line.indexOf(']', i + 2) !== -1) {
+          // a character class such as [cod] or [!a-z], as in *.py[cod]
+          var close = line.indexOf(']', i + 2), body = line.slice(i + 1, close);
+          re += '[' + (body[0] === '!' ? '^' + body.slice(1) : body).replace(/\\/g, '\\\\') + ']';
+          i = close;
+        } else re += ch.replace(/[.+^${}()|[\]\\]/g, '\\$&');
       }
       rules.push({ raw: raw.trim(), negate: negate, regex: new RegExp((anchored ? '^' : '(^|/)') + re + (dirOnly ? '/' : '(/|$)')) });
     });
@@ -933,16 +938,20 @@
         if (!matches.length) throw new GitError("fatal: pathspec '" + p + "' did not match any files");
         named = false;
       }
+      var taken = 0;
       matches.forEach(function (q) {
         // An ignored file that is not yet tracked is skipped. Naming it outright is an error.
         if (!force && !(q in self.index) && !self.conflicted[q] && self.ignoreRule(q)) {
           if (named) refused.push(q);
           return;
         }
+        taken++;
         if (q in self.work) self.index[q] = self.work[q];
         else delete self.index[q];
         delete self.conflicted[q];
       });
+      // naming a folder whose every file is ignored is refused too
+      if (!all && !named && !taken) refused.push(p);
     });
     if (refused.length) {
       return { out: 'The following paths are ignored by one of your .gitignore files:\n' + refused.join('\n') + '\nhint: Use -f if you really want to add them.', err: true };

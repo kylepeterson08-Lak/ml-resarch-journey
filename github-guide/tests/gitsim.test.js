@@ -614,6 +614,20 @@ test('ignored files survive branch switches, hard resets and git clean', () => {
   assert.equal('scratch.txt' in sim.work, false, 'clean removes untracked files and leaves ignored ones');
 });
 
+test('ignore patterns match the way Git documents them', () => {
+  const sim = repo();
+  sim.writeFile('.gitignore', [
+    '*.py[cod]', '__pycache__/', '/build', 'docs/*.pdf', '**/tmp', 'logs/**/debug.log', '.env', '*.csv', '!sample.csv', 'run-?.txt', '[!a]x.md'
+  ].join('\n'));
+  const ignored = p => sim.ignoreRule(p) !== null;
+  const yes = ['a.pyc', 'pkg/b.pyo', 'pkg/__pycache__/c.bin', 'build/out.js', 'docs/paper.pdf', 'tmp/x', 'a/b/tmp/x',
+    'logs/debug.log', 'logs/2026/11/debug.log', '.env', 'conf/.env', 'data/train.csv', 'run-1.txt', 'bx.md'];
+  const no = ['a.py', 'src/build/out.js', 'docs/deep/paper.pdf', 'template.txt', 'logs/info.log', 'env', 'sample.csv',
+    'data/sample.csv', 'run-12.txt', 'ax.md', '.gitignore'];
+  for (const p of yes) assert.equal(ignored(p), true, `${p} should be ignored`);
+  for (const p of no) assert.equal(ignored(p), false, `${p} should not be ignored`);
+});
+
 // -------------------------------------------------------------- large files
 
 test('GitHub refuses a file over 100 MB, and a later commit that removes it does not help', () => {
