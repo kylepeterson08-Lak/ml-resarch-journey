@@ -281,5 +281,354 @@
     ],
     "debrief": "A revert is a new record that cancels an earlier one, the way an amended filing supersedes an original without erasing it. Git remembers that the original commits were merged, so the way back is to revert the revert and then add the fix. Write down why, because the history alone will not say.",
     "lesson": "expert-incident-response"
+  },
+  {
+    "id": "drill-contractor-access",
+    "track": "expert",
+    "minutes": 6,
+    "title": "A contractor needs access for six weeks",
+    "situation": "Your lab's organization is bringing in a contractor to speed up the data pipeline in one private repository. They start Monday and the engagement ends in six weeks. The repository's Actions secrets include a cloud storage key. Someone suggests the fastest path: add them to the organization's main team.",
+    "steps": [
+      {
+        "prompt": "How do you give them access?",
+        "choices": [
+          {
+            "text": "Add them to the main team so they are unblocked on day one",
+            "verdict": "bad",
+            "feedback": "The main team can reach every repository it was ever granted. Access should match the engagement, and this exceeds it by a wide margin."
+          },
+          {
+            "text": "Add them as an outside collaborator on that one repository",
+            "verdict": "best",
+            "feedback": "Access stops at the one repository, and they are not a member of the organization, so they see nothing else. Whether an outside collaborator uses a paid seat depends on your plan."
+          },
+          {
+            "text": "Create a team that can reach only that repository and add them to it",
+            "verdict": "ok",
+            "feedback": "Workable, and it scales if more contractors follow. They become organization members, which can expose anything members can see by default. Check the base permission first."
+          },
+          {
+            "text": "Have a teammate share a token so nothing needs setting up",
+            "verdict": "bad",
+            "feedback": "Their work would be recorded under someone else's name, and you could not end their access without breaking your teammate's. Credentials are personal."
+          }
+        ]
+      },
+      {
+        "prompt": "Which role do they get on the repository?",
+        "choices": [
+          {
+            "text": "Admin, so they are never blocked",
+            "verdict": "bad",
+            "feedback": "Admin can change protection rules, read settings and delete the repository. Convenience is not a reason to hand over the controls."
+          },
+          {
+            "text": "Read, and have them work from a fork",
+            "verdict": "ok",
+            "feedback": "Possible where forking private repositories is allowed, and it keeps them off your branches. It adds friction, and workflows triggered from a fork do not receive secrets, so checks may not run as you expect."
+          },
+          {
+            "text": "Write, with the default branch protected so changes arrive by reviewed pull request",
+            "verdict": "best",
+            "feedback": "They can push branches and open pull requests. Protection means nothing reaches the default branch without a second person."
+          }
+        ]
+      },
+      {
+        "prompt": "The pipeline needs the cloud storage key to run. What do you do about the secret?",
+        "choices": [
+          {
+            "text": "Leave it in Actions, where a workflow can use it and nobody can read it back",
+            "verdict": "best",
+            "feedback": "A secret in Actions is usable and never displayed. Anyone with Write access can still write a workflow that uses it, which is why changes to workflow files deserve review."
+          },
+          {
+            "text": "Send them the key so they can test on their own machine",
+            "verdict": "bad",
+            "feedback": "Now the key lives on a machine you do not control, and it outlasts the contract unless you rotate it."
+          },
+          {
+            "text": "Issue a separate, narrower key for the engagement and send that",
+            "verdict": "ok",
+            "feedback": "Least privilege, and you can revoke it on the last day without touching anything else. It still leaves a credential on a machine you do not control."
+          }
+        ]
+      },
+      {
+        "prompt": "It is the last day of the engagement. What happens?",
+        "choices": [
+          {
+            "text": "Remove them from the repository",
+            "verdict": "ok",
+            "feedback": "Necessary and not sufficient. Any secret they could exercise through a workflow, and any key or token they added, is still live."
+          },
+          {
+            "text": "Leave the access in place in case they come back",
+            "verdict": "bad",
+            "feedback": "Dormant access is how incidents start. It is also exactly what an access review exists to find."
+          },
+          {
+            "text": "Remove their access, rotate anything they could have used, and review what they left running",
+            "verdict": "best",
+            "feedback": "Offboarding is a checklist. Removal ends future access. Rotation closes what may have been copied. The review catches deploy keys, webhooks and open pull requests."
+          }
+        ]
+      }
+    ],
+    "debrief": "Grant the least access that lets the work happen, attach it to the person and not to a shared credential, and decide the end date when you set the start date. Write the offboarding steps down before you need them.",
+    "lesson": "expert-org-governance"
+  },
+  {
+    "id": "drill-audit-request",
+    "track": "expert",
+    "minutes": 5,
+    "title": "Show that every change was reviewed",
+    "situation": "A funder's auditor asks for evidence that every change merged to the default branch last quarter was reviewed by a second person. You have a ruleset that requires one approval. You also remember an outage in the second month, when an administrator pushed a fix straight to the default branch.",
+    "steps": [
+      {
+        "prompt": "What do you hand over first?",
+        "choices": [
+          {
+            "text": "Screenshots of the settings page and a few pull requests",
+            "verdict": "bad",
+            "feedback": "A screenshot cannot be reperformed and is easy to challenge. Use one to illustrate a point, never as the evidence itself."
+          },
+          {
+            "text": "The ruleset configuration, plus a query listing every merged pull request with its approver and date",
+            "verdict": "best",
+            "feedback": "The configuration shows the control was designed. The list shows it operated, across the whole population, and anyone can run the query again and get the same answer."
+          },
+          {
+            "text": "A sample of twenty pull requests with their approvals",
+            "verdict": "ok",
+            "feedback": "Auditors often sample. A complete, reproducible list is stronger, and usually less work than choosing a sample and defending the choice."
+          }
+        ]
+      },
+      {
+        "prompt": "Your query shows three commits on the default branch with no pull request. They are the outage fix. What now?",
+        "choices": [
+          {
+            "text": "Leave them out. It was an emergency and the fix was correct",
+            "verdict": "bad",
+            "feedback": "Whether the fix was correct is not the question you were asked. Omitting a known exception turns a manageable gap into a problem with your credibility."
+          },
+          {
+            "text": "Open pull requests for them now and approve them, so the record is complete",
+            "verdict": "bad",
+            "feedback": "Creating records afterward to look like a review that happened at the time is fabrication. Do not do it."
+          },
+          {
+            "text": "Disclose them, with the incident record, who bypassed the rule and why, and the review that followed",
+            "verdict": "best",
+            "feedback": "An exception with a reason, an owner and a follow-up is a control working as designed. An exception someone else finds later is a finding about you."
+          }
+        ]
+      },
+      {
+        "prompt": "How do you change the process so the next emergency leaves a cleaner record?",
+        "choices": [
+          {
+            "text": "Keep a short bypass list, require a written reason each time, and review the bypasses on a schedule",
+            "verdict": "best",
+            "feedback": "Rules need a pressure valve. A named, logged, reviewed exception path is stronger than a rule people quietly work around."
+          },
+          {
+            "text": "Remove every bypass permission",
+            "verdict": "ok",
+            "feedback": "Tidy on paper. In the next outage someone will weaken the rule itself under pressure, with less of a record than a bypass would have left."
+          },
+          {
+            "text": "Let all maintainers bypass, to be safe",
+            "verdict": "bad",
+            "feedback": "A rule that most people can skip is decoration. It will not survive the first question about who can skip it."
+          }
+        ]
+      }
+    ],
+    "debrief": "Evidence is strongest when the system produces it, when it covers everything, and when it can be regenerated. Exceptions do not sink a review. Hidden ones do.",
+    "lesson": "expert-org-governance"
+  },
+  {
+    "id": "drill-legal-hold",
+    "track": "expert",
+    "minutes": 6,
+    "title": "A dispute is coming and cleanup is scheduled",
+    "situation": "A former collaborator has written to your organization claiming authorship of part of a published model. Counsel tells you a dispute is reasonably anticipated. This week a teammate was going to delete forty stale branches and a deprecated repository as routine housekeeping.",
+    "steps": [
+      {
+        "prompt": "What happens to the housekeeping?",
+        "choices": [
+          {
+            "text": "It goes ahead. The branches are stale and the schedule was set before the letter arrived",
+            "verdict": "bad",
+            "feedback": "The schedule does not protect you. What matters is what you knew at the moment you deleted."
+          },
+          {
+            "text": "Pause deletion for anything that could relate to the claim, and tell the teammate why in writing",
+            "verdict": "best",
+            "feedback": "Once a dispute is reasonably anticipated, material that may be relevant should be preserved. Routine deletion that carries on can be judged far more harshly than the claim itself."
+          },
+          {
+            "text": "Stop all deletion everywhere in the organization",
+            "verdict": "ok",
+            "feedback": "Safe, and wider than it needs to be. Agree the scope with counsel so that unrelated work can continue."
+          }
+        ]
+      },
+      {
+        "prompt": "How do you preserve what matters?",
+        "choices": [
+          {
+            "text": "Ask everyone to be careful",
+            "verdict": "bad",
+            "feedback": "A hold needs a mechanism. Good intentions do not survive a cleanup script."
+          },
+          {
+            "text": "Archive the affected repositories so they become read-only",
+            "verdict": "ok",
+            "feedback": "Archiving stops changes and keeps everything where it is, which helps. It is not a copy, and an owner can still delete an archived repository."
+          },
+          {
+            "text": "Make a mirror clone, export the issues and pull request discussions, and note when and how you did it",
+            "verdict": "best",
+            "feedback": "A mirror clone captures every branch and tag. Discussion lives outside Git, so it needs its own export. The note about how and when is part of the record."
+          }
+        ]
+      },
+      {
+        "prompt": "A teammate asks whether they may still rebase and force-push their own branch in an affected repository.",
+        "choices": [
+          {
+            "text": "Yes. It is their own branch",
+            "verdict": "bad",
+            "feedback": "Who owns the branch is not the test. Whether it may be relevant to the dispute is."
+          },
+          {
+            "text": "Not until counsel agrees, because rewriting history changes what the record shows",
+            "verdict": "best",
+            "feedback": "A force-push replaces commits. The old ones become unreachable and are eventually removed. While a hold is in force, branches in scope should only grow."
+          },
+          {
+            "text": "Yes, if they tag the old tip first",
+            "verdict": "ok",
+            "feedback": "A tag keeps the old commits reachable, which preserves them. It still changes the branch, so agree the approach before anyone does it."
+          }
+        ]
+      },
+      {
+        "prompt": "Who decides when normal housekeeping resumes?",
+        "choices": [
+          {
+            "text": "Whoever owns the repository, once things seem quiet",
+            "verdict": "bad",
+            "feedback": "Quiet is not a release. Disputes move slowly, and then quickly."
+          },
+          {
+            "text": "Counsel, in writing",
+            "verdict": "best",
+            "feedback": "A hold is released by the people responsible for the dispute. Record the release as carefully as you recorded the hold."
+          }
+        ]
+      }
+    ],
+    "debrief": "A repository is a record. When a dispute is foreseeable, preserve first, set the scope with counsel, and write down what you did and when. This is general information, not legal advice.",
+    "lesson": "expert-org-governance"
+  },
+  {
+    "id": "drill-accessible-review",
+    "track": "expert",
+    "minutes": 6,
+    "title": "The review process does not work for a teammate",
+    "situation": "A new teammate who uses a screen reader tells you, privately, that they cannot take part in code review the way the team runs it. Diffs are pasted into chat as screenshots, status is shown with red and green dots, and decisions are made on a daily video call that leaves no notes.",
+    "steps": [
+      {
+        "prompt": "What do you say first?",
+        "choices": [
+          {
+            "text": "Explain that the process works for everyone else",
+            "verdict": "bad",
+            "feedback": "It works for the people it was built around. That is the problem being reported to you."
+          },
+          {
+            "text": "Ask what their condition is, so you can document it",
+            "verdict": "bad",
+            "feedback": "You need to know what gets in the way of the work. You do not need a diagnosis. Anything further belongs to a formal process, if one is needed, and stays confidential."
+          },
+          {
+            "text": "Thank them, and ask what would make review work for them",
+            "verdict": "best",
+            "feedback": "They know what they need better than you can guess. Asking starts the conversation that any accommodation depends on, and it costs nothing."
+          },
+          {
+            "text": "Promise to fix everything this week",
+            "verdict": "ok",
+            "feedback": "Well meant, and you have not yet found out what needs fixing. Ask before you commit to a plan."
+          }
+        ]
+      },
+      {
+        "prompt": "Which change do you make first?",
+        "choices": [
+          {
+            "text": "Stop posting screenshots of code. Link the pull request and paste text",
+            "verdict": "best",
+            "feedback": "Text can be read aloud, searched, enlarged and copied. This one change helps everyone, including people on phones and whoever searches for the discussion next year."
+          },
+          {
+            "text": "Add a description to each screenshot",
+            "verdict": "ok",
+            "feedback": "Better than nothing. Nobody transcribes forty lines of a diff accurately, though. Use the real text."
+          },
+          {
+            "text": "Assign them fewer reviews",
+            "verdict": "bad",
+            "feedback": "That removes them from the work instead of removing the barrier, and it will show in their growth and in their evaluation."
+          }
+        ]
+      },
+      {
+        "prompt": "What about the red and green status dots?",
+        "choices": [
+          {
+            "text": "Switch to blue and orange",
+            "verdict": "bad",
+            "feedback": "A different pair of colors is still color alone."
+          },
+          {
+            "text": "Put the status in words as well as color",
+            "verdict": "best",
+            "feedback": "Color alone fails screen reader users and many people with color vision differences. A word beside the dot fixes it for all of them."
+          },
+          {
+            "text": "Point them to the theme setting for color vision differences",
+            "verdict": "ok",
+            "feedback": "A different theme helps one group on one screen. The information is still not in text."
+          }
+        ]
+      },
+      {
+        "prompt": "And the daily call where decisions get made?",
+        "choices": [
+          {
+            "text": "Excuse them from the call",
+            "verdict": "bad",
+            "feedback": "They lose the information and the influence, and the barrier is still there for the next person."
+          },
+          {
+            "text": "Send them a summary afterward",
+            "verdict": "ok",
+            "feedback": "Helpful, and it makes them the exception. Put the record where the whole team reads it."
+          },
+          {
+            "text": "Write each decision in the pull request or issue, and leave time for comments before it is final",
+            "verdict": "best",
+            "feedback": "A written decision can be read at any pace with any tool, and it outlives the call. It also makes your review trail stronger."
+          }
+        ]
+      }
+    ],
+    "debrief": "An accessible process is written, text-first and unhurried, which are also the marks of a good review process. In the United States, an employer covered by disability law may be required to make changes like these as a reasonable accommodation. Start by asking, and keep what you learn confidential. This is general information, not legal advice.",
+    "lesson": "expert-law-tax-access"
   }
 ]
