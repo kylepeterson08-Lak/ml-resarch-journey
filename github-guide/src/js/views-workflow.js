@@ -40,10 +40,17 @@
 
   function describeTrigger(t) {
     var text = 'When ' + (EVENT_TEXT[t.event] || 'the `' + t.event + '` event happens'), extra = [];
+    var byBranch = t.branches || t.branchesIgnore, byTag = t.tags || t.tagsIgnore;
+    if (t.event === 'push') {
+      // A push trigger with no filter covers tags as well as branches. Filtering one kind leaves the other out.
+      text = 'When ' + (byTag && !byBranch ? 'someone pushes a tag' : byBranch && !byTag ? 'someone pushes commits to a branch' : 'someone pushes commits or a tag');
+    }
     if (t.branches) extra.push((t.event.indexOf('pull_request') === 0 ? 'into ' : 'to ') + 'branches matching ' + listText(t.branches));
     if (t.branchesIgnore) extra.push('except branches matching ' + listText(t.branchesIgnore));
     if (t.tags) extra.push('for tags matching ' + listText(t.tags));
     if (t.tagsIgnore) extra.push('except tags matching ' + listText(t.tagsIgnore));
+    if (t.event === 'push' && byBranch && !byTag) extra.push('so pushing a tag does not start it');
+    if (t.event === 'push' && byTag && !byBranch) extra.push('so pushing to a branch does not start it');
     if (t.paths) extra.push('only if a changed file matches ' + listText(t.paths));
     if (t.pathsIgnore) extra.push('unless every changed file matches ' + listText(t.pathsIgnore));
     if (t.types) extra.push('for activity types ' + listText(t.types));

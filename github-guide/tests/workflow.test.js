@@ -4,6 +4,8 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const yaml = require('../src/js/yaml.js');
 const workflow = require('../src/js/workflow.js');
@@ -134,7 +136,10 @@ test('text that is not a workflow is called that, once', () => {
 });
 
 test('missing pieces are errors, each named for what is missing', () => {
-  assert.ok(codes(read('jobs:\n  a:\n    runs-on: x\n    steps:\n      - run: ls\n'), 'error').includes('no-triggers'));
+  const fragment = read('jobs:\n  a:\n    runs-on: x\n    steps:\n      - run: ls\n');
+  assert.ok(codes(fragment, 'error').includes('no-triggers'));
+  assert.match(problem(fragment, 'no-triggers').message, /part of a larger workflow/);
+  assert.ok(!codes(fragment).includes('no-permissions'), 'a fragment without its top cannot be judged on the token');
   assert.ok(codes(read('on: push\n'), 'error').includes('no-jobs'));
   assert.ok(codes(read('on: push\njobs:\n  a:\n    steps:\n      - run: ls\n'), 'error').includes('job-no-runner'));
   assert.ok(codes(read('on: push\njobs:\n  a:\n    runs-on: ubuntu-latest\n'), 'error').includes('job-no-steps'));
@@ -148,6 +153,9 @@ test('a job that waits for a job that does not exist, or for itself in a circle,
   const lost = read('on: push\njobs:\n  a:\n    needs: b\n    runs-on: x\n    steps:\n      - run: ls\n');
   assert.ok(codes(lost, 'error').includes('needs-unknown'));
   assert.match(problem(lost, 'needs-unknown').message, /`b`/);
+  const two = read('on: push\njobs:\n  gate:\n    needs: [lint, test]\n    runs-on: x\n    steps:\n      - run: ls\n');
+  assert.deepEqual(codes(two, 'error'), ['needs-unknown'], 'one finding for the job, however many jobs it waits for are missing');
+  assert.match(problem(two, 'needs-unknown').message, /`lint` and `test`/);
   const loop = read('on: push\njobs:\n  a:\n    needs: c\n    runs-on: x\n    steps:\n      - run: ls\n  b:\n    needs: a\n    runs-on: x\n    steps:\n      - run: ls\n  c:\n    needs: [b]\n    runs-on: x\n    steps:\n      - run: ls\n');
   assert.deepEqual(codes(loop, 'error'), ['needs-cycle']);
   for (const id of ['a', 'b', 'c']) assert.match(problem(loop, 'needs-cycle').message, new RegExp('`' + id + '`'));
@@ -205,6 +213,7 @@ test('code from outside GitHub must be pinned to a commit; GitHub’s own may us
   assert.deepEqual(flagged('actions/checkout@v7'), []);
   assert.deepEqual(flagged('github/codeql-action/init@v4'), []);
   assert.deepEqual(flagged('some-org/tool@0123456789abcdef0123456789abcdef01234567'), []);
+  assert.deepEqual(flagged('some-org/tool@<full-40-character-commit-sha>'), [], 'a blank to fill in, as the lessons write it');
   assert.deepEqual(flagged('./.github/actions/setup'), []);
   assert.deepEqual(flagged('docker://alpine:3.20'), []);
   assert.deepEqual(flagged('some-org/tool@v2'), ['unpinned-third-party']);
@@ -236,6 +245,10 @@ test('text an outsider typed must not be pasted into a script', () => {
   assert.deepEqual(inject('- run: echo "$TITLE"\n  env:\n    TITLE: ${{ github.event.pull_request.title }}'), []);
   assert.deepEqual(inject('- run: echo ${{ github.event.pull_request.number }} ${{ github.event.pull_request.head.sha }} ${{ github.sha }}'), []);
   assert.deepEqual(inject('- run: echo ${{ github.event.pull_request.head.repo.full_name }}'), []);
+  assert.deepEqual(inject('- run: echo ${{ github.event.pull_request.base.ref }} ${{ github.event.repository.name }} ${{ github.event.release.name }}'), [], 'set by the repository, not by an outsider');
+  assert.deepEqual(inject('- run: echo "${{ github.event.head_commit.author.name }}"'), ['script-injection']);
+  assert.deepEqual(inject('- run: git switch ${{ github.event.workflow_run.head_branch }}'), ['script-injection']);
+  assert.deepEqual(inject('- run: echo "${{ github.event.pull_request.head.ref }}" "${{ github.event.commits.*.message }}"'), ['script-injection']);
   assert.match(problem(read(withSteps('- run: echo "${{ github.event.pull_request.title }}"')), 'script-injection').message, /`\$\{\{ github\.event\.pull_request\.title \}\}`/);
 });
 
@@ -512,4 +525,39 @@ test('a workflow with broken wiring is walked through without crashing', () => {
   const bad = sim('on: push\njobs:\n  a:\n    if: github.ref = 1\n    runs-on: x\n    steps:\n      - run: ls\n', { event: 'push', ref: 'refs/heads/main' });
   assert.equal(bad.status.a, 'unknown');
   assert.equal(workflow.simulate(read(CLEAN)).triggered, true, 'with no scenario it assumes a push to main');
+});
+
+// ---------------------------------------------------------------- the lessons' own examples
+
+/** Every YAML code block in the lessons, as [id, text]. */
+function lessonYaml() {
+  const dir = path.join(__dirname, '..', 'content', 'lessons'), found = [];
+  for (const track of fs.readdirSync(dir)) {
+    if (!fs.statSync(path.join(dir, track)).isDirectory()) continue;
+    for (const name of fs.readdirSync(path.join(dir, track)).filter(f => f.endsWith('.json'))) {
+      const lesson = JSON.parse(fs.readFileSync(path.join(dir, track, name), 'utf8'));
+      (lesson.sections || []).forEach((section, s) => (section.blocks || []).forEach((block, b) => {
+        if (block.type === 'code' && block.lang === 'yaml') found.push([`${lesson.id}#${s}.${b}`, block.code]);
+      }));
+    }
+  }
+  return found;
+}
+
+test('the reader agrees with the lessons: a complete workflow example in a lesson raises no error and no warning', () => {
+  // An example that shows a mistake on purpose goes here as 'lesson-id#section.block', with the reason.
+  const ON_PURPOSE = {};
+  let complete = 0;
+  for (const [id, text] of lessonYaml()) {
+    const doc = yaml.parseDocument(text);
+    const analysis = workflow.analyze(doc.value, doc.lineOf);          // a fragment must not crash it either
+    for (const trigger of analysis.triggers) {
+      for (const fork of [false, true]) workflow.simulate(analysis, { event: trigger.event, ref: 'refs/heads/main', fork });
+    }
+    if (!doc.value || Array.isArray(doc.value) || !('on' in doc.value) || !('jobs' in doc.value) || ON_PURPOSE[id]) continue;
+    complete++;
+    assert.deepEqual(codes(analysis, 'error'), [], `${id}: ${analysis.problems.filter(p => p.level === 'error').map(p => p.message).join(' | ')}`);
+    assert.deepEqual(codes(analysis, 'warn'), [], `${id}: ${analysis.problems.filter(p => p.level === 'warn').map(p => p.message).join(' | ')}`);
+  }
+  assert.ok(complete >= 8, `expected the lessons to hold complete workflow examples, found ${complete}`);
 });

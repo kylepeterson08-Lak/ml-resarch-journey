@@ -91,8 +91,25 @@
   var FIRST_PARTY = { actions: true, github: true };
   var BRANCH_NAMES = /^(main|master|develop|development|dev|trunk|head|next|nightly|canary|edge|latest)$/i;
 
-  // Parts of an event that an outsider types: titles, bodies, branch names, commit messages.
-  var UNTRUSTED = /github\.head_ref\b|github\.event\.[\w.*\-\[\]']*\.(title|body|message|name|email|label|ref|default_branch|page_name|head_branch)\b/;
+  /**
+   * Does this expression read something an outsider typed? The list follows
+   * GitHub's own guidance on script injection: titles, bodies, commit messages
+   * and author names, and the name of the branch a pull request comes from.
+   * Values the repository's own maintainers set (its name, a release, a label)
+   * and values with a fixed shape (numbers, commit ids) are left alone.
+   */
+  function readsOutsiderText(expr) {
+    var re = /github\.event\.([A-Za-z0-9_.*-]+)/g, m, path;
+    if (/\bgithub\.head_ref\b/.test(expr)) return true;
+    while ((m = re.exec(expr))) {
+      path = m[1].replace(/\.$/, '');
+      if (/^(release|milestone|repository|organization|label)\./.test(path)) continue;
+      if (/(^|\.)(title|body|message|page_name|head_branch)$/.test(path)) return true;
+      if (/(^|\.)(author|committer|pusher)\.(name|email)$/.test(path)) return true;
+      if (/(^|\.)head\.(ref|label)$/.test(path) || /(^|\.)head\.repo\.default_branch$/.test(path)) return true;
+    }
+    return false;
+  }
   var PR_HEAD = /github\.event\.pull_request\.head\.(sha|ref)\b|github\.head_ref\b|refs\/pull\//;
   var PRINTS = /(^|[\s;&|(])(echo|printf|print|cat|tee|Write-Host|Write-Output)\b/;
 
@@ -487,7 +504,7 @@
     if (/^docker:\/\//.test(uses)) return { docker: true };
     return {
       owner: target.split('/')[0].toLowerCase(), target: target, ref: ref,
-      pinned: /^[0-9a-f]{40}$/i.test(ref),
+      pinned: /^[0-9a-f]{40}$/i.test(ref) || /^<.*>$/.test(ref),   // <full-commit-sha> is a blank to fill in
       branch: BRANCH_NAMES.test(ref)
     };
   }
@@ -560,7 +577,7 @@
     var onPath = function (event) { return isMap(on) ? join('on', event) : 'on'; };
     if (!out.triggers.length) {
       flag('error', 'no-triggers', on === undefined
-        ? 'There is no `on:` key, so nothing can ever start this workflow. Add the events it should react to, such as `on: push`.'
+        ? 'There is no `on:` key, so as a whole file nothing could ever start it. Add the events it should react to, such as `on: push`. If you pasted part of a larger workflow, the rest of this reading still applies.'
         : 'The `on:` key names no events, so nothing can ever start this workflow. Add the events it should react to, such as `on: push`.', 'on', on === undefined ? undefined : 'on');
     }
     out.triggers.forEach(function (t) {
@@ -597,7 +614,7 @@
     if (!isMap(jobsRaw) || !Object.keys(jobsRaw).length) {
       flag('error', 'no-jobs', has(doc, 'jobs')
         ? 'The `jobs:` key is empty, so the workflow has nothing to run. Add at least one job with `runs-on:` and `steps:`.'
-        : 'There is no `jobs:` key, so the workflow has nothing to run. Add at least one job with `runs-on:` and `steps:`.', 'jobs', has(doc, 'jobs') ? 'jobs' : undefined);
+        : 'There is no `jobs:` key, so as a whole file it has nothing to run. Add at least one job with `runs-on:` and `steps:`. If you pasted part of a larger workflow, the reading of its triggers still applies.', 'jobs', has(doc, 'jobs') ? 'jobs' : undefined);
       return out;
     }
     var ids = Object.keys(jobsRaw);
@@ -687,7 +704,7 @@
     function checkScript(script, key, where, path) {
       var seen = {}, m, re = /\$\{\{([\s\S]*?)\}\}/g, untrusted = [];
       while ((m = re.exec(script))) {
-        if (UNTRUSTED.test(m[1]) && !seen[m[0]]) { seen[m[0]] = true; untrusted.push(m[0].replace(/\s+/g, ' ')); }
+        if (readsOutsiderText(m[1]) && !seen[m[0]]) { seen[m[0]] = true; untrusted.push(m[0].replace(/\s+/g, ' ')); }
       }
       if (untrusted.length) {
         flag('warn', 'script-injection', 'This step puts ' + names(untrusted) + ' straight into a script. That is text someone else typed, so text that contains shell commands would run them. This is called script injection. Pass the value in through `env:` and use the variable in quotes.', where, join(path, key));
@@ -752,11 +769,11 @@
 
     // ---- how the jobs depend on each other
     out.jobs.forEach(function (job) {
-      job.needs.forEach(function (need) {
-        if (ids.indexOf(need) === -1) {
-          flag('error', 'needs-unknown', 'Job ' + code(job.id) + ' waits for ' + code(need) + ', but no job has that id. The ids in this file are ' + names(ids) + '.', 'job ' + job.id, join(join('jobs', job.id), 'needs'));
-        }
-      });
+      var lost = job.needs.filter(function (need) { return ids.indexOf(need) === -1; });
+      if (lost.length) {
+        flag('error', 'needs-unknown', 'Job ' + code(job.id) + ' waits for ' + names(lost) + ', but no job in this text has ' + (lost.length === 1 ? 'that id' : 'those ids') +
+          '. The ids here are ' + names(ids) + '.', 'job ' + job.id, join(join('jobs', job.id), 'needs'));
+      }
     });
     var loop = findLoop(out.jobs);
     if (loop) {
@@ -765,7 +782,7 @@
 
     // ---- the token, the clock and the queue
     var open = out.jobs.filter(function (job) { return job.permissions === null; });
-    if (out.permissions === null && open.length) {
+    if (out.permissions === null && open.length && on !== undefined) {   // a fragment without its top says nothing either way
       flag('warn', 'no-permissions', (open.length === out.jobs.length
         ? 'Nothing here says what the workflow’s token may do, so it gets the repository’s default, which on many repositories includes write access.'
         : (open.length === 1 ? 'Job ' : 'The jobs ') + names(open.map(function (j) { return j.id; })) + (open.length === 1 ? ' does' : ' do') +
@@ -775,7 +792,7 @@
     var untimed = out.jobs.filter(function (job) { return job.uses === null && job.runsOn !== null && job.timeoutMinutes === null; });
     if (untimed.length) {
       flag('note', 'no-timeout', (untimed.length === 1 ? 'Job ' : 'The jobs ') + names(untimed.map(function (j) { return j.id; })) + (untimed.length === 1 ? ' sets' : ' set') +
-        ' no `timeout-minutes`. A job that hangs keeps running until GitHub’s limit of six hours, using minutes the whole time. Ten to thirty minutes suits most jobs.',
+        ' no `timeout-minutes`. A job that hangs keeps running until GitHub’s default limit of six hours, using minutes the whole time. Ten to thirty minutes suits most jobs.',
         'job ' + untimed[0].id, join('jobs', untimed[0].id));
     }
     if (!out.concurrency) {

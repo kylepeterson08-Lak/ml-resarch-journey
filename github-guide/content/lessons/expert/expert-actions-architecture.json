@@ -61,7 +61,7 @@
           "type": "code",
           "lang": "yaml",
           "file": ".github/workflows/ci.yml",
-          "code": "name: CI\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\njobs:\n  smoke:\n    uses: my-lab/ci-templates/.github/workflows/python-ci.yml@v2\n    with:\n      config: configs/baseline.yaml\n    secrets:\n      DATA_TOKEN: ${{ secrets.DATA_TOKEN }}",
+          "code": "name: CI\n\non:\n  pull_request:\n  push:\n    branches: [main]\n\npermissions:\n  contents: read\n\njobs:\n  smoke:\n    uses: my-lab/ci-templates/.github/workflows/python-ci.yml@v2\n    with:\n      config: configs/baseline.yaml\n    secrets:\n      DATA_TOKEN: ${{ secrets.DATA_TOKEN }}",
           "caption": "A caller in another repository. Five lines replace the whole job."
         },
         {
