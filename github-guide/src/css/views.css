@@ -133,9 +133,9 @@
   padding: 0.4rem 0.4rem 0.5rem 0.5rem; background: var(--paper); border: 1px solid var(--rule); border-left: 4px solid var(--ink-2); border-radius: var(--radius-s);
 }
 .plan-rows li > select { grid-area: action; }
-.plan-rows li > .mono { grid-area: sha; }
-.plan-rows li > .plan-subject, .plan-rows li > input { grid-area: text; }
-.plan-rows li > .plan-move { grid-area: move; }
+.plan-sha { grid-area: sha; }
+.plan-subject, .plan-message { grid-area: text; }
+.plan-move { grid-area: move; }
 .plan-rows li[data-action="drop"] { border-left-color: var(--bad); }
 .plan-rows li[data-action="drop"] .plan-subject { text-decoration: line-through; color: var(--ink-2); }
 .plan-rows li[data-action="fixup"], .plan-rows li[data-action="squash"] { margin-left: 1.25rem; border-left-color: var(--link); }
@@ -203,3 +203,28 @@
 .tiles { grid-template-columns: repeat(auto-fill, minmax(min(100%, 10.5rem), 1fr)); }
 .tile-num { font-family: var(--font-display); font-weight: 700; font-size: var(--t-xl); font-variant-numeric: tabular-nums; line-height: 1.1; }
 .tile-num span { font-size: var(--t-base); font-weight: 500; }
+
+/* ---------- Workflow reader ---------- */
+
+.wf-layout { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 70rem) {
+  .wf-layout { grid-template-columns: minmax(0, 26rem) minmax(0, 1fr); }
+  .wf-input { position: sticky; top: 4.6rem; }
+}
+.wf-input textarea { font-size: 0.82rem; min-height: 16rem; white-space: pre; overflow-wrap: normal; overflow-x: auto; }
+.wf-problems { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.wf-problems li { margin: 0; background: var(--surface); border: 1px solid var(--rule); border-left: 5px solid var(--ink-2); border-radius: var(--radius-s); padding: 0.7rem 0.85rem; display: flex; flex-direction: column; gap: 0.35rem; }
+.wf-problems li.wf-error { border-left-color: var(--bad); }
+.wf-problems li.wf-warn { border-left-color: var(--warn); }
+.wf-problems code.xs { font-size: 0.75rem; }
+.wf-jobs { display: grid; gap: 0.9rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
+.wf-facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.25rem 0.75rem; margin: 0; font-size: var(--t-s); }
+.wf-facts dt { color: var(--ink-2); }
+.wf-facts dd { margin: 0; min-width: 0; }
+.wf-steps { padding-left: 1.4em; font-size: var(--t-s); }
+.wf-steps li + li { margin-top: 0.5em; }
+.wf-step-name { display: block; font-family: var(--font-display); font-weight: 600; }
+.wf-controls { display: grid; gap: 0.75rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); align-items: end; }
+.wf-controls .check { border: 0; background: none; padding: 0.4rem 0; }
+.wf-sim { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.wf-sim li { margin: 0; }

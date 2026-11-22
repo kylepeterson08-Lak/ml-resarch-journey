@@ -496,7 +496,7 @@
       "Push the branch, reword the last commit with `git commit --amend`, and update the remote with `git push --force-with-lease`.",
       "Add a script that exits with an error when a certain word appears in the file. Make ten more commits, one of which adds that word.",
       "Use `git bisect run` with the script to find that commit, then run `git bisect reset`.",
-      "Complete the practice lab attached to this lesson to rehearse cherry-pick and force with lease."
+      "Complete both practice labs attached to this lesson: one for interactive rebase and fixup commits, one for cherry-pick and force with lease."
     ]
   },
   "terms": [

@@ -137,7 +137,7 @@
         var subject = sim.subject(row.sha), short = sim.short(row.sha);
         var label = 'line ' + (n + 1) + ', ' + subject;
         var messageId = GG.uid('pm');
-        var message = h('input.mono', {
+        var message = h('input.mono.plan-message', {
           id: messageId, type: 'text', 'aria-label': 'New message for ' + label, autocapitalize: 'off', autocorrect: 'off', spellcheck: 'false',
           hidden: row.action !== 'reword' || null,
           oninput: function (e) { row.message = e.target.value; }
@@ -156,7 +156,7 @@
         }, PLAN_HELP.map(function (a) { return h('option', { value: a[0], selected: a[0] === row.action || null }, a[0]); }));
         var up = h('button.icon-btn', { type: 'button', 'aria-label': 'Move up: ' + label, disabled: n === 0 || null, onclick: function () { move(n, n - 1); } }, GG.icon('left'));
         var down = h('button.icon-btn', { type: 'button', 'aria-label': 'Move down: ' + label, disabled: n === planRows.length - 1 || null, onclick: function () { move(n, n + 1); } }, GG.icon('right'));
-        var item = h('li', { 'data-action': row.action }, select, h('span.mono.xs.muted', null, short), text, message, h('span.plan-move', null, up, down));
+        var item = h('li', { 'data-action': row.action }, select, h('span.mono.xs.muted.plan-sha', null, short), text, message, h('span.plan-move', null, up, down));
         return item;
       }));
       planBox.appendChild(h('div', null,
