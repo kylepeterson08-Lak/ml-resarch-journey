@@ -152,8 +152,14 @@
 .lab-graphs { grid-area: graph; }
 .term { grid-area: term; }
 .files { grid-area: files; }
+/* Two columns that do not hold each other up: the terminal starts right under the graph and the
+   files right under the step, whichever of the two is taller. Spare height goes to the last row. */
 @media (min-width: 62rem) {
-  .lab { grid-template-columns: minmax(0, 23rem) minmax(0, 1fr); grid-template-areas: "step graph" "plan term" "files term"; align-items: start; }
+  .lab {
+    grid-template-columns: minmax(0, 23rem) minmax(0, 1fr);
+    grid-template-areas: "step graph" "step term" "plan term" "files term";
+    grid-template-rows: auto auto auto 1fr; align-items: start;
+  }
 }
 .lab-step h2 { font-size: var(--t-m); }
 .dots { display: flex; gap: 4px; flex-wrap: wrap; }

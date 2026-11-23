@@ -94,11 +94,19 @@
 /* ---------- Small parts ---------- */
 
 .eyebrow {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem;
+  --sep: 1.3rem;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.15rem 0;
   font-family: var(--font-mono); font-size: var(--t-xs); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2);
+  /* Each item carries its dot in a strip on its left. The strip of an item that starts a line
+     falls outside the left edge, where this clips it, so a wrapped line neither ends nor begins with a dot. */
+  clip-path: inset(-0.5rem -0.5rem -0.5rem -0.4rem);
 }
-/* The dot trails each item, so a wrapped line never starts with one. */
-.eyebrow > *:not(:last-child):not(.roundel)::after { content: "\00b7"; margin-left: 0.5rem; }
+.eyebrow > :not(.roundel) { position: relative; margin-left: calc(-1 * var(--sep)); padding-left: var(--sep); }
+.eyebrow > :not(.roundel):not(:last-child) { margin-right: var(--sep); }
+.eyebrow > :not(.roundel)::before { content: "\00b7"; position: absolute; left: 0; width: var(--sep); text-align: center; }
+.eyebrow > .roundel { margin-right: 0.5rem; }
+.eyebrow > .roundel + * { margin-left: 0; padding-left: 0; }
+.eyebrow > .roundel + *::before { content: none; }
 .eyebrow .raw { text-transform: none; }
 .lede { font-size: var(--t-m); color: var(--ink); max-width: var(--measure); }
 
